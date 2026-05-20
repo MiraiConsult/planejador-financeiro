@@ -229,6 +229,24 @@ export async function setOverride(args: {
   idade: number;
   value: number | null;
 }) {
+  return setOverridesBatch({
+    entity: args.entity,
+    id: args.id,
+    client_id: args.client_id,
+    patch: { [String(args.idade)]: args.value },
+  });
+}
+
+/**
+ * Aplica um conjunto de overrides de uma vez (modo pincel).
+ * `patch` é um mapa idade(string) → valor | null (null remove).
+ */
+export async function setOverridesBatch(args: {
+  entity: Entity;
+  id: string;
+  client_id: string;
+  patch: Record<string, number | null>;
+}) {
   if (!ALLOWED_TABLES[args.entity]) throw new Error('invalid entity');
   const supabase = await createClient();
 
@@ -240,11 +258,9 @@ export async function setOverride(args: {
   if (error) throw error;
 
   const overrides: Record<string, number> = (data?.overrides as Record<string, number>) ?? {};
-  const key = String(args.idade);
-  if (args.value === null) {
-    delete overrides[key];
-  } else {
-    overrides[key] = args.value;
+  for (const [k, v] of Object.entries(args.patch)) {
+    if (v === null) delete overrides[k];
+    else overrides[k] = v;
   }
 
   const { error: upErr } = await supabase
