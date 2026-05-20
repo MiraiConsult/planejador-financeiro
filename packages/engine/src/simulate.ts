@@ -16,7 +16,9 @@ import {
   ordenaParaLiquidacao,
   resolveAssumptions,
   retornoEfetivoDoCenario,
+  valorAnualSerie,
   valorAtualEstoque,
+  valorEventoNoAno,
 } from './helpers';
 
 export function simulate(input: SimulationInput): SimulationResult {
@@ -69,8 +71,19 @@ export function simulate(input: SimulationInput): SimulationResult {
     let receitas = 0;
     const receitasPorAtivo: RowDetalhes['receitas_por_ativo'] = [];
     for (const ativo of ativosFluxo) {
-      if (idade < ativo.idade_inicio || idade > ativo.idade_fim) continue;
-      const valor = ativo.valor * (ativo.indexado_inflacao ? fator : 1);
+      const valor = valorAnualSerie({
+        valorBase: ativo.valor,
+        idade,
+        idadeInicio: ativo.idade_inicio,
+        idadeFim: ativo.idade_fim,
+        padrao: ativo.padrao_recorrencia,
+        intervaloAnos: ativo.intervalo_anos,
+        crescimentoRealAa: ativo.crescimento_real_aa,
+        indexadoInflacao: ativo.indexado_inflacao,
+        inflacaoFator: fator,
+        overrides: ativo.overrides,
+      });
+      if (valor === 0) continue;
       receitas += valor;
       receitasPorAtivo.push({ asset_id: ativo.id, nome: ativo.nome, valor });
     }
@@ -80,8 +93,19 @@ export function simulate(input: SimulationInput): SimulationResult {
     let despesasNaoEssenciais = 0;
     const despesasPorCategoria: Record<string, number> = {};
     for (const desp of input.expenses) {
-      if (idade < desp.idade_inicio || idade > desp.idade_fim) continue;
-      const anual = desp.valor_mensal * 12 * (desp.indexado_inflacao ? fator : 1);
+      const anual = valorAnualSerie({
+        valorBase: desp.valor_mensal * 12,
+        idade,
+        idadeInicio: desp.idade_inicio,
+        idadeFim: desp.idade_fim,
+        padrao: desp.padrao_recorrencia,
+        intervaloAnos: desp.intervalo_anos,
+        crescimentoRealAa: desp.crescimento_real_aa,
+        indexadoInflacao: desp.indexado_inflacao,
+        inflacaoFator: fator,
+        overrides: desp.overrides,
+      });
+      if (anual === 0) continue;
       if (desp.essencial) despesasEssenciais += anual;
       else despesasNaoEssenciais += anual;
       despesasPorCategoria[desp.categoria] =
@@ -94,7 +118,7 @@ export function simulate(input: SimulationInput): SimulationResult {
     const eventosDisparados: EventoDisparado[] = [];
     for (const ev of input.events) {
       if (!eventoDisparaNoAno(ev, idade, idadeFinal)) continue;
-      const v = ev.valor * (ev.indexado_inflacao ? fator : 1);
+      const v = valorEventoNoAno(ev, idade, fator);
       if (v >= 0) eventosPositivos += v;
       else eventosNegativos += -v; // armazenamos como valor positivo
       eventosDisparados.push({

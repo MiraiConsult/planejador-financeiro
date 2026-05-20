@@ -66,6 +66,11 @@ export interface Asset {
   taxa_retorno_aa?: number;         // só usado em estoques NÃO-financeiros (valorização)
   valorizacao_aa?: number;          // alias preferencial p/ estoques (carros podem ter negativo)
   prioridade_liquidacao?: number;   // 1 = vende primeiro; null = ordena por menor valor
+  // Receitas (natureza=fluxo): crescimento real anual e recorrência
+  crescimento_real_aa?: number;     // % a.a. acima da inflação (negativo = redução)
+  padrao_recorrencia?: Recorrencia; // só faz sentido em fluxos; default = recorrente_anual
+  intervalo_anos?: number;          // obrigatório se padrao=recorrente_espacado
+  overrides?: Record<string, number>; // valor anual nominal por idade ({"60":5000})
   notas?: string;
 }
 
@@ -78,6 +83,10 @@ export interface Expense {
   idade_fim: number;
   indexado_inflacao: boolean;
   essencial: boolean;
+  crescimento_real_aa?: number;     // % a.a. acima da inflação (negativo = redução)
+  padrao_recorrencia?: Recorrencia; // default = recorrente_anual
+  intervalo_anos?: number;          // obrigatório se padrao=recorrente_espacado
+  overrides?: Record<string, number>; // valor anual nominal por idade
   notas?: string;
 }
 
@@ -93,6 +102,7 @@ export interface FinancialEvent {
   indexado_inflacao: boolean;
   prioridade?: Prioridade;
   ativo_referenciado?: string;      // p/ tipo=venda_ativo
+  overrides?: Record<string, number>; // valor nominal por idade (sobrescreve evento naquele ano)
   notas?: string;
 }
 

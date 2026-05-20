@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+.next/
+out/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs / cache
+*.log
+.turbo/
+.vercel/
+.vite/
+coverage/
+
+# editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

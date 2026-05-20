@@ -4,6 +4,7 @@ import type {
   Client,
   FinancialEvent,
   PerfilCarteira,
+  Recorrencia,
   Scenario,
   ScenarioTipo,
 } from './types';
@@ -88,6 +89,63 @@ export function eventoDisparaNoAno(
       return (idade - ev.idade_inicio) % intervalo === 0;
     }
   }
+}
+
+/**
+ * Valor anual de uma série (receita ou despesa) numa dada idade.
+ *
+ * Ordem de precedência:
+ *   1. Override (`overrides[idade]`) — sobrescreve TUDO, é o valor nominal final daquele ano.
+ *   2. Fora do intervalo idade_inicio..idade_fim → 0.
+ *   3. Recorrência: unico/anual/espaçado filtra anos elegíveis (não-elegível → 0).
+ *   4. Crescimento real composto a partir de idade_inicio + inflação se indexado.
+ *
+ * `valorBase` é o que está no campo da entidade: para despesas o caller
+ * deve passar `valor_mensal * 12`; para fluxos, `ativo.valor` já anual.
+ */
+export function valorAnualSerie(opts: {
+  valorBase: number;
+  idade: number;
+  idadeInicio: number;
+  idadeFim: number;
+  padrao?: Recorrencia | undefined;
+  intervaloAnos?: number | undefined;
+  crescimentoRealAa?: number | undefined;
+  indexadoInflacao: boolean;
+  inflacaoFator: number;          // (1 + inflacao_anual_br) ^ t
+  overrides?: Record<string, number> | undefined;
+}): number {
+  const ovr = opts.overrides?.[String(opts.idade)];
+  if (ovr !== undefined && ovr !== null && Number.isFinite(ovr)) return ovr;
+
+  if (opts.idade < opts.idadeInicio || opts.idade > opts.idadeFim) return 0;
+
+  const anosDesdeInicio = opts.idade - opts.idadeInicio;
+  const padrao = opts.padrao ?? 'recorrente_anual';
+  if (padrao === 'unico' && anosDesdeInicio !== 0) return 0;
+  if (padrao === 'recorrente_espacado') {
+    const intervalo = opts.intervaloAnos ?? 0;
+    if (intervalo <= 0) return 0;
+    if (anosDesdeInicio % intervalo !== 0) return 0;
+  }
+
+  const fatorCresc = Math.pow(1 + (opts.crescimentoRealAa ?? 0), anosDesdeInicio);
+  const fatorInf = opts.indexadoInflacao ? opts.inflacaoFator : 1;
+  return opts.valorBase * fatorCresc * fatorInf;
+}
+
+/**
+ * Valor de um evento naquele ano. Aplica override (com sinal) ou
+ * usa `ev.valor` corrigido por inflação.
+ */
+export function valorEventoNoAno(
+  ev: FinancialEvent,
+  idade: number,
+  inflacaoFator: number,
+): number {
+  const ovr = ev.overrides?.[String(idade)];
+  if (ovr !== undefined && ovr !== null && Number.isFinite(ovr)) return ovr;
+  return ev.valor * (ev.indexado_inflacao ? inflacaoFator : 1);
 }
 
 /**
