@@ -131,7 +131,10 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         Indexado à inflação
                       </label>
                       <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                        <DeleteForm action={deleteAsset} id={a.id} client_id={client_id} />
+                        <Button type="submit" formAction={deleteAsset} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                          <Trash2 size={13} />
+                          Excluir
+                        </Button>
                         <Button type="submit" size="sm">Salvar alterações</Button>
                       </div>
                     </form>
@@ -210,7 +213,10 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         Despesa essencial (não pode ser cortada)
                       </label>
                       <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                        <DeleteForm action={deleteExpense} id={e.id} client_id={client_id} />
+                        <Button type="submit" formAction={deleteExpense} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                          <Trash2 size={13} />
+                          Excluir
+                        </Button>
                         <Button type="submit" size="sm">Salvar alterações</Button>
                       </div>
                     </form>
@@ -296,7 +302,10 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         Indexado à inflação
                       </label>
                       <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                        <DeleteForm action={deleteEvent} id={ev.id} client_id={client_id} />
+                        <Button type="submit" formAction={deleteEvent} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                          <Trash2 size={13} />
+                          Excluir
+                        </Button>
                         <Button type="submit" size="sm">Salvar alterações</Button>
                       </div>
                     </form>
@@ -410,15 +419,3 @@ function FieldSelect({ label, name, defaultValue, options }: { label: string; na
   );
 }
 
-function DeleteForm({ action, id, client_id }: { action: (fd: FormData) => Promise<void>; id: string; client_id: string }) {
-  return (
-    <form action={action}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="client_id" value={client_id} />
-      <Button type="submit" variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
-        <Trash2 size={13} />
-        Excluir
-      </Button>
-    </form>
-  );
-}
