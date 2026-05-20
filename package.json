@@ -1,0 +1,17 @@
+{
+  "name": "planejador-financeiro",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm -r build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 250 250 252;
+    --foreground: 9 9 11;
+  }
+  html { @apply antialiased; }
+  body {
+    background: rgb(var(--background));
+    color: rgb(var(--foreground));
+    @apply font-sans;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+}
+
+@layer utilities {
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  /* Glass effect */
+  .glass {
+    background: rgb(255 255 255 / 0.7);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+  }
+
+  /* Mask gradients for soft edges */
+  .mask-fade-r {
+    mask-image: linear-gradient(to right, black 80%, transparent);
+  }
+
+  /* Scrollbar refinada */
+  .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225 / 0.6);
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184 / 0.8);
+  }
+}
+
+/* Recharts polish */
+.recharts-wrapper { font-family: inherit; }
+.recharts-tooltip-wrapper { outline: none !important; }
+.recharts-cartesian-grid line { stroke-dasharray: 3 3; }
+.recharts-default-tooltip {
+  border-radius: 10px !important;
+  border: 1px solid rgb(226 232 240) !important;
+  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.15) !important;
+  background: rgb(255 255 255 / 0.95) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* Subtle background grid pattern */
+.bg-grid {
+  background-image:
+    linear-gradient(rgb(15 23 42 / 0.04) 1px, transparent 1px),
+    linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
