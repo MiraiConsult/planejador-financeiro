@@ -58,27 +58,31 @@ export async function addAsset(formData: FormData) {
 export async function updateAsset(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
+  console.log('[updateAsset] start', { id, client_id });
   const supabase = await createClient();
   const natureza = String(formData.get('natureza') ?? 'estoque');
   const recorrencia = natureza === 'fluxo' ? recorrenciaFromForm(formData) : null;
-  await supabase
-    .from('assets')
-    .update({
-      nome: String(formData.get('nome') ?? ''),
-      tipo: String(formData.get('tipo') ?? 'outro'),
-      natureza,
-      valor: Number(formData.get('valor') ?? 0),
-      idade_inicio: Number(formData.get('idade_inicio') ?? 0),
-      idade_fim: Number(formData.get('idade_fim') ?? 0),
-      indexado_inflacao: formData.get('indexado_inflacao') === 'on',
-      taxa_retorno_aa: pctOrNull(formData, 'taxa_retorno_aa'),
-      valorizacao_aa: pctOrNull(formData, 'valorizacao_aa'),
-      crescimento_real_aa: pctOrNull(formData, 'crescimento_real_aa'),
-      padrao_recorrencia: recorrencia,
-      intervalo_anos:
-        recorrencia === 'recorrente_espacado' ? intOrNull(formData, 'intervalo_anos') : null,
-    })
-    .eq('id', id);
+  const payload = {
+    nome: String(formData.get('nome') ?? ''),
+    tipo: String(formData.get('tipo') ?? 'outro'),
+    natureza,
+    valor: Number(formData.get('valor') ?? 0),
+    idade_inicio: Number(formData.get('idade_inicio') ?? 0),
+    idade_fim: Number(formData.get('idade_fim') ?? 0),
+    indexado_inflacao: formData.get('indexado_inflacao') === 'on',
+    taxa_retorno_aa: pctOrNull(formData, 'taxa_retorno_aa'),
+    valorizacao_aa: pctOrNull(formData, 'valorizacao_aa'),
+    crescimento_real_aa: pctOrNull(formData, 'crescimento_real_aa'),
+    padrao_recorrencia: recorrencia,
+    intervalo_anos:
+      recorrencia === 'recorrente_espacado' ? intOrNull(formData, 'intervalo_anos') : null,
+  };
+  const { error } = await supabase.from('assets').update(payload).eq('id', id);
+  if (error) {
+    console.error('[updateAsset] supabase error', error, payload);
+    throw new Error(`updateAsset failed: ${error.message}`);
+  }
+  console.log('[updateAsset] ok');
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
@@ -119,24 +123,28 @@ export async function addExpense(formData: FormData) {
 export async function updateExpense(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
+  console.log('[updateExpense] start', { id, client_id });
   const supabase = await createClient();
   const recorrencia = recorrenciaFromForm(formData);
-  await supabase
-    .from('expenses')
-    .update({
-      categoria: String(formData.get('categoria') ?? 'outro'),
-      descricao: String(formData.get('descricao') ?? ''),
-      valor_mensal: Number(formData.get('valor_mensal') ?? 0),
-      idade_inicio: Number(formData.get('idade_inicio') ?? 0),
-      idade_fim: Number(formData.get('idade_fim') ?? 0),
-      indexado_inflacao: formData.get('indexado_inflacao') !== 'off',
-      essencial: formData.get('essencial') === 'on',
-      crescimento_real_aa: pctOrNull(formData, 'crescimento_real_aa'),
-      padrao_recorrencia: recorrencia,
-      intervalo_anos:
-        recorrencia === 'recorrente_espacado' ? intOrNull(formData, 'intervalo_anos') : null,
-    })
-    .eq('id', id);
+  const payload = {
+    categoria: String(formData.get('categoria') ?? 'outro'),
+    descricao: String(formData.get('descricao') ?? ''),
+    valor_mensal: Number(formData.get('valor_mensal') ?? 0),
+    idade_inicio: Number(formData.get('idade_inicio') ?? 0),
+    idade_fim: Number(formData.get('idade_fim') ?? 0),
+    indexado_inflacao: formData.get('indexado_inflacao') === 'on',
+    essencial: formData.get('essencial') === 'on',
+    crescimento_real_aa: pctOrNull(formData, 'crescimento_real_aa'),
+    padrao_recorrencia: recorrencia,
+    intervalo_anos:
+      recorrencia === 'recorrente_espacado' ? intOrNull(formData, 'intervalo_anos') : null,
+  };
+  const { error } = await supabase.from('expenses').update(payload).eq('id', id);
+  if (error) {
+    console.error('[updateExpense] supabase error', error, payload);
+    throw new Error(`updateExpense failed: ${error.message}`);
+  }
+  console.log('[updateExpense] ok');
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
@@ -177,24 +185,28 @@ export async function addEvent(formData: FormData) {
 export async function updateEvent(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
+  console.log('[updateEvent] start', { id, client_id });
   const supabase = await createClient();
   const recorrencia = String(formData.get('padrao_recorrencia') ?? 'unico');
-  await supabase
-    .from('events')
-    .update({
-      tipo: String(formData.get('tipo') ?? 'sonho'),
-      descricao: String(formData.get('descricao') ?? ''),
-      valor: Number(formData.get('valor') ?? 0),
-      padrao_recorrencia: recorrencia,
-      idade_inicio: Number(formData.get('idade_inicio') ?? 0),
-      idade_fim: formData.get('idade_fim') ? Number(formData.get('idade_fim')) : null,
-      intervalo_anos:
-        recorrencia === 'recorrente_espacado' && formData.get('intervalo_anos')
-          ? Number(formData.get('intervalo_anos'))
-          : null,
-      indexado_inflacao: formData.get('indexado_inflacao') === 'on',
-    })
-    .eq('id', id);
+  const payload = {
+    tipo: String(formData.get('tipo') ?? 'sonho'),
+    descricao: String(formData.get('descricao') ?? ''),
+    valor: Number(formData.get('valor') ?? 0),
+    padrao_recorrencia: recorrencia,
+    idade_inicio: Number(formData.get('idade_inicio') ?? 0),
+    idade_fim: formData.get('idade_fim') ? Number(formData.get('idade_fim')) : null,
+    intervalo_anos:
+      recorrencia === 'recorrente_espacado' && formData.get('intervalo_anos')
+        ? Number(formData.get('intervalo_anos'))
+        : null,
+    indexado_inflacao: formData.get('indexado_inflacao') === 'on',
+  };
+  const { error } = await supabase.from('events').update(payload).eq('id', id);
+  if (error) {
+    console.error('[updateEvent] supabase error', error, payload);
+    throw new Error(`updateEvent failed: ${error.message}`);
+  }
+  console.log('[updateEvent] ok');
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
