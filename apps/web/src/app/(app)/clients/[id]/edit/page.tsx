@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2, Wallet, Receipt, CalendarHeart, ChevronDown } 
 import { valorAnualSerie } from '@planejador/engine';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
+import { SubmitButton } from '@/components/ui/SubmitButton';
 import { Input, Label } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -239,11 +240,11 @@ export default async function EditClientPage({ params }: { params: Params }) {
                           Indexado à inflação
                         </label>
                         <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                          <Button type="submit" formAction={deleteAsset} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                          <SubmitButton formAction={deleteAsset} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" successMessage="Ativo excluído">
                             <Trash2 size={13} />
                             Excluir
-                          </Button>
-                          <Button type="submit" size="sm">Salvar alterações</Button>
+                          </SubmitButton>
+                          <SubmitButton size="sm" successMessage="Ativo atualizado">Salvar alterações</SubmitButton>
                         </div>
                       </form>
 
@@ -290,7 +291,7 @@ export default async function EditClientPage({ params }: { params: Params }) {
                 Indexado à inflação
               </label>
               <div className="sm:col-span-2 flex justify-end">
-                <Button type="submit" size="sm"><Plus size={13} />Adicionar</Button>
+                <SubmitButton size="sm" successMessage="Ativo adicionado"><Plus size={13} />Adicionar</SubmitButton>
               </div>
             </form>
           </details>
@@ -374,11 +375,11 @@ export default async function EditClientPage({ params }: { params: Params }) {
                           Despesa essencial
                         </label>
                         <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                          <Button type="submit" formAction={deleteExpense} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                          <SubmitButton formAction={deleteExpense} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" successMessage="Despesa excluída">
                             <Trash2 size={13} />
                             Excluir
-                          </Button>
-                          <Button type="submit" size="sm">Salvar alterações</Button>
+                          </SubmitButton>
+                          <SubmitButton size="sm" successMessage="Despesa atualizada">Salvar alterações</SubmitButton>
                         </div>
                       </form>
 
@@ -425,7 +426,7 @@ export default async function EditClientPage({ params }: { params: Params }) {
                 Essencial
               </label>
               <div className="sm:col-span-2 flex justify-end">
-                <Button type="submit" size="sm"><Plus size={13} />Adicionar</Button>
+                <SubmitButton size="sm" successMessage="Despesa adicionada"><Plus size={13} />Adicionar</SubmitButton>
               </div>
             </form>
           </details>
@@ -484,11 +485,11 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         Indexado à inflação
                       </label>
                       <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                        <Button type="submit" formAction={deleteEvent} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                        <SubmitButton formAction={deleteEvent} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" successMessage="Evento excluído">
                           <Trash2 size={13} />
                           Excluir
-                        </Button>
-                        <Button type="submit" size="sm">Salvar alterações</Button>
+                        </SubmitButton>
+                        <SubmitButton size="sm" successMessage="Evento atualizado">Salvar alterações</SubmitButton>
                       </div>
                     </form>
                   </div>
@@ -520,7 +521,7 @@ export default async function EditClientPage({ params }: { params: Params }) {
                 Indexado à inflação
               </label>
               <div className="sm:col-span-2 flex justify-end">
-                <Button type="submit" size="sm"><Plus size={13} />Adicionar</Button>
+                <SubmitButton size="sm" successMessage="Evento adicionado"><Plus size={13} />Adicionar</SubmitButton>
               </div>
             </form>
           </details>

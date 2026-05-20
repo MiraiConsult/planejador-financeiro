@@ -78,11 +78,7 @@ export async function updateAsset(formData: FormData) {
       recorrencia === 'recorrente_espacado' ? intOrNull(formData, 'intervalo_anos') : null,
   };
   const { error } = await supabase.from('assets').update(payload).eq('id', id);
-  if (error) {
-    console.error('[updateAsset] supabase error', error, payload);
-    throw new Error(`updateAsset failed: ${error.message}`);
-  }
-  console.log('[updateAsset] ok');
+  if (error) console.error('[updateAsset] supabase error', error, payload);
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
@@ -140,11 +136,7 @@ export async function updateExpense(formData: FormData) {
       recorrencia === 'recorrente_espacado' ? intOrNull(formData, 'intervalo_anos') : null,
   };
   const { error } = await supabase.from('expenses').update(payload).eq('id', id);
-  if (error) {
-    console.error('[updateExpense] supabase error', error, payload);
-    throw new Error(`updateExpense failed: ${error.message}`);
-  }
-  console.log('[updateExpense] ok');
+  if (error) console.error('[updateExpense] supabase error', error, payload);
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
@@ -202,11 +194,7 @@ export async function updateEvent(formData: FormData) {
     indexado_inflacao: formData.get('indexado_inflacao') === 'on',
   };
   const { error } = await supabase.from('events').update(payload).eq('id', id);
-  if (error) {
-    console.error('[updateEvent] supabase error', error, payload);
-    throw new Error(`updateEvent failed: ${error.message}`);
-  }
-  console.log('[updateEvent] ok');
+  if (error) console.error('[updateEvent] supabase error', error, payload);
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }

@@ -20,6 +20,7 @@ import {
 } from 'recharts';
 import { RotateCcw } from 'lucide-react';
 import { setOverride, setOverridesBatch, clearOverrides } from '@/app/(app)/clients/[id]/edit/actions';
+import { toast } from '@/components/ui/Toast';
 
 type Entity = 'assets' | 'expenses' | 'events';
 
@@ -142,28 +143,35 @@ export function EditableSeriesChart({
         await setOverride({ entity, id, client_id, idade, value: newValue });
       } catch (e) {
         console.error('setOverride failed', e);
+        toast.error('Falha ao salvar ajuste');
       }
     });
   }
 
   function commitBatch(patch: Record<string, number | null>) {
     if (Object.keys(patch).length === 0) return;
+    const n = Object.keys(patch).length;
     startTransition(async () => {
       try {
         await setOverridesBatch({ entity, id, client_id, patch });
+        toast.success(`${n} ano${n > 1 ? 's' : ''} ajustado${n > 1 ? 's' : ''}`);
       } catch (e) {
         console.error('setOverridesBatch failed', e);
+        toast.error('Falha ao salvar ajustes');
       }
     });
   }
 
   function handleReset() {
+    const n = Object.keys(localOverrides).length;
     setLocalOverrides({});
     startTransition(async () => {
       try {
         await clearOverrides({ entity, id, client_id });
+        toast.success(`${n} ajuste${n > 1 ? 's' : ''} removido${n > 1 ? 's' : ''}`);
       } catch (e) {
         console.error('clearOverrides failed', e);
+        toast.error('Falha ao resetar ajustes');
       }
     });
   }

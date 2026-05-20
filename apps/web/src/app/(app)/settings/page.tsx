@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { SubmitButton } from '@/components/ui/SubmitButton';
 import { Input, Label } from '@/components/ui/Input';
 import { upsertConsultantAssumptions } from './actions';
 
@@ -168,10 +169,10 @@ export default async function SettingsPage() {
             <Sliders size={11} className="inline -mt-0.5 mr-1" />
             Valores em percentagem (ex: 4 = 4% ao ano)
           </p>
-          <Button type="submit" size="lg" className="shadow-lg">
+          <SubmitButton size="lg" className="shadow-lg" successMessage="Premissas salvas">
             <Save size={15} />
             Salvar premissas
-          </Button>
+          </SubmitButton>
         </div>
       </form>
     </div>

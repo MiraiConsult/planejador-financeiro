@@ -3,6 +3,7 @@ import { ArrowRight, Plus, Sparkles, Trash2, TrendingDown, TrendingUp } from 'lu
 import { simulate } from '@planejador/engine';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
+import { SubmitButton, ToastOnSubmit } from '@/components/ui/SubmitButton';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/PageHeader';
 import { Sparkline } from '@/components/charts/Sparkline';
@@ -95,10 +96,10 @@ export default async function ClientsPage() {
           <>
             {total > 0 && (
               <form action={seedMarcelo}>
-                <Button type="submit" variant="outline" size="md">
+                <SubmitButton variant="outline" size="md" successMessage="Cliente de exemplo carregado">
                   <Sparkles size={14} />
                   + exemplo
-                </Button>
+                </SubmitButton>
               </form>
             )}
             <Link href="/clients/new">
@@ -126,11 +127,11 @@ export default async function ClientsPage() {
               cliente completo com 10 ativos, 10 despesas, 2 eventos e cenário base já configurado.
             </p>
             <form action={seedMarcelo} className="inline">
-              <Button type="submit" size="lg">
+              <SubmitButton size="lg" successMessage="Cliente Marcelo Castro carregado">
                 <Sparkles size={16} />
                 Carregar exemplo: Marcelo Castro
                 <ArrowRight size={14} />
-              </Button>
+              </SubmitButton>
             </form>
           </div>
         </div>
@@ -229,6 +230,7 @@ export default async function ClientsPage() {
                   className="absolute top-3 right-14 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <input type="hidden" name="id" value={c.id} />
+                  <ToastOnSubmit successMessage="Cliente removido" />
                   <button
                     type="submit"
                     className="h-7 w-7 rounded-md bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 flex items-center justify-center shadow-sm"

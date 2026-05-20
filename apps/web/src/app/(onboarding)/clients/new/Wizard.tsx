@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/Button';
+import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { createClientFromOnboarding } from './actions';
 import type { OnboardingPayload, DraftAsset, DraftExpense, DraftEvent } from './types';
@@ -112,8 +113,10 @@ export function Wizard() {
       const res = await createClientFromOnboarding(payload);
       if (!res.ok) {
         setError(res.error);
+        toast.error(res.error);
         return;
       }
+      toast.success('Cliente criado com sucesso');
       router.push(`/clients/${res.client_id}`);
     });
   }
