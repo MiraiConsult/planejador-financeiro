@@ -10,6 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { EditableSeriesChart, type EditablePoint } from '@/components/charts/EditableSeriesChart';
 import {
+  AgeRangeFields,
+  AssetNatureFields,
+  ExpenseGrowthRecurrenceFields,
+  RecorrenciaField,
+} from './FormFields';
+import {
   addAsset,
   addExpense,
   addEvent,
@@ -24,6 +30,14 @@ import {
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
+const brlK = (n: number) => {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '−' : '';
+  if (abs >= 1_000_000) return `${sign}R$ ${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}R$ ${(abs / 1_000).toFixed(0)}k`;
+  return `${sign}R$ ${abs.toFixed(0)}`;
+};
+
 const assetTipos = [
   { value: 'financeiro_liquido', label: 'Aplicação financeira', natureza: 'estoque' },
   { value: 'imovel', label: 'Imóvel', natureza: 'estoque' },
@@ -34,6 +48,10 @@ const assetTipos = [
   { value: 'aluguel', label: 'Aluguel/Arrendamento', natureza: 'fluxo' },
   { value: 'outro', label: 'Outro', natureza: 'estoque' },
 ];
+
+const natureByTipo: Record<string, string> = Object.fromEntries(
+  assetTipos.map((t) => [t.value, t.natureza]),
+);
 
 const expenseCategorias = [
   'moradia', 'alimentacao', 'transporte', 'saude', 'lazer',
@@ -112,6 +130,26 @@ export default async function EditClientPage({ params }: { params: Params }) {
 
   if (!client) notFound();
 
+  // ─── Agregados para os headers ───
+  const assetsList = assets ?? [];
+  const expensesList = expenses ?? [];
+  const eventsList = events ?? [];
+
+  const totalPatrimonio = assetsList
+    .filter((a) => a.natureza === 'estoque')
+    .reduce((acc, a) => acc + Number(a.valor), 0);
+  const totalReceitaAno = assetsList
+    .filter((a) => a.natureza === 'fluxo')
+    .reduce((acc, a) => acc + Number(a.valor), 0);
+  const totalDespesaMes = expensesList.reduce((acc, e) => acc + Number(e.valor_mensal), 0);
+  const totalDespesaEssencialMes = expensesList
+    .filter((e) => e.essencial)
+    .reduce((acc, e) => acc + Number(e.valor_mensal), 0);
+  const totalEventosImpacto = eventsList.reduce(
+    (acc, e) => acc + Math.abs(Number(e.valor)),
+    0,
+  );
+
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
@@ -145,7 +183,21 @@ export default async function EditClientPage({ params }: { params: Params }) {
             <div>
               <CardTitle>Ativos & receitas</CardTitle>
               <CardDescription>
-                {assets?.length ?? 0} cadastrados — patrimônio + fontes de renda
+                {assetsList.length} cadastrados
+                {totalPatrimonio > 0 && (
+                  <>
+                    {' · '}
+                    <span className="font-medium text-slate-700 tabular-nums">{brlK(totalPatrimonio)}</span>{' '}
+                    de patrimônio
+                  </>
+                )}
+                {totalReceitaAno > 0 && (
+                  <>
+                    {' · '}
+                    <span className="font-medium text-emerald-600 tabular-nums">{brlK(totalReceitaAno)}</span>
+                    /ano de receita
+                  </>
+                )}
               </CardDescription>
             </div>
           </div>
@@ -185,55 +237,19 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         <input type="hidden" name="id" value={a.id} />
                         <input type="hidden" name="client_id" value={client_id} />
                         <Field label="Nome" name="nome" defaultValue={a.nome} className="sm:col-span-2" />
-                        <FieldSelect label="Tipo" name="tipo" defaultValue={a.tipo} options={assetTipos.map((t) => ({ value: t.value, label: t.label }))} />
-                        <FieldSelect label="Natureza" name="natureza" defaultValue={a.natureza} options={[{ value: 'estoque', label: 'Estoque (patrimônio)' }, { value: 'fluxo', label: 'Fluxo (receita anual)' }]} />
+                        <AssetNatureFields
+                          defaultTipo={a.tipo}
+                          defaultNatureza={a.natureza}
+                          defaultTaxaRetorno={a.taxa_retorno_aa}
+                          defaultValorizacao={a.valorizacao_aa}
+                          defaultCrescimento={a.crescimento_real_aa}
+                          defaultRecorrencia={a.padrao_recorrencia}
+                          defaultIntervalo={a.intervalo_anos}
+                          tipoOptions={assetTipos.map((t) => ({ value: t.value, label: t.label }))}
+                          natureByTipo={natureByTipo}
+                        />
                         <FieldMoney label={isFluxo ? 'Valor anual (BRL)' : 'Valor (BRL)'} name="valor" defaultValue={a.valor} />
-                        <FieldNum label="Idade início" name="idade_inicio" defaultValue={a.idade_inicio} />
-                        <FieldNum label="Idade fim" name="idade_fim" defaultValue={a.idade_fim} />
-
-                        {/* Rentabilidade — só faz sentido em estoques (valorização) */}
-                        {!isFluxo && (
-                          <>
-                            <FieldPct
-                              label="Rentabilidade real a.a. (%)"
-                              name="taxa_retorno_aa"
-                              defaultValue={a.taxa_retorno_aa}
-                              hint="Acima da inflação; ex.: 5 = CDI real"
-                            />
-                            <FieldPct
-                              label="Valorização real a.a. (%)"
-                              name="valorizacao_aa"
-                              defaultValue={a.valorizacao_aa}
-                              hint="Imóvel: ~4%; Carro: -10%"
-                              allowNegative
-                            />
-                          </>
-                        )}
-
-                        {/* Crescimento + recorrência — só faz sentido em fluxos (receitas) */}
-                        {isFluxo && (
-                          <>
-                            <FieldPct
-                              label="Crescimento real a.a. (%)"
-                              name="crescimento_real_aa"
-                              defaultValue={a.crescimento_real_aa}
-                              hint="Acima da inflação; ex.: 3 = aumento real"
-                              allowNegative
-                            />
-                            <FieldSelect
-                              label="Frequência"
-                              name="padrao_recorrencia"
-                              defaultValue={a.padrao_recorrencia ?? 'recorrente_anual'}
-                              options={recorrenciaOptions}
-                            />
-                            <FieldNum
-                              label="Intervalo (anos, se espaçado)"
-                              name="intervalo_anos"
-                              defaultValue={a.intervalo_anos ?? ''}
-                              required={false}
-                            />
-                          </>
-                        )}
+                        <AgeRangeFields defaultStart={a.idade_inicio} defaultEnd={a.idade_fim} />
 
                         <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
                           <input type="checkbox" name="indexado_inflacao" defaultChecked={a.indexado_inflacao} className="rounded" />
@@ -277,15 +293,14 @@ export default async function EditClientPage({ params }: { params: Params }) {
             <form action={addAsset} className="px-6 pb-5 pt-2 bg-slate-50/40 grid sm:grid-cols-2 gap-3">
               <input type="hidden" name="client_id" value={client_id} />
               <Field label="Nome" name="nome" placeholder="Ex: Apartamento centro" required className="sm:col-span-2" />
-              <FieldSelect label="Tipo" name="tipo" defaultValue="financeiro_liquido" options={assetTipos.map((t) => ({ value: t.value, label: t.label }))} />
-              <FieldSelect label="Natureza" name="natureza" defaultValue="estoque" options={[{ value: 'estoque', label: 'Estoque (patrimônio)' }, { value: 'fluxo', label: 'Fluxo (receita anual)' }]} />
+              <AssetNatureFields
+                defaultTipo="financeiro_liquido"
+                defaultNatureza="estoque"
+                tipoOptions={assetTipos.map((t) => ({ value: t.value, label: t.label }))}
+                natureByTipo={natureByTipo}
+              />
               <FieldMoney label="Valor (BRL)" name="valor" required />
-              <FieldNum label="Idade início" name="idade_inicio" defaultValue={60} required />
-              <FieldNum label="Idade fim" name="idade_fim" defaultValue={client.expectativa_vida_anos} required />
-              <FieldPct label="Rentabilidade real a.a. (%)" name="taxa_retorno_aa" hint="Estoques financeiros / valorização" />
-              <FieldPct label="Crescimento real a.a. (%)" name="crescimento_real_aa" hint="Para receitas: aumento acima da inflação" allowNegative />
-              <FieldSelect label="Frequência (só para fluxos)" name="padrao_recorrencia" defaultValue="recorrente_anual" options={recorrenciaOptions} />
-              <FieldNum label="Intervalo (anos, se espaçado)" name="intervalo_anos" defaultValue="" required={false} />
+              <AgeRangeFields defaultStart={60} defaultEnd={client.expectativa_vida_anos} />
               <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
                 <input type="checkbox" name="indexado_inflacao" defaultChecked className="rounded" />
                 Indexado à inflação
@@ -307,7 +322,22 @@ export default async function EditClientPage({ params }: { params: Params }) {
             </div>
             <div>
               <CardTitle>Despesas mensais</CardTitle>
-              <CardDescription>{expenses?.length ?? 0} cadastradas</CardDescription>
+              <CardDescription>
+                {expensesList.length} cadastradas
+                {totalDespesaMes > 0 && (
+                  <>
+                    {' · '}
+                    <span className="font-medium text-red-600 tabular-nums">{brlK(totalDespesaMes)}</span>
+                    /mês
+                  </>
+                )}
+                {totalDespesaEssencialMes > 0 && totalDespesaEssencialMes < totalDespesaMes && (
+                  <>
+                    {' · '}
+                    <span className="tabular-nums">{brlK(totalDespesaEssencialMes)}</span> essencial
+                  </>
+                )}
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -345,26 +375,11 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         <Field label="Descrição" name="descricao" defaultValue={e.descricao} className="sm:col-span-2" />
                         <FieldSelect label="Categoria" name="categoria" defaultValue={e.categoria} options={expenseCategorias.map((c) => ({ value: c, label: c }))} />
                         <FieldMoney label="Valor mensal (BRL)" name="valor_mensal" defaultValue={e.valor_mensal} />
-                        <FieldNum label="Idade início" name="idade_inicio" defaultValue={e.idade_inicio} />
-                        <FieldNum label="Idade fim" name="idade_fim" defaultValue={e.idade_fim} />
-                        <FieldPct
-                          label="Crescimento real a.a. (%)"
-                          name="crescimento_real_aa"
-                          defaultValue={e.crescimento_real_aa}
-                          hint="Positivo = aumenta acima da inflação; negativo = diminui"
-                          allowNegative
-                        />
-                        <FieldSelect
-                          label="Frequência"
-                          name="padrao_recorrencia"
-                          defaultValue={e.padrao_recorrencia ?? 'recorrente_anual'}
-                          options={recorrenciaOptions}
-                        />
-                        <FieldNum
-                          label="Intervalo (anos, se espaçado)"
-                          name="intervalo_anos"
-                          defaultValue={e.intervalo_anos ?? ''}
-                          required={false}
+                        <AgeRangeFields defaultStart={e.idade_inicio} defaultEnd={e.idade_fim} />
+                        <ExpenseGrowthRecurrenceFields
+                          defaultCrescimento={e.crescimento_real_aa}
+                          defaultRecorrencia={e.padrao_recorrencia}
+                          defaultIntervalo={e.intervalo_anos}
                         />
                         <label className="flex items-center gap-2 text-sm text-slate-700">
                           <input type="checkbox" name="indexado_inflacao" defaultChecked={e.indexado_inflacao} className="rounded" />
@@ -412,11 +427,8 @@ export default async function EditClientPage({ params }: { params: Params }) {
               <Field label="Descrição" name="descricao" placeholder="Ex: Aluguel" required className="sm:col-span-2" />
               <FieldSelect label="Categoria" name="categoria" defaultValue="moradia" options={expenseCategorias.map((c) => ({ value: c, label: c }))} />
               <FieldMoney label="Valor mensal (BRL)" name="valor_mensal" required />
-              <FieldNum label="Idade início" name="idade_inicio" defaultValue={60} required />
-              <FieldNum label="Idade fim" name="idade_fim" defaultValue={client.expectativa_vida_anos} required />
-              <FieldPct label="Crescimento real a.a. (%)" name="crescimento_real_aa" hint="0 = só inflação" allowNegative />
-              <FieldSelect label="Frequência" name="padrao_recorrencia" defaultValue="recorrente_anual" options={recorrenciaOptions} />
-              <FieldNum label="Intervalo (anos, se espaçado)" name="intervalo_anos" defaultValue="" required={false} />
+              <AgeRangeFields defaultStart={60} defaultEnd={client.expectativa_vida_anos} />
+              <ExpenseGrowthRecurrenceFields />
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" name="indexado_inflacao" defaultChecked className="rounded" />
                 Indexado à inflação
@@ -442,7 +454,16 @@ export default async function EditClientPage({ params }: { params: Params }) {
             </div>
             <div>
               <CardTitle>Eventos pontuais</CardTitle>
-              <CardDescription>{events?.length ?? 0} cadastrados</CardDescription>
+              <CardDescription>
+                {eventsList.length} cadastrados
+                {totalEventosImpacto > 0 && (
+                  <>
+                    {' · '}
+                    <span className="font-medium text-slate-700 tabular-nums">{brlK(totalEventosImpacto)}</span>{' '}
+                    de impacto total
+                  </>
+                )}
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -471,15 +492,17 @@ export default async function EditClientPage({ params }: { params: Params }) {
                       <input type="hidden" name="client_id" value={client_id} />
                       <Field label="Descrição" name="descricao" defaultValue={ev.descricao} className="sm:col-span-2" />
                       <FieldSelect label="Tipo" name="tipo" defaultValue={ev.tipo} options={eventTipos} />
-                      <FieldSelect label="Recorrência" name="padrao_recorrencia" defaultValue={ev.padrao_recorrencia} options={[
-                        { value: 'unico', label: 'Único' },
-                        { value: 'recorrente_anual', label: 'Todo ano' },
-                        { value: 'recorrente_espacado', label: 'A cada N anos' },
-                      ]} />
                       <FieldMoney label="Valor (BRL, com sinal)" name="valor" defaultValue={ev.valor} hint="negativo = saída" allowNegative />
-                      <FieldNum label="Idade início" name="idade_inicio" defaultValue={ev.idade_inicio} />
-                      <FieldNum label="Idade fim" name="idade_fim" defaultValue={ev.idade_fim ?? ''} />
-                      <FieldNum label="Intervalo (se espaçado)" name="intervalo_anos" defaultValue={ev.intervalo_anos ?? ''} />
+                      <AgeRangeFields defaultStart={ev.idade_inicio} defaultEnd={ev.idade_fim ?? ''} endLabel="Idade fim (opcional)" required={false} />
+                      <RecorrenciaField
+                        defaultRecorrencia={ev.padrao_recorrencia}
+                        defaultIntervalo={ev.intervalo_anos}
+                        options={[
+                          { value: 'unico', label: 'Único' },
+                          { value: 'recorrente_anual', label: 'Todo ano' },
+                          { value: 'recorrente_espacado', label: 'A cada N anos' },
+                        ]}
+                      />
                       <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
                         <input type="checkbox" name="indexado_inflacao" defaultChecked={ev.indexado_inflacao} className="rounded" />
                         Indexado à inflação
@@ -507,15 +530,16 @@ export default async function EditClientPage({ params }: { params: Params }) {
               <input type="hidden" name="client_id" value={client_id} />
               <Field label="Descrição" name="descricao" placeholder="Ex: Compra de imóvel" required className="sm:col-span-2" />
               <FieldSelect label="Tipo" name="tipo" defaultValue="sonho" options={eventTipos} />
-              <FieldSelect label="Recorrência" name="padrao_recorrencia" defaultValue="unico" options={[
-                { value: 'unico', label: 'Único' },
-                { value: 'recorrente_anual', label: 'Todo ano' },
-                { value: 'recorrente_espacado', label: 'A cada N anos' },
-              ]} />
               <FieldMoney label="Valor (BRL, com sinal)" name="valor" required hint="positivo = entrada; negativo = saída" allowNegative />
-              <FieldNum label="Idade início" name="idade_inicio" defaultValue={60} required />
-              <FieldNum label="Idade fim (opcional)" name="idade_fim" defaultValue="" required={false} />
-              <FieldNum label="Intervalo (anos, se espaçado)" name="intervalo_anos" defaultValue="" required={false} />
+              <AgeRangeFields defaultStart={60} defaultEnd="" endLabel="Idade fim (opcional)" required={false} />
+              <RecorrenciaField
+                defaultRecorrencia="unico"
+                options={[
+                  { value: 'unico', label: 'Único' },
+                  { value: 'recorrente_anual', label: 'Todo ano' },
+                  { value: 'recorrente_espacado', label: 'A cada N anos' },
+                ]}
+              />
               <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
                 <input type="checkbox" name="indexado_inflacao" defaultChecked className="rounded" />
                 Indexado à inflação
