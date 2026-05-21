@@ -25,7 +25,13 @@ export default async function EditClientPage({ params }: { params: Params }) {
   const { id: client_id } = await params;
   const supabase = await createClient();
 
-  const [{ data: client }, { data: assets }, { data: expenses }, { data: events }] = await Promise.all([
+  const [
+    { data: client },
+    { data: assets },
+    { data: expenses },
+    { data: events },
+    { data: customCategories },
+  ] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome_completo, data_nascimento, expectativa_vida_anos')
@@ -34,9 +40,28 @@ export default async function EditClientPage({ params }: { params: Params }) {
     supabase.from('assets').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
     supabase.from('expenses').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
     supabase.from('events').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
+    supabase.from('custom_categories').select('kind, value, label, extra').order('label'),
   ]);
 
   if (!client) notFound();
+
+  type RawCat = { kind: string; value: string; label: string; extra: Record<string, unknown> | null };
+  const cats = (customCategories ?? []) as RawCat[];
+  const customByKind = {
+    asset_tipo: cats
+      .filter((c) => c.kind === 'asset_tipo')
+      .map((c) => ({
+        value: c.value,
+        label: c.label,
+        natureza: (c.extra?.natureza as string | undefined) ?? 'estoque',
+      })),
+    expense_categoria: cats
+      .filter((c) => c.kind === 'expense_categoria')
+      .map((c) => ({ value: c.value, label: c.label })),
+    event_tipo: cats
+      .filter((c) => c.kind === 'event_tipo')
+      .map((c) => ({ value: c.value, label: c.label })),
+  };
 
   // idade atual do cliente para defaults sensatos ao criar novos itens
   const now = new Date();
@@ -124,7 +149,12 @@ export default async function EditClientPage({ params }: { params: Params }) {
         </CardHeader>
         <CardContent className="space-y-4 p-5">
           {assetsList.map((a) => (
-            <AssetEditor key={a.id} asset={a} client_id={client_id} />
+            <AssetEditor
+              key={a.id}
+              asset={a}
+              client_id={client_id}
+              customTipos={customByKind.asset_tipo}
+            />
           ))}
           <AddItemButton
             kind="asset"
@@ -165,7 +195,12 @@ export default async function EditClientPage({ params }: { params: Params }) {
         </CardHeader>
         <CardContent className="space-y-4 p-5">
           {expensesList.map((e) => (
-            <ExpenseEditor key={e.id} expense={e} client_id={client_id} />
+            <ExpenseEditor
+              key={e.id}
+              expense={e}
+              client_id={client_id}
+              customCategorias={customByKind.expense_categoria}
+            />
           ))}
           <AddItemButton
             kind="expense"
@@ -200,7 +235,12 @@ export default async function EditClientPage({ params }: { params: Params }) {
         </CardHeader>
         <CardContent className="space-y-4 p-5">
           {eventsList.map((ev) => (
-            <EventEditor key={ev.id} event={ev} client_id={client_id} />
+            <EventEditor
+              key={ev.id}
+              event={ev}
+              client_id={client_id}
+              customTipos={customByKind.event_tipo}
+            />
           ))}
           <AddItemButton
             kind="event"

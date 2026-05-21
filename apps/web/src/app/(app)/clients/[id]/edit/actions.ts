@@ -468,6 +468,67 @@ export async function undoDelete(args: {
   return { ok: true } as const;
 }
 
+// ─────────── CUSTOM CATEGORIES ───────────
+
+type CategoryKind = 'asset_tipo' | 'expense_categoria' | 'event_tipo';
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+}
+
+/**
+ * Cria uma categoria customizada para o consultor logado.
+ * Para asset_tipo, exige `natureza` ('estoque' | 'fluxo') em extra.
+ * Retorna { value, label } pra UI selecionar o item recém-criado.
+ */
+export async function addCustomCategory(args: {
+  kind: CategoryKind;
+  label: string;
+  natureza?: 'estoque' | 'fluxo';
+  client_id?: string;
+}): Promise<
+  | { ok: true; value: string; label: string }
+  | { ok: false; error: string }
+> {
+  const label = args.label.trim().slice(0, 60);
+  if (!label) return { ok: false, error: 'Label vazio' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Não autenticado' };
+
+  const value = `c_${slugify(label) || 'item'}_${Math.random().toString(36).slice(2, 6)}`;
+  const extra: Record<string, unknown> = {};
+  if (args.kind === 'asset_tipo') {
+    extra.natureza = args.natureza ?? 'estoque';
+  }
+
+  const { error } = await supabase.from('custom_categories').insert({
+    consultant_id: user.id,
+    kind: args.kind,
+    value,
+    label,
+    extra,
+  });
+  if (error) {
+    console.error('[addCustomCategory] failed', error);
+    return { ok: false, error: error.message };
+  }
+
+  if (args.client_id) {
+    revalidatePath(`/clients/${args.client_id}/edit`);
+  }
+  return { ok: true, value, label };
+}
+
 // ─────────── OVERRIDES (edição ponto-a-ponto no gráfico) ───────────
 
 type Entity = 'assets' | 'expenses' | 'events';

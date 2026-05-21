@@ -21,6 +21,7 @@ import { toast } from '@/components/ui/Toast';
 import { EditableSeriesChart } from '@/components/charts/EditableSeriesChart';
 import { useAutoSave } from './useAutoSave';
 import { SaveStatusIndicator } from './SaveStatus';
+import { EditableSelect, type SelectOption } from './EditableSelect';
 import {
   seriesEstoqueFisico,
   seriesAplicacaoFinanceira,
@@ -361,9 +362,11 @@ function EditorCard({
 export function AssetEditor({
   asset,
   client_id,
+  customTipos = [],
 }: {
   asset: AssetRow;
   client_id: string;
+  customTipos?: SelectOption[];
 }) {
   const [local, setLocal] = useState({
     nome: asset.nome,
@@ -480,9 +483,11 @@ export function AssetEditor({
     <EditorCard
       icon={Icon}
       title={local.nome || 'Sem nome'}
-      subtitle={`${tipoLabel(local.tipo)} · ${
-        isFluxo ? 'receita anual' : 'patrimônio'
-      } · ${idadeInicio || '?'}–${idadeFim || '?'}`}
+      subtitle={`${
+        tipoLabel(local.tipo) !== local.tipo
+          ? tipoLabel(local.tipo)
+          : (customTipos.find((c) => c.value === local.tipo)?.label ?? local.tipo)
+      } · ${isFluxo ? 'receita anual' : 'patrimônio'} · ${idadeInicio || '?'}–${idadeFim || '?'}`}
       rightSummary={
         <p className="text-sm font-semibold tabular-nums text-slate-900">
           {brl(toNumber(local.valor))}
@@ -556,14 +561,19 @@ export function AssetEditor({
           onChange={(v) => setLocal({ ...local, nome: v })}
           className="sm:col-span-2"
         />
-        <SelectField
+        <EditableSelect
           label="Tipo"
           value={local.tipo}
-          onChange={(v) => {
-            const inferred = tipoOptions.find((t) => t.value === v)?.natureza ?? 'estoque';
+          onChange={(v, opt) => {
+            const builtin = tipoOptions.find((t) => t.value === v);
+            const inferred =
+              builtin?.natureza ?? opt?.natureza ?? 'estoque';
             setLocal({ ...local, tipo: v, natureza: inferred });
           }}
-          options={tipoOptions.map((t) => ({ value: t.value, label: t.label }))}
+          builtin={tipoOptions.map((t) => ({ value: t.value, label: t.label, natureza: t.natureza }))}
+          custom={customTipos}
+          kind="asset_tipo"
+          client_id={client_id}
           className="sm:col-span-2"
         />
         <NumField
@@ -675,9 +685,11 @@ export function AssetEditor({
 export function ExpenseEditor({
   expense,
   client_id,
+  customCategorias = [],
 }: {
   expense: ExpenseRow;
   client_id: string;
+  customCategorias?: SelectOption[];
 }) {
   const [local, setLocal] = useState({
     descricao: expense.descricao,
@@ -740,9 +752,11 @@ export function ExpenseEditor({
     <EditorCard
       icon={Receipt}
       title={local.descricao || 'Nova despesa'}
-      subtitle={`${expenseCategoryLabels[local.categoria] ?? local.categoria} · ${idadeInicio || '?'}–${
-        idadeFim || '?'
-      }${local.essencial ? ' · essencial' : ''}`}
+      subtitle={`${
+        expenseCategoryLabels[local.categoria]
+          ?? customCategorias.find((c) => c.value === local.categoria)?.label
+          ?? local.categoria
+      } · ${idadeInicio || '?'}–${idadeFim || '?'}${local.essencial ? ' · essencial' : ''}`}
       rightSummary={
         <p className="text-sm font-semibold tabular-nums text-red-600">
           {brl(toNumber(local.valor_mensal))}
@@ -803,11 +817,14 @@ export function ExpenseEditor({
           onChange={(v) => setLocal({ ...local, descricao: v })}
           className="sm:col-span-2"
         />
-        <SelectField
+        <EditableSelect
           label="Categoria"
           value={local.categoria}
           onChange={(v) => setLocal({ ...local, categoria: v })}
-          options={expenseCategoryOptions}
+          builtin={expenseCategoryOptions}
+          custom={customCategorias}
+          kind="expense_categoria"
+          client_id={client_id}
         />
         <NumField
           label="Valor mensal"
@@ -875,9 +892,11 @@ const eventTipos = Object.entries(eventTipoLabels)
 export function EventEditor({
   event,
   client_id,
+  customTipos = [],
 }: {
   event: EventRow;
   client_id: string;
+  customTipos?: SelectOption[];
 }) {
   const [local, setLocal] = useState({
     descricao: event.descricao,
@@ -918,7 +937,11 @@ export function EventEditor({
     <EditorCard
       icon={CalendarHeart}
       title={local.descricao || 'Novo evento'}
-      subtitle={`${eventTipoLabels[local.tipo] ?? local.tipo} · idade ${local.idade_inicio || '?'} · ${
+      subtitle={`${
+        eventTipoLabels[local.tipo]
+          ?? customTipos.find((c) => c.value === local.tipo)?.label
+          ?? local.tipo
+      } · idade ${local.idade_inicio || '?'} · ${
         recorrenciaLabels[local.padrao_recorrencia] ?? local.padrao_recorrencia
       }`}
       rightSummary={
@@ -980,11 +1003,14 @@ export function EventEditor({
           onChange={(v) => setLocal({ ...local, descricao: v })}
           className="sm:col-span-2"
         />
-        <SelectField
+        <EditableSelect
           label="Tipo"
           value={local.tipo}
           onChange={(v) => setLocal({ ...local, tipo: v })}
-          options={eventTipos}
+          builtin={eventTipos}
+          custom={customTipos}
+          kind="event_tipo"
+          client_id={client_id}
         />
         <NumField
           label="Valor (com sinal)"
