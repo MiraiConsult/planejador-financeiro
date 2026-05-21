@@ -71,6 +71,11 @@ export interface Asset {
   padrao_recorrencia?: Recorrencia; // só faz sentido em fluxos; default = recorrente_anual
   intervalo_anos?: number;          // obrigatório se padrao=recorrente_espacado
   overrides?: Record<string, number>; // valor anual nominal por idade ({"60":5000})
+  // Aplicações financeiras (tipo=financeiro_liquido) podem ter aporte/retirada
+  // mensal recorrente. Valor positivo = aporte; negativo = retirada.
+  aporte_mensal?: number;
+  idade_aporte_inicio?: number;
+  idade_aporte_fim?: number;
   notas?: string;
 }
 

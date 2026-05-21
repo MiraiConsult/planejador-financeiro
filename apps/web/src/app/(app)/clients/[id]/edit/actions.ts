@@ -115,6 +115,54 @@ export async function duplicateAsset(formData: FormData) {
   revalidatePath(`/clients/${client_id}/edit`);
 }
 
+/**
+ * Cria asset com defaults sensatos pra abrir já no painel de edição.
+ * Não usa formData — chamado direto via onClick (server action wrapper).
+ */
+export async function quickAddAsset(args: {
+  client_id: string;
+  tipo: string;
+  natureza: string;
+  idade_inicio: number;
+  idade_fim: number;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const defaultName: Record<string, string> = {
+    financeiro_liquido: 'Nova aplicação',
+    imovel: 'Novo imóvel',
+    terreno: 'Novo terreno',
+    carro: 'Novo veículo',
+    salario: 'Salário',
+    aluguel: 'Aluguel recebido',
+    heranca_recebida: 'Herança',
+    outro: 'Novo ativo',
+  };
+  const defaultValue =
+    args.natureza === 'fluxo' ? 60000 /* R$ 60k/ano */ : 100000 /* R$ 100k */;
+  const { data, error } = await supabase
+    .from('assets')
+    .insert({
+      client_id: args.client_id,
+      nome: defaultName[args.tipo] ?? 'Novo ativo',
+      tipo: args.tipo,
+      natureza: args.natureza,
+      valor: defaultValue,
+      idade_inicio: args.idade_inicio,
+      idade_fim: args.idade_fim,
+      indexado_inflacao: true,
+      padrao_recorrencia: args.natureza === 'fluxo' ? 'recorrente_anual' : null,
+    })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('[quickAddAsset] failed', error);
+    return { ok: false, error: error?.message ?? 'unknown' };
+  }
+  revalidatePath(`/clients/${args.client_id}`);
+  revalidatePath(`/clients/${args.client_id}/edit`);
+  return { ok: true, id: data.id };
+}
+
 // ─────────── EXPENSES ───────────
 
 export async function addExpense(formData: FormData) {
@@ -196,6 +244,36 @@ export async function duplicateExpense(formData: FormData) {
   revalidatePath(`/clients/${client_id}/edit`);
 }
 
+export async function quickAddExpense(args: {
+  client_id: string;
+  idade_inicio: number;
+  idade_fim: number;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('expenses')
+    .insert({
+      client_id: args.client_id,
+      categoria: 'outro',
+      descricao: 'Nova despesa',
+      valor_mensal: 1000,
+      idade_inicio: args.idade_inicio,
+      idade_fim: args.idade_fim,
+      indexado_inflacao: true,
+      essencial: false,
+      padrao_recorrencia: 'recorrente_anual',
+    })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('[quickAddExpense] failed', error);
+    return { ok: false, error: error?.message ?? 'unknown' };
+  }
+  revalidatePath(`/clients/${args.client_id}`);
+  revalidatePath(`/clients/${args.client_id}/edit`);
+  return { ok: true, id: data.id };
+}
+
 // ─────────── EVENTS ───────────
 
 export async function addEvent(formData: FormData) {
@@ -245,6 +323,33 @@ export async function updateEvent(formData: FormData) {
   revalidatePath(`/clients/${client_id}/edit`);
 }
 
+export async function quickAddEvent(args: {
+  client_id: string;
+  idade_inicio: number;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('events')
+    .insert({
+      client_id: args.client_id,
+      tipo: 'sonho',
+      descricao: 'Novo evento',
+      valor: 10000,
+      padrao_recorrencia: 'unico',
+      idade_inicio: args.idade_inicio,
+      indexado_inflacao: true,
+    })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('[quickAddEvent] failed', error);
+    return { ok: false, error: error?.message ?? 'unknown' };
+  }
+  revalidatePath(`/clients/${args.client_id}`);
+  revalidatePath(`/clients/${args.client_id}/edit`);
+  return { ok: true, id: data.id };
+}
+
 export async function deleteEvent(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
@@ -275,6 +380,70 @@ export async function duplicateEvent(formData: FormData) {
   await supabase.from('events').insert({ ...rest, descricao: `${rest.descricao} (cópia)` });
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
+}
+
+// ─────────── PATCH GRANULAR (auto-save) ───────────
+
+const ASSET_FIELDS = new Set([
+  'nome', 'tipo', 'natureza', 'valor', 'idade_inicio', 'idade_fim',
+  'indexado_inflacao', 'taxa_retorno_aa', 'valorizacao_aa',
+  'crescimento_real_aa', 'padrao_recorrencia', 'intervalo_anos',
+  'aporte_mensal', 'idade_aporte_inicio', 'idade_aporte_fim',
+  'prioridade_liquidacao', 'notas',
+]);
+const EXPENSE_FIELDS = new Set([
+  'categoria', 'descricao', 'valor_mensal', 'idade_inicio', 'idade_fim',
+  'indexado_inflacao', 'essencial', 'crescimento_real_aa',
+  'padrao_recorrencia', 'intervalo_anos', 'notas',
+]);
+const EVENT_FIELDS = new Set([
+  'tipo', 'descricao', 'valor', 'padrao_recorrencia', 'idade_inicio',
+  'idade_fim', 'intervalo_anos', 'indexado_inflacao', 'prioridade',
+  'ativo_referenciado', 'notas',
+]);
+const FIELD_WHITELIST: Record<Entity, Set<string>> = {
+  assets: ASSET_FIELDS,
+  expenses: EXPENSE_FIELDS,
+  events: EVENT_FIELDS,
+};
+
+/**
+ * Atualização granular pra auto-save. Aceita Partial<T> e filtra contra
+ * uma whitelist para evitar gravação de campos não pertencentes ao schema.
+ *
+ * Retorna { ok: boolean } para o cliente poder ajustar UI.
+ */
+export async function patchEntity(args: {
+  entity: Entity;
+  id: string;
+  client_id: string;
+  patch: Record<string, unknown>;
+}) {
+  if (!ALLOWED_TABLES[args.entity]) return { ok: false as const, error: 'invalid entity' };
+  const allowed = FIELD_WHITELIST[args.entity];
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(args.patch)) {
+    if (allowed.has(k)) clean[k] = v;
+  }
+  if (Object.keys(clean).length === 0) return { ok: true as const };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from(args.entity)
+    .update(clean)
+    .eq('id', args.id);
+
+  if (error) {
+    console.error(`[patchEntity:${args.entity}] failed`, error, clean);
+    return { ok: false as const, error: error.message };
+  }
+  // Importante: NÃO chama revalidatePath aqui. O auto-save dispara várias
+  // vezes durante a edição; revalidar a árvore inteira reseta state local
+  // dos editors. A página re-busca dados ao navegar; o cliente segura
+  // a fonte de verdade enquanto edita.
+  // Mas revalida o dashboard do cliente (que usa a simulação completa).
+  revalidatePath(`/clients/${args.client_id}`);
+  return { ok: true as const };
 }
 
 // ─────────── UNDO DELETE ───────────
