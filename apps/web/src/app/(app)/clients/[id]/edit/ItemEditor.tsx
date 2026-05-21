@@ -564,15 +564,7 @@ export function AssetEditor({
             setLocal({ ...local, tipo: v, natureza: inferred });
           }}
           options={tipoOptions.map((t) => ({ value: t.value, label: t.label }))}
-        />
-        <SelectField
-          label="Natureza"
-          value={local.natureza}
-          onChange={(v) => setLocal({ ...local, natureza: v })}
-          options={[
-            { value: 'estoque', label: 'Estoque (patrimônio)' },
-            { value: 'fluxo', label: 'Fluxo (receita anual)' },
-          ]}
+          className="sm:col-span-2"
         />
         <NumField
           label={isFluxo ? 'Valor anual' : 'Valor inicial'}
@@ -581,6 +573,35 @@ export function AssetEditor({
           prefix="R$"
           step={100}
         />
+        {/* Coluna 2 da linha do Valor — varia por tipo */}
+        {isFinanceira ? (
+          <NumField
+            label="Rentabilidade real a.a."
+            value={local.taxa_retorno_aa}
+            onChange={(v) => setLocal({ ...local, taxa_retorno_aa: v })}
+            suffix="%"
+            step={0.1}
+            hint="CDI real ~5%"
+          />
+        ) : isFluxo ? (
+          <NumField
+            label="Crescimento real a.a."
+            value={local.crescimento_real_aa}
+            onChange={(v) => setLocal({ ...local, crescimento_real_aa: v })}
+            suffix="%"
+            step={0.1}
+            hint="Negativo = redução"
+          />
+        ) : (
+          <NumField
+            label="Valorização real a.a."
+            value={local.valorizacao_aa}
+            onChange={(v) => setLocal({ ...local, valorizacao_aa: v })}
+            suffix="%"
+            step={0.1}
+            hint="Imóvel: ~4% · Carro: -10%"
+          />
+        )}
         <NumField
           label="Idade início"
           value={local.idade_inicio}
@@ -593,70 +614,38 @@ export function AssetEditor({
           hint={!ageRangeValid ? `Deve ser ≥ ${idadeInicio}` : undefined}
         />
 
-        {/* Bloco específico: estoque físico */}
-        {!isFluxo && !isFinanceira && (
-          <NumField
-            label="Valorização real a.a."
-            value={local.valorizacao_aa}
-            onChange={(v) => setLocal({ ...local, valorizacao_aa: v })}
-            suffix="%"
-            step={0.1}
-            hint="Imóvel: ~4% · Carro: -10% · pode deixar vazio"
-            className="sm:col-span-2"
-          />
-        )}
-
-        {/* Bloco específico: aplicação financeira */}
+        {/* Bloco específico: aplicação financeira (aportes) */}
         {isFinanceira && (
-          <>
-            <NumField
-              label="Rentabilidade real a.a."
-              value={local.taxa_retorno_aa}
-              onChange={(v) => setLocal({ ...local, taxa_retorno_aa: v })}
-              suffix="%"
-              step={0.1}
-              hint="Acima da inflação (CDI real ~5%)"
-              className="sm:col-span-2"
-            />
-            <div className="sm:col-span-2 mt-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-3">
-              <p className="text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                Aportes / retiradas mensais
-              </p>
-              <div className="grid sm:grid-cols-3 gap-3">
-                <NumField
-                  label="Valor por mês"
-                  value={local.aporte_mensal}
-                  onChange={(v) => setLocal({ ...local, aporte_mensal: v })}
-                  prefix="R$"
-                  step={50}
-                  hint="Positivo = aporte; negativo = retirada"
-                />
-                <NumField
-                  label="De (idade)"
-                  value={local.idade_aporte_inicio}
-                  onChange={(v) => setLocal({ ...local, idade_aporte_inicio: v })}
-                />
-                <NumField
-                  label="Até (idade)"
-                  value={local.idade_aporte_fim}
-                  onChange={(v) => setLocal({ ...local, idade_aporte_fim: v })}
-                />
-              </div>
+          <div className="sm:col-span-2 mt-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-3">
+            <p className="text-xs font-semibold text-blue-900 uppercase tracking-wider">
+              Aportes / retiradas mensais
+            </p>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <NumField
+                label="Valor por mês"
+                value={local.aporte_mensal}
+                onChange={(v) => setLocal({ ...local, aporte_mensal: v })}
+                prefix="R$"
+                step={50}
+                hint="Positivo = aporte; negativo = retirada"
+              />
+              <NumField
+                label="De (idade)"
+                value={local.idade_aporte_inicio}
+                onChange={(v) => setLocal({ ...local, idade_aporte_inicio: v })}
+              />
+              <NumField
+                label="Até (idade)"
+                value={local.idade_aporte_fim}
+                onChange={(v) => setLocal({ ...local, idade_aporte_fim: v })}
+              />
             </div>
-          </>
+          </div>
         )}
 
-        {/* Bloco específico: fluxo (receita) */}
+        {/* Bloco específico: fluxo (receita) — frequência */}
         {isFluxo && (
           <>
-            <NumField
-              label="Crescimento real a.a."
-              value={local.crescimento_real_aa}
-              onChange={(v) => setLocal({ ...local, crescimento_real_aa: v })}
-              suffix="%"
-              step={0.1}
-              hint="Acima da inflação (negativo = redução)"
-            />
             <SelectField
               label="Frequência"
               value={local.padrao_recorrencia}
@@ -676,7 +665,6 @@ export function AssetEditor({
             )}
           </>
         )}
-
       </div>
     </EditorCard>
   );
