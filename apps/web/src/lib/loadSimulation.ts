@@ -23,9 +23,9 @@ export async function loadSimulationInput(client_id: string): Promise<{
   const [clientRes, assetsRes, expensesRes, eventsRes, assumptionsRes, scenariosRes] =
     await Promise.all([
       supabase.from('clients').select('*').eq('id', client_id).maybeSingle(),
-      supabase.from('assets').select('*').eq('client_id', client_id),
-      supabase.from('expenses').select('*').eq('client_id', client_id),
-      supabase.from('events').select('*').eq('client_id', client_id),
+      supabase.from('assets').select('*').eq('client_id', client_id).is('deleted_at', null),
+      supabase.from('expenses').select('*').eq('client_id', client_id).is('deleted_at', null),
+      supabase.from('events').select('*').eq('client_id', client_id).is('deleted_at', null),
       // pega a premissa do cliente; se não houver, usa a default do consultor (client_id IS NULL)
       supabase
         .from('assumptions')

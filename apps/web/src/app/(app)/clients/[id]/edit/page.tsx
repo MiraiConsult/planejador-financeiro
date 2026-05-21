@@ -15,6 +15,7 @@ import {
   ExpenseGrowthRecurrenceFields,
   RecorrenciaField,
 } from './FormFields';
+import { DeleteButtonWithUndo, DuplicateButton } from './RowActions';
 import {
   addAsset,
   addExpense,
@@ -25,6 +26,9 @@ import {
   deleteAsset,
   deleteExpense,
   deleteEvent,
+  duplicateAsset,
+  duplicateExpense,
+  duplicateEvent,
 } from './actions';
 
 const brl = (n: number) =>
@@ -123,9 +127,9 @@ export default async function EditClientPage({ params }: { params: Params }) {
 
   const [{ data: client }, { data: assets }, { data: expenses }, { data: events }] = await Promise.all([
     supabase.from('clients').select('id, nome_completo, expectativa_vida_anos').eq('id', client_id).maybeSingle(),
-    supabase.from('assets').select('*').eq('client_id', client_id).order('created_at'),
-    supabase.from('expenses').select('*').eq('client_id', client_id).order('created_at'),
-    supabase.from('events').select('*').eq('client_id', client_id).order('created_at'),
+    supabase.from('assets').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
+    supabase.from('expenses').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
+    supabase.from('events').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
   ]);
 
   if (!client) notFound();
@@ -255,14 +259,19 @@ export default async function EditClientPage({ params }: { params: Params }) {
                           <input type="checkbox" name="indexado_inflacao" defaultChecked={a.indexado_inflacao} className="rounded" />
                           Indexado à inflação
                         </label>
-                        <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                          <SubmitButton formAction={deleteAsset} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" successMessage="Ativo excluído">
-                            <Trash2 size={13} />
-                            Excluir
-                          </SubmitButton>
-                          <SubmitButton size="sm" successMessage="Ativo atualizado">Salvar alterações</SubmitButton>
+                        <div className="sm:col-span-2 flex justify-between items-center pt-2 gap-2">
+                          <div className="flex items-center gap-1">
+                            <DeleteButtonWithUndo entity="assets" id={a.id} client_id={client_id} deleteAction={deleteAsset} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <SubmitButton size="sm" successMessage="Ativo atualizado">Salvar alterações</SubmitButton>
+                          </div>
                         </div>
                       </form>
+
+                      <div className="flex justify-end">
+                        <DuplicateButton duplicateAction={duplicateAsset} id={a.id} client_id={client_id} />
+                      </div>
 
                       {/* Gráfico editável: só para fluxos (receitas) */}
                       {isFluxo && points.length > 1 && (
@@ -389,14 +398,15 @@ export default async function EditClientPage({ params }: { params: Params }) {
                           <input type="checkbox" name="essencial" defaultChecked={e.essencial} className="rounded" />
                           Despesa essencial
                         </label>
-                        <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                          <SubmitButton formAction={deleteExpense} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" successMessage="Despesa excluída">
-                            <Trash2 size={13} />
-                            Excluir
-                          </SubmitButton>
+                        <div className="sm:col-span-2 flex justify-between items-center pt-2 gap-2">
+                          <DeleteButtonWithUndo entity="expenses" id={e.id} client_id={client_id} deleteAction={deleteExpense} />
                           <SubmitButton size="sm" successMessage="Despesa atualizada">Salvar alterações</SubmitButton>
                         </div>
                       </form>
+
+                      <div className="flex justify-end">
+                        <DuplicateButton duplicateAction={duplicateExpense} id={e.id} client_id={client_id} />
+                      </div>
 
                       {points.length > 1 && (
                         <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -507,14 +517,15 @@ export default async function EditClientPage({ params }: { params: Params }) {
                         <input type="checkbox" name="indexado_inflacao" defaultChecked={ev.indexado_inflacao} className="rounded" />
                         Indexado à inflação
                       </label>
-                      <div className="sm:col-span-2 flex justify-between items-center pt-2">
-                        <SubmitButton formAction={deleteEvent} variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" successMessage="Evento excluído">
-                          <Trash2 size={13} />
-                          Excluir
-                        </SubmitButton>
+                      <div className="sm:col-span-2 flex justify-between items-center pt-2 gap-2">
+                        <DeleteButtonWithUndo entity="events" id={ev.id} client_id={client_id} deleteAction={deleteEvent} />
                         <SubmitButton size="sm" successMessage="Evento atualizado">Salvar alterações</SubmitButton>
                       </div>
                     </form>
+
+                    <div className="flex justify-end mt-2">
+                      <DuplicateButton duplicateAction={duplicateEvent} id={ev.id} client_id={client_id} />
+                    </div>
                   </div>
                 </details>
               ))}

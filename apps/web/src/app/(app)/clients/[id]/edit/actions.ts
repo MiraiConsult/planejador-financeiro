@@ -87,7 +87,30 @@ export async function deleteAsset(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
   const supabase = await createClient();
-  await supabase.from('assets').delete().eq('id', id);
+  await supabase.from('assets').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  revalidatePath(`/clients/${client_id}`);
+  revalidatePath(`/clients/${client_id}/edit`);
+}
+
+export async function duplicateAsset(formData: FormData) {
+  const id = String(formData.get('id') ?? '');
+  const client_id = String(formData.get('client_id') ?? '');
+  const supabase = await createClient();
+  const { data: orig, error } = await supabase
+    .from('assets')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !orig) {
+    console.error('[duplicateAsset] failed', error);
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, created_at, updated_at, deleted_at, ...rest } = orig;
+  void created_at;
+  void updated_at;
+  void deleted_at;
+  await supabase.from('assets').insert({ ...rest, nome: `${rest.nome} (cópia)` });
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
@@ -145,7 +168,30 @@ export async function deleteExpense(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
   const supabase = await createClient();
-  await supabase.from('expenses').delete().eq('id', id);
+  await supabase.from('expenses').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  revalidatePath(`/clients/${client_id}`);
+  revalidatePath(`/clients/${client_id}/edit`);
+}
+
+export async function duplicateExpense(formData: FormData) {
+  const id = String(formData.get('id') ?? '');
+  const client_id = String(formData.get('client_id') ?? '');
+  const supabase = await createClient();
+  const { data: orig, error } = await supabase
+    .from('expenses')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !orig) {
+    console.error('[duplicateExpense] failed', error);
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, created_at, updated_at, deleted_at, ...rest } = orig;
+  void created_at;
+  void updated_at;
+  void deleted_at;
+  await supabase.from('expenses').insert({ ...rest, descricao: `${rest.descricao} (cópia)` });
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
 }
@@ -203,9 +249,54 @@ export async function deleteEvent(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const client_id = String(formData.get('client_id') ?? '');
   const supabase = await createClient();
-  await supabase.from('events').delete().eq('id', id);
+  await supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', id);
   revalidatePath(`/clients/${client_id}`);
   revalidatePath(`/clients/${client_id}/edit`);
+}
+
+export async function duplicateEvent(formData: FormData) {
+  const id = String(formData.get('id') ?? '');
+  const client_id = String(formData.get('client_id') ?? '');
+  const supabase = await createClient();
+  const { data: orig, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !orig) {
+    console.error('[duplicateEvent] failed', error);
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, created_at, updated_at, deleted_at, ...rest } = orig;
+  void created_at;
+  void updated_at;
+  void deleted_at;
+  await supabase.from('events').insert({ ...rest, descricao: `${rest.descricao} (cópia)` });
+  revalidatePath(`/clients/${client_id}`);
+  revalidatePath(`/clients/${client_id}/edit`);
+}
+
+// ─────────── UNDO DELETE ───────────
+
+export async function undoDelete(args: {
+  entity: Entity;
+  id: string;
+  client_id: string;
+}) {
+  if (!ALLOWED_TABLES[args.entity]) throw new Error('invalid entity');
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from(args.entity)
+    .update({ deleted_at: null })
+    .eq('id', args.id);
+  if (error) {
+    console.error('[undoDelete] failed', error);
+    return { ok: false } as const;
+  }
+  revalidatePath(`/clients/${args.client_id}`);
+  revalidatePath(`/clients/${args.client_id}/edit`);
+  return { ok: true } as const;
 }
 
 // ─────────── OVERRIDES (edição ponto-a-ponto no gráfico) ───────────

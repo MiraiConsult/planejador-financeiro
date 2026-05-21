@@ -26,6 +26,8 @@ type ButtonProps = ComponentProps<typeof Button>;
 interface Props extends Omit<ButtonProps, 'type'> {
   /** Mensagem do toast de sucesso após o action terminar. Vazio = sem toast. */
   successMessage?: string;
+  /** Callback chamado quando o action conclui (sem erro). Útil pra toasts customizados. */
+  successCallback?: () => void;
   /** Conteúdo do botão (texto + ícones). */
   children: ReactNode;
 }
@@ -33,21 +35,28 @@ interface Props extends Omit<ButtonProps, 'type'> {
 /**
  * Botão de submit que:
  *  - mostra spinner enquanto o server action está pendente
- *  - emite toast.success(successMessage) quando o action conclui
+ *  - emite toast.success(successMessage) quando o action conclui (se passado)
+ *  - chama successCallback() quando o action conclui (se passado)
  *
  * Precisa estar DENTRO de um <form action={serverAction}>.
- * Se o action lançar, Next mostra o overlay/error — não chamamos success.
  */
-export function SubmitButton({ successMessage, children, disabled, ...rest }: Props) {
+export function SubmitButton({
+  successMessage,
+  successCallback,
+  children,
+  disabled,
+  ...rest
+}: Props) {
   const { pending } = useFormStatus();
   const wasPending = useRef(false);
 
   useEffect(() => {
     if (wasPending.current && !pending) {
       if (successMessage) toast.success(successMessage);
+      if (successCallback) successCallback();
     }
     wasPending.current = pending;
-  }, [pending, successMessage]);
+  }, [pending, successMessage, successCallback]);
 
   return (
     <Button type="submit" disabled={pending || disabled} {...rest}>
