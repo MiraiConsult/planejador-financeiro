@@ -13,6 +13,7 @@ import {
   LineChart as LineChartIcon,
   Trash2,
   Copy,
+  ChevronDown,
 } from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -132,6 +133,44 @@ const tipoOptions = [
   { value: 'outro', label: 'Outro', natureza: 'estoque' },
 ];
 
+// Labels amigáveis das categorias de despesa (UI). Chaves continuam
+// snake_case por compatibilidade com o enum do banco.
+const expenseCategoryLabels: Record<string, string> = {
+  moradia: 'Moradia',
+  alimentacao: 'Alimentação',
+  transporte: 'Transporte',
+  saude: 'Saúde',
+  lazer: 'Lazer',
+  servicos_dom: 'Serviços domésticos',
+  filhos: 'Filhos',
+  estudos: 'Estudos',
+  viagens: 'Viagens',
+  cuidado_familia: 'Cuidado com a família',
+  outro: 'Outro',
+};
+
+const expenseCategoryOptions = Object.entries(expenseCategoryLabels).map(([value, label]) => ({
+  value,
+  label,
+}));
+
+const recorrenciaLabels: Record<string, string> = {
+  recorrente_anual: 'Todo ano',
+  unico: 'Apenas no início',
+  recorrente_espacado: 'A cada N anos',
+};
+
+const eventTipoLabels: Record<string, string> = {
+  sonho: 'Sonho',
+  compra: 'Compra',
+  viagem_pontual: 'Viagem',
+  heranca: 'Herança',
+  imprevisto: 'Imprevisto',
+  venda_ativo: 'Venda de ativo',
+};
+
+const tipoLabel = (v: string) => tipoOptions.find((t) => t.value === v)?.label ?? v;
+
 // ─── primitive: numeric field com label ───
 
 function NumField({
@@ -239,12 +278,13 @@ function SelectField({
   );
 }
 
-// ─── card chrome reutilizável ───
+// ─── card chrome reutilizável (colapsável) ───
 
 function EditorCard({
   icon: Icon,
   title,
   subtitle,
+  rightSummary,
   saveStatus,
   onDelete,
   onDuplicate,
@@ -253,26 +293,44 @@ function EditorCard({
   icon: typeof Wallet;
   title: string;
   subtitle?: string;
+  /** Conteúdo à direita do header, mesmo quando colapsado (ex.: valor principal). */
+  rightSummary?: React.ReactNode;
   saveStatus: React.ReactNode;
   onDelete: () => void;
   onDuplicate: () => void;
   children: React.ReactNode;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  function stop(e: React.MouseEvent) {
+    e.stopPropagation();
+  }
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50/40">
-        <div className="h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-600 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 text-left"
+      >
+        <ChevronDown
+          size={14}
+          className={`text-slate-300 transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
+        <div className="h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
           <Icon size={15} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{title}</p>
           {subtitle && <p className="text-[11px] text-slate-500 truncate">{subtitle}</p>}
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {saveStatus}
+        {rightSummary && <div className="shrink-0 text-right">{rightSummary}</div>}
+        <div className="flex items-center gap-2 shrink-0 ml-2" onClick={stop}>
+          {expanded && saveStatus}
           <button
             type="button"
-            onClick={onDuplicate}
+            onClick={(e) => {
+              stop(e);
+              onDuplicate();
+            }}
             className="text-slate-400 hover:text-slate-900 p-1"
             title="Duplicar"
           >
@@ -280,15 +338,20 @@ function EditorCard({
           </button>
           <button
             type="button"
-            onClick={onDelete}
+            onClick={(e) => {
+              stop(e);
+              onDelete();
+            }}
             className="text-slate-400 hover:text-red-600 p-1"
             title="Excluir"
           >
             <Trash2 size={14} />
           </button>
         </div>
-      </div>
-      <div className="p-5 space-y-5">{children}</div>
+      </button>
+      {expanded && (
+        <div className="p-5 space-y-5 border-t border-slate-100 bg-slate-50/40">{children}</div>
+      )}
     </div>
   );
 }
@@ -417,9 +480,15 @@ export function AssetEditor({
     <EditorCard
       icon={Icon}
       title={local.nome || 'Sem nome'}
-      subtitle={`${tipoOptions.find((t) => t.value === local.tipo)?.label ?? local.tipo} · ${
+      subtitle={`${tipoLabel(local.tipo)} · ${
         isFluxo ? 'receita anual' : 'patrimônio'
       } · ${idadeInicio || '?'}–${idadeFim || '?'}`}
+      rightSummary={
+        <p className="text-sm font-semibold tabular-nums text-slate-900">
+          {brl(toNumber(local.valor))}
+          {isFluxo && <span className="text-[10px] font-normal text-slate-400">/ano</span>}
+        </p>
+      }
       saveStatus={<SaveStatusIndicator status={status} lastSavedAt={lastSavedAt} error={error} />}
       onDelete={async () => {
         const fd = new FormData();
@@ -608,26 +677,12 @@ export function AssetEditor({
           </>
         )}
 
-        <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
-          <input
-            type="checkbox"
-            checked={local.indexado_inflacao}
-            onChange={(e) => setLocal({ ...local, indexado_inflacao: e.target.checked })}
-            className="rounded"
-          />
-          Indexado à inflação
-        </label>
       </div>
     </EditorCard>
   );
 }
 
 // ─── EXPENSE EDITOR ───
-
-const expenseCategorias = [
-  'moradia', 'alimentacao', 'transporte', 'saude', 'lazer',
-  'servicos_dom', 'filhos', 'estudos', 'viagens', 'cuidado_familia', 'outro',
-];
 
 export function ExpenseEditor({
   expense,
@@ -697,9 +752,15 @@ export function ExpenseEditor({
     <EditorCard
       icon={Receipt}
       title={local.descricao || 'Nova despesa'}
-      subtitle={`${local.categoria} · ${idadeInicio || '?'}–${idadeFim || '?'} · ${
-        local.valor_mensal ? brl(toNumber(local.valor_mensal)) + '/mês' : 'sem valor'
+      subtitle={`${expenseCategoryLabels[local.categoria] ?? local.categoria} · ${idadeInicio || '?'}–${
+        idadeFim || '?'
       }${local.essencial ? ' · essencial' : ''}`}
+      rightSummary={
+        <p className="text-sm font-semibold tabular-nums text-red-600">
+          {brl(toNumber(local.valor_mensal))}
+          <span className="text-[10px] font-normal text-slate-400">/mês</span>
+        </p>
+      }
       saveStatus={<SaveStatusIndicator status={status} lastSavedAt={lastSavedAt} error={error} />}
       onDelete={async () => {
         const fd = new FormData();
@@ -758,7 +819,7 @@ export function ExpenseEditor({
           label="Categoria"
           value={local.categoria}
           onChange={(v) => setLocal({ ...local, categoria: v })}
-          options={expenseCategorias.map((c) => ({ value: c, label: c }))}
+          options={expenseCategoryOptions}
         />
         <NumField
           label="Valor mensal"
@@ -803,7 +864,7 @@ export function ExpenseEditor({
             onChange={(v) => setLocal({ ...local, intervalo_anos: v })}
           />
         )}
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
           <input
             type="checkbox"
             checked={local.essencial}
@@ -812,15 +873,6 @@ export function ExpenseEditor({
           />
           Despesa essencial
         </label>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={local.indexado_inflacao}
-            onChange={(e) => setLocal({ ...local, indexado_inflacao: e.target.checked })}
-            className="rounded"
-          />
-          Indexado à inflação
-        </label>
       </div>
     </EditorCard>
   );
@@ -828,13 +880,9 @@ export function ExpenseEditor({
 
 // ─── EVENT EDITOR ───
 
-const eventTipos = [
-  { value: 'sonho', label: 'Sonho' },
-  { value: 'compra', label: 'Compra' },
-  { value: 'viagem_pontual', label: 'Viagem' },
-  { value: 'heranca', label: 'Herança' },
-  { value: 'imprevisto', label: 'Imprevisto' },
-];
+const eventTipos = Object.entries(eventTipoLabels)
+  .filter(([k]) => k !== 'venda_ativo')
+  .map(([value, label]) => ({ value, label }));
 
 export function EventEditor({
   event,
@@ -882,9 +930,14 @@ export function EventEditor({
     <EditorCard
       icon={CalendarHeart}
       title={local.descricao || 'Novo evento'}
-      subtitle={`${local.tipo} · idade ${local.idade_inicio || '?'} · ${
-        valorNum >= 0 ? '+' : '−'
-      } ${brl(Math.abs(valorNum))}`}
+      subtitle={`${eventTipoLabels[local.tipo] ?? local.tipo} · idade ${local.idade_inicio || '?'} · ${
+        recorrenciaLabels[local.padrao_recorrencia] ?? local.padrao_recorrencia
+      }`}
+      rightSummary={
+        <p className={`text-sm font-semibold tabular-nums ${valorNum >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          {valorNum >= 0 ? '+' : '−'} {brl(Math.abs(valorNum))}
+        </p>
+      }
       saveStatus={<SaveStatusIndicator status={status} lastSavedAt={lastSavedAt} error={error} />}
       onDelete={async () => {
         const fd = new FormData();
@@ -982,15 +1035,6 @@ export function EventEditor({
             onChange={(v) => setLocal({ ...local, intervalo_anos: v })}
           />
         )}
-        <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
-          <input
-            type="checkbox"
-            checked={local.indexado_inflacao}
-            onChange={(e) => setLocal({ ...local, indexado_inflacao: e.target.checked })}
-            className="rounded"
-          />
-          Indexado à inflação
-        </label>
       </div>
     </EditorCard>
   );

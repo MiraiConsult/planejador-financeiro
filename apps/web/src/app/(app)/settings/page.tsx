@@ -57,12 +57,11 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <CardTitle>Macroeconomia</CardTitle>
-                <CardDescription>Inflação e taxa de desconto usadas nos cálculos</CardDescription>
+                <CardDescription>Taxa de desconto usada nos cálculos (sistema opera em valores nominais)</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="grid sm:grid-cols-2 gap-5">
-            <FieldPct name="inflacao_anual_br" label="Inflação anual (IPCA)" value={v('inflacao_anual_br')} hint="usada para indexar valores no tempo" />
             <FieldPct name="taxa_desconto_npv" label="Taxa de desconto (NPV)" value={v('taxa_desconto_npv')} hint="para valor presente dos fluxos futuros" />
           </CardContent>
         </Card>

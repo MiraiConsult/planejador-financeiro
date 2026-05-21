@@ -11,7 +11,6 @@ import type {
 } from './types';
 import {
   eventoDisparaNoAno,
-  fatorInflacao,
   idadeNoReferencial,
   ordenaParaLiquidacao,
   resolveAssumptions,
@@ -63,7 +62,10 @@ export function simulate(input: SimulationInput): SimulationResult {
   for (let t = 0; t <= numAnos; t++) {
     const idade = idadeInicial + t;
     const ano = anoInicial + t;
-    const fator = fatorInflacao(premissas.inflacao_anual_br, t);
+    // Sistema operando em VALORES NOMINAIS — inflação desativada.
+    // Mantemos o fator multiplicativo na assinatura de valorAnualSerie,
+    // mas sempre passamos 1 (sem reajuste por inflação).
+    const fator = 1;
 
     const saldoInicial = saldoFinanceiro;
 

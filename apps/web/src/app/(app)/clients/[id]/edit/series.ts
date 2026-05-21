@@ -14,7 +14,9 @@ import { valorAnualSerie } from '@planejador/engine';
 
 // Inflação anual default usada pra projeção visual (espelha o assumptions
 // padrão; será substituído por premissas do cliente em fase 2).
-export const INFLACAO_AA_DEFAULT = 0.045;
+// Sistema opera em valores NOMINAIS — inflação desativada.
+// Constante mantida em 0 para manter a forma das fórmulas estável.
+export const INFLACAO_AA_DEFAULT = 0;
 
 export interface SeriesPoint {
   idade: number;

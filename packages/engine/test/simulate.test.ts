@@ -49,9 +49,9 @@ describe('Engine — receitas e despesas (M_07 etapas 3–4)', () => {
     expect(rowByAge(60)!.receitas_total).toBe(267_500);
   });
 
-  it('idade 81: salário cessou aos 80 ⇒ só arrendamento, corrigido pela inflação', () => {
-    // t = 81 - 60 = 21 ⇒ fator = 1.04^21
-    const esperado = 135_000 * Math.pow(1.04, 21);
+  it('idade 81: salário cessou aos 80 ⇒ só arrendamento (valor nominal)', () => {
+    // Sistema opera em valores nominais — inflação desativada.
+    const esperado = 135_000;
     expect(rowByAge(81)!.receitas_total).toBeCloseTo(esperado, 1);
   });
 
@@ -82,9 +82,10 @@ describe('Engine — eventos (M_07 etapa 5)', () => {
     expect(r.detalhes.eventos_disparados.map((e) => e.event_id)).toContain('e01');
   });
 
-  it('idade 65: dispara festa casamento (-126.000 corrigido por inflação)', () => {
+  it('idade 65: dispara festa casamento (-126.000 nominais)', () => {
     const r = rowByAge(65)!;
-    const esperado = 126_000 * Math.pow(1.04, 5);
+    // Sistema opera em valores nominais — inflação desativada.
+    const esperado = 126_000;
     expect(r.eventos_negativos).toBeCloseTo(esperado, 1);
   });
 
