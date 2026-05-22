@@ -49,6 +49,15 @@ export function simulate(input: SimulationInput): SimulationResult {
     0,
   );
 
+  // ─── Passivos (dívidas declaradas pelo cliente) ───
+  // Trabalhamos numa cópia mutável de cada passivo + seu saldo devedor
+  // corrente, recalculado a cada ano com saldo*(1+juros) - parcelaAnual.
+  type PassivoRT = { ref: import('./types').Liability; saldo: number };
+  const passivos: PassivoRT[] = (input.liabilities ?? []).map((l) => ({
+    ref: l,
+    saldo: l.saldo_atual,
+  }));
+
   const retornoEfetivo = retornoEfetivoDoCenario(
     client.perfil_carteira,
     client,
@@ -136,6 +145,18 @@ export function simulate(input: SimulationInput): SimulationResult {
       }
     }
 
+    // ─── Passivos: parcelas pagas no ano (despesa essencial) ───
+    let parcelasPassivos = 0;
+    for (const p of passivos) {
+      if (idade < p.ref.idade_inicio || idade > p.ref.idade_fim) continue;
+      const parcelaAnual = p.ref.parcela_mensal * 12;
+      parcelasPassivos += parcelaAnual;
+      // Atualiza saldo devedor: saldo*(1+juros) - parcela paga; floor 0.
+      const juros = p.ref.juros_aa ?? 0;
+      p.saldo = Math.max(0, p.saldo * (1 + juros) - parcelaAnual);
+    }
+    despesasEssenciais += parcelasPassivos;
+
     const fluxoLiquido =
       receitas + eventosPositivos - despesasEssenciais - despesasNaoEssenciais - eventosNegativos;
 
@@ -197,7 +218,11 @@ export function simulate(input: SimulationInput): SimulationResult {
       )
       .reduce((acc, a) => acc + valorAtualEstoque(a, t, premissas), 0);
 
-    const patrimonioTotal = saldoFinal + ativosEstoqueAtualizados - saldoDivida;
+    // Saldo devedor remanescente dos passivos do cliente naquele ano
+    const saldoPassivos = passivos.reduce((acc, p) => acc + p.saldo, 0);
+
+    const patrimonioTotal =
+      saldoFinal + ativosEstoqueAtualizados - saldoDivida - saldoPassivos;
 
     const detalhes: RowDetalhes = {
       receitas_por_ativo: receitasPorAtivo,

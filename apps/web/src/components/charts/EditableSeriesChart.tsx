@@ -22,7 +22,7 @@ import { RotateCcw } from 'lucide-react';
 import { setOverride, setOverridesBatch, clearOverrides } from '@/app/(app)/clients/[id]/edit/actions';
 import { toast } from '@/components/ui/Toast';
 
-type Entity = 'assets' | 'expenses' | 'events';
+type Entity = 'assets' | 'expenses' | 'events' | 'liabilities';
 
 export interface EditablePoint {
   idade: number;

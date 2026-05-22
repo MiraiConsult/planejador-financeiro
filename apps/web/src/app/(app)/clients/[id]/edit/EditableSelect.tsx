@@ -14,7 +14,7 @@ export interface SelectOption {
   natureza?: string;
 }
 
-type Kind = 'asset_tipo' | 'expense_categoria' | 'event_tipo';
+type Kind = 'asset_tipo' | 'expense_categoria' | 'event_tipo' | 'liability_tipo';
 
 interface Props {
   label: string;

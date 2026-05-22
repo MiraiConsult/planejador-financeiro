@@ -382,6 +382,72 @@ export async function duplicateEvent(formData: FormData) {
   revalidatePath(`/clients/${client_id}/edit`);
 }
 
+// ─────────── LIABILITIES ───────────
+
+export async function quickAddLiability(args: {
+  client_id: string;
+  idade_inicio: number;
+  idade_fim: number;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('liabilities')
+    .insert({
+      client_id: args.client_id,
+      nome: 'Novo passivo',
+      tipo: 'outro',
+      saldo_atual: 50000,
+      juros_aa: 0.10,
+      parcela_mensal: 1000,
+      idade_inicio: args.idade_inicio,
+      idade_fim: args.idade_fim,
+    })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('[quickAddLiability] failed', error);
+    return { ok: false, error: error?.message ?? 'unknown' };
+  }
+  revalidatePath(`/clients/${args.client_id}`);
+  revalidatePath(`/clients/${args.client_id}/edit`);
+  return { ok: true, id: data.id };
+}
+
+export async function deleteLiability(formData: FormData) {
+  const id = String(formData.get('id') ?? '');
+  const client_id = String(formData.get('client_id') ?? '');
+  const supabase = await createClient();
+  await supabase
+    .from('liabilities')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id);
+  revalidatePath(`/clients/${client_id}`);
+  revalidatePath(`/clients/${client_id}/edit`);
+}
+
+export async function duplicateLiability(formData: FormData) {
+  const id = String(formData.get('id') ?? '');
+  const client_id = String(formData.get('client_id') ?? '');
+  const supabase = await createClient();
+  const { data: orig, error } = await supabase
+    .from('liabilities')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !orig) {
+    console.error('[duplicateLiability] failed', error);
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, created_at, updated_at, deleted_at, ...rest } = orig;
+  void created_at;
+  void updated_at;
+  void deleted_at;
+  await supabase.from('liabilities').insert({ ...rest, nome: `${rest.nome} (cópia)` });
+  revalidatePath(`/clients/${client_id}`);
+  revalidatePath(`/clients/${client_id}/edit`);
+}
+
 // ─────────── PATCH GRANULAR (auto-save) ───────────
 
 const ASSET_FIELDS = new Set([
@@ -401,10 +467,15 @@ const EVENT_FIELDS = new Set([
   'idade_fim', 'intervalo_anos', 'indexado_inflacao', 'prioridade',
   'ativo_referenciado', 'notas',
 ]);
+const LIABILITY_FIELDS = new Set([
+  'nome', 'tipo', 'saldo_atual', 'juros_aa', 'parcela_mensal',
+  'idade_inicio', 'idade_fim', 'notas',
+]);
 const FIELD_WHITELIST: Record<Entity, Set<string>> = {
   assets: ASSET_FIELDS,
   expenses: EXPENSE_FIELDS,
   events: EVENT_FIELDS,
+  liabilities: LIABILITY_FIELDS,
 };
 
 /**
@@ -470,7 +541,7 @@ export async function undoDelete(args: {
 
 // ─────────── CUSTOM CATEGORIES ───────────
 
-type CategoryKind = 'asset_tipo' | 'expense_categoria' | 'event_tipo';
+type CategoryKind = 'asset_tipo' | 'expense_categoria' | 'event_tipo' | 'liability_tipo';
 
 function slugify(s: string): string {
   return s
@@ -531,12 +602,13 @@ export async function addCustomCategory(args: {
 
 // ─────────── OVERRIDES (edição ponto-a-ponto no gráfico) ───────────
 
-type Entity = 'assets' | 'expenses' | 'events';
+type Entity = 'assets' | 'expenses' | 'events' | 'liabilities';
 
 const ALLOWED_TABLES: Record<Entity, true> = {
   assets: true,
   expenses: true,
   events: true,
+  liabilities: true,
 };
 
 /**

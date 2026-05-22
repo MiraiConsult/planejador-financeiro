@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Wallet, Receipt, CalendarHeart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Wallet, Receipt, CalendarHeart, TrendingDown, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -8,6 +8,7 @@ import {
   AssetEditor,
   ExpenseEditor,
   EventEditor,
+  LiabilityEditor,
   AddItemButton,
 } from './ItemEditor';
 
@@ -30,6 +31,7 @@ export default async function EditClientPage({ params }: { params: Params }) {
     { data: assets },
     { data: expenses },
     { data: events },
+    { data: liabilities },
     { data: customCategories },
   ] = await Promise.all([
     supabase
@@ -40,6 +42,7 @@ export default async function EditClientPage({ params }: { params: Params }) {
     supabase.from('assets').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
     supabase.from('expenses').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
     supabase.from('events').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
+    supabase.from('liabilities').select('*').eq('client_id', client_id).is('deleted_at', null).order('created_at'),
     supabase.from('custom_categories').select('kind, value, label, extra').order('label'),
   ]);
 
@@ -60,6 +63,9 @@ export default async function EditClientPage({ params }: { params: Params }) {
       .map((c) => ({ value: c.value, label: c.label })),
     event_tipo: cats
       .filter((c) => c.kind === 'event_tipo')
+      .map((c) => ({ value: c.value, label: c.label })),
+    liability_tipo: cats
+      .filter((c) => c.kind === 'liability_tipo')
       .map((c) => ({ value: c.value, label: c.label })),
   };
 
@@ -91,6 +97,12 @@ export default async function EditClientPage({ params }: { params: Params }) {
     .reduce((acc, e) => acc + Number(e.valor_mensal), 0);
   const totalEventosImpacto = eventsList.reduce(
     (acc, e) => acc + Math.abs(Number(e.valor)),
+    0,
+  );
+  const liabilitiesList = liabilities ?? [];
+  const totalPassivos = liabilitiesList.reduce((acc, l) => acc + Number(l.saldo_atual), 0);
+  const totalParcelaMes = liabilitiesList.reduce(
+    (acc, l) => acc + Number(l.parcela_mensal),
     0,
   );
 
@@ -244,6 +256,52 @@ export default async function EditClientPage({ params }: { params: Params }) {
           ))}
           <AddItemButton
             kind="event"
+            client_id={client_id}
+            idadeInicio={idadeAtual}
+            idadeFim={horizonteIdadeFim}
+          />
+        </CardContent>
+      </Card>
+
+      {/* PASSIVOS */}
+      <Card>
+        <CardHeader className="border-b border-slate-100/70 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center ring-1 ring-inset ring-orange-100">
+              <TrendingDown size={16} />
+            </div>
+            <div>
+              <CardTitle>Passivos &amp; dívidas</CardTitle>
+              <CardDescription>
+                {liabilitiesList.length} cadastrados
+                {totalPassivos > 0 && (
+                  <>
+                    {' · '}
+                    <span className="font-medium text-orange-600 tabular-nums">{brlK(totalPassivos)}</span>{' '}
+                    de saldo devedor
+                  </>
+                )}
+                {totalParcelaMes > 0 && (
+                  <>
+                    {' · '}
+                    <span className="tabular-nums">{brlK(totalParcelaMes)}</span>/mês em parcelas
+                  </>
+                )}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-5">
+          {liabilitiesList.map((l) => (
+            <LiabilityEditor
+              key={l.id}
+              liability={l}
+              client_id={client_id}
+              customTipos={customByKind.liability_tipo}
+            />
+          ))}
+          <AddItemButton
+            kind="liability"
             client_id={client_id}
             idadeInicio={idadeAtual}
             idadeFim={horizonteIdadeFim}

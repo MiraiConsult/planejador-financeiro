@@ -95,6 +95,19 @@ export interface Expense {
   notas?: string;
 }
 
+export interface Liability {
+  id: string;
+  nome: string;
+  tipo: string;                     // text livre (financiamento_imovel, emprestimo, cartao, outro, ...)
+  saldo_atual: number;              // BRL devido hoje
+  juros_aa?: number;                // taxa de juros nominal anual (fração)
+  parcela_mensal: number;           // BRL/mês pago
+  idade_inicio: number;
+  idade_fim: number;
+  overrides?: Record<string, number>; // saldo devedor anual overridado por idade
+  notas?: string;
+}
+
 export interface FinancialEvent {
   id: string;
   tipo: EventTipo;
@@ -142,6 +155,7 @@ export interface SimulationInput {
   assets: Asset[];
   expenses: Expense[];
   events: FinancialEvent[];
+  liabilities?: Liability[];
   assumptions: Assumptions;
   scenario: Scenario;
   reference_date?: string;          // ISO; default: hoje. Usado para derivar idade_inicial.

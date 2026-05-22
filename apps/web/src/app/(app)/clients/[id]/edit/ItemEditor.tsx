@@ -11,6 +11,7 @@ import {
   CalendarHeart,
   Receipt,
   LineChart as LineChartIcon,
+  TrendingDown,
   Trash2,
   Copy,
   ChevronDown,
@@ -33,9 +34,11 @@ import {
   deleteAsset,
   deleteExpense,
   deleteEvent,
+  deleteLiability,
   duplicateAsset,
   duplicateExpense,
   duplicateEvent,
+  duplicateLiability,
 } from './actions';
 
 // ─── tipos compartilhados ───
@@ -87,6 +90,17 @@ interface EventRow {
   idade_fim: number | null;
   intervalo_anos: number | null;
   indexado_inflacao: boolean;
+}
+
+interface LiabilityRow {
+  id: string;
+  nome: string;
+  tipo: string;
+  saldo_atual: number | string;
+  juros_aa: number | string | null;
+  parcela_mensal: number | string;
+  idade_inicio: number;
+  idade_fim: number;
 }
 
 // ─── helpers ───
@@ -169,6 +183,20 @@ const eventTipoLabels: Record<string, string> = {
   imprevisto: 'Imprevisto',
   venda_ativo: 'Venda de ativo',
 };
+
+const liabilityTipoLabels: Record<string, string> = {
+  financiamento_imovel: 'Financiamento imobiliário',
+  emprestimo_pessoal: 'Empréstimo pessoal',
+  cartao_credito: 'Cartão de crédito',
+  consignado: 'Crédito consignado',
+  financiamento_veiculo: 'Financiamento de veículo',
+  outro: 'Outro',
+};
+
+const liabilityTipoOptions = Object.entries(liabilityTipoLabels).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const tipoLabel = (v: string) => tipoOptions.find((t) => t.value === v)?.label ?? v;
 
@@ -1054,11 +1082,213 @@ export function EventEditor({
   );
 }
 
+// ─── LIABILITY EDITOR ───
+
+import { seriesAplicacaoFinanceira as _unused1 } from './series';
+void _unused1;
+
+function seriesPassivo(opts: {
+  saldoAtual: number;
+  jurosAa: number;
+  parcelaMensal: number;
+  idadeInicio: number;
+  idadeFim: number;
+}) {
+  // Modelo: saldo evolui ano a ano com juros e parcela paga; floor 0.
+  const pts: { idade: number; base: number; override?: number }[] = [];
+  let saldo = opts.saldoAtual;
+  const parcAnual = opts.parcelaMensal * 12;
+  for (let idade = opts.idadeInicio; idade <= opts.idadeFim; idade++) {
+    if (idade > opts.idadeInicio) {
+      saldo = Math.max(0, saldo * (1 + opts.jurosAa) - parcAnual);
+    }
+    pts.push({ idade, base: Math.round(saldo) });
+  }
+  return pts;
+}
+
+export function LiabilityEditor({
+  liability,
+  client_id,
+  customTipos = [],
+}: {
+  liability: LiabilityRow;
+  client_id: string;
+  customTipos?: SelectOption[];
+}) {
+  const [local, setLocal] = useState({
+    nome: liability.nome,
+    tipo: liability.tipo,
+    saldo_atual: String(liability.saldo_atual ?? ''),
+    juros_aa: fractionToPct(liability.juros_aa),
+    parcela_mensal: String(liability.parcela_mensal ?? ''),
+    idade_inicio: String(liability.idade_inicio),
+    idade_fim: String(liability.idade_fim),
+  });
+
+  const idadeInicio = toNumber(local.idade_inicio);
+  const idadeFim = toNumber(local.idade_fim);
+  const ageRangeValid = idadeFim >= idadeInicio && idadeInicio > 0;
+
+  const { status, lastSavedAt, error } = useAutoSave(
+    local,
+    async (v) => {
+      const saldoN = toNumber(v.saldo_atual);
+      const parcN = toNumber(v.parcela_mensal);
+      if (saldoN < 0) return { ok: false, error: 'Saldo inválido' };
+      if (parcN <= 0) return { ok: false, error: 'Parcela mensal deve ser > 0' };
+      if (!ageRangeValid) return { ok: false, error: 'Idade fim ≥ idade início' };
+      const patch: Record<string, unknown> = {
+        nome: v.nome.trim() || 'Sem nome',
+        tipo: v.tipo,
+        saldo_atual: saldoN,
+        juros_aa: pctToFraction(v.juros_aa),
+        parcela_mensal: parcN,
+        idade_inicio: idadeInicio,
+        idade_fim: idadeFim,
+      };
+      return patchEntity({ entity: 'liabilities', id: liability.id, client_id, patch });
+    },
+    { debounceMs: 800 },
+  );
+
+  const points = useMemo(() => {
+    if (!ageRangeValid) return [];
+    return seriesPassivo({
+      saldoAtual: toNumber(local.saldo_atual),
+      jurosAa: Number(pctToFraction(local.juros_aa) ?? 0),
+      parcelaMensal: toNumber(local.parcela_mensal),
+      idadeInicio,
+      idadeFim,
+    });
+  }, [local, idadeInicio, idadeFim, ageRangeValid]);
+
+  const parcelaNum = toNumber(local.parcela_mensal);
+  const saldoFinal = points.length > 0 ? points[points.length - 1]!.base : 0;
+
+  return (
+    <EditorCard
+      icon={TrendingDown}
+      title={local.nome || 'Novo passivo'}
+      subtitle={`${
+        liabilityTipoLabels[local.tipo]
+          ?? customTipos.find((c) => c.value === local.tipo)?.label
+          ?? local.tipo
+      } · ${idadeInicio || '?'}–${idadeFim || '?'}`}
+      rightSummary={
+        <p className="text-sm font-semibold tabular-nums text-orange-600">
+          {brl(parcelaNum)}
+          <span className="text-[10px] font-normal text-slate-400">/mês</span>
+        </p>
+      }
+      saveStatus={<SaveStatusIndicator status={status} lastSavedAt={lastSavedAt} error={error} />}
+      onDelete={async () => {
+        const fd = new FormData();
+        fd.set('id', liability.id);
+        fd.set('client_id', client_id);
+        await deleteLiability(fd);
+        toast.withAction(
+          'Passivo excluído',
+          {
+            label: 'Desfazer',
+            onClick: async () => {
+              const res = await undoDelete({ entity: 'liabilities', id: liability.id, client_id });
+              if (res.ok) toast.success('Passivo restaurado');
+              else toast.error('Não foi possível desfazer');
+            },
+          },
+          { kind: 'success', durationMs: 6000 },
+        );
+      }}
+      onDuplicate={async () => {
+        const fd = new FormData();
+        fd.set('id', liability.id);
+        fd.set('client_id', client_id);
+        await duplicateLiability(fd);
+        toast.success('Passivo duplicado');
+      }}
+    >
+      {ageRangeValid && points.length > 1 ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/40 p-4">
+          <EditableSeriesChart
+            entity="liabilities"
+            id={liability.id}
+            client_id={client_id}
+            points={points}
+            color="#f97316"
+            label="Saldo devedor projetado"
+          />
+          <p className="mt-2 text-[11px] text-slate-500">
+            {brl(toNumber(local.saldo_atual))} aos {idadeInicio} → {brl(saldoFinal)} aos {idadeFim}
+            {saldoFinal > 0 && parcelaNum > 0 && ' (não quita totalmente — ajuste parcela ou prazo)'}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 p-6 text-center text-xs text-slate-400">
+          Ajuste saldo e período pra visualizar a projeção
+        </div>
+      )}
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <TextField
+          label="Nome"
+          value={local.nome}
+          onChange={(v) => setLocal({ ...local, nome: v })}
+          className="sm:col-span-2"
+        />
+        <EditableSelect
+          label="Tipo"
+          value={local.tipo}
+          onChange={(v) => setLocal({ ...local, tipo: v })}
+          builtin={liabilityTipoOptions}
+          custom={customTipos}
+          kind="liability_tipo"
+          client_id={client_id}
+          className="sm:col-span-2"
+        />
+        <NumField
+          label="Saldo devedor hoje"
+          value={local.saldo_atual}
+          onChange={(v) => setLocal({ ...local, saldo_atual: v })}
+          prefix="R$"
+          step={100}
+        />
+        <NumField
+          label="Juros a.a."
+          value={local.juros_aa}
+          onChange={(v) => setLocal({ ...local, juros_aa: v })}
+          suffix="%"
+          step={0.1}
+          hint="Taxa nominal (ex.: financiamento 10%)"
+        />
+        <NumField
+          label="Parcela mensal"
+          value={local.parcela_mensal}
+          onChange={(v) => setLocal({ ...local, parcela_mensal: v })}
+          prefix="R$"
+          step={50}
+        />
+        <NumField
+          label="Idade início"
+          value={local.idade_inicio}
+          onChange={(v) => setLocal({ ...local, idade_inicio: v })}
+        />
+        <NumField
+          label="Idade fim"
+          value={local.idade_fim}
+          onChange={(v) => setLocal({ ...local, idade_fim: v })}
+          hint={!ageRangeValid ? `Deve ser ≥ ${idadeInicio}` : undefined}
+        />
+      </div>
+    </EditorCard>
+  );
+}
+
 // ─── BOTÕES DE ADICIONAR ───
 
 import { Plus } from 'lucide-react';
 import { useTransition } from 'react';
-import { quickAddAsset, quickAddExpense, quickAddEvent } from './actions';
+import { quickAddAsset, quickAddExpense, quickAddEvent, quickAddLiability } from './actions';
 
 export function AddItemButton({
   kind,
@@ -1066,7 +1296,7 @@ export function AddItemButton({
   idadeInicio,
   idadeFim,
 }: {
-  kind: 'asset' | 'expense' | 'event';
+  kind: 'asset' | 'expense' | 'event' | 'liability';
   client_id: string;
   idadeInicio: number;
   idadeFim: number;
@@ -1076,6 +1306,7 @@ export function AddItemButton({
     asset: 'Adicionar ativo ou receita',
     expense: 'Adicionar despesa',
     event: 'Adicionar evento',
+    liability: 'Adicionar passivo',
   };
   function handle() {
     startTransition(async () => {
@@ -1092,8 +1323,14 @@ export function AddItemButton({
         });
       } else if (kind === 'expense') {
         res = await quickAddExpense({ client_id, idade_inicio: idadeInicio, idade_fim: idadeFim });
-      } else {
+      } else if (kind === 'event') {
         res = await quickAddEvent({ client_id, idade_inicio: idadeInicio });
+      } else {
+        res = await quickAddLiability({
+          client_id,
+          idade_inicio: idadeInicio,
+          idade_fim: idadeFim,
+        });
       }
       if (res.ok) {
         toast.success('Item criado · edite abaixo');

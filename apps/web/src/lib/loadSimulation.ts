@@ -5,6 +5,7 @@ import type {
   Client as EngineClient,
   Expense,
   FinancialEvent,
+  Liability,
   Scenario,
   SimulationInput,
 } from '@planejador/engine';
@@ -20,12 +21,20 @@ export async function loadSimulationInput(client_id: string): Promise<{
 } | null> {
   const supabase = await createClient();
 
-  const [clientRes, assetsRes, expensesRes, eventsRes, assumptionsRes, scenariosRes] =
-    await Promise.all([
+  const [
+    clientRes,
+    assetsRes,
+    expensesRes,
+    eventsRes,
+    liabilitiesRes,
+    assumptionsRes,
+    scenariosRes,
+  ] = await Promise.all([
       supabase.from('clients').select('*').eq('id', client_id).maybeSingle(),
       supabase.from('assets').select('*').eq('client_id', client_id).is('deleted_at', null),
       supabase.from('expenses').select('*').eq('client_id', client_id).is('deleted_at', null),
       supabase.from('events').select('*').eq('client_id', client_id).is('deleted_at', null),
+      supabase.from('liabilities').select('*').eq('client_id', client_id).is('deleted_at', null),
       // pega a premissa do cliente; se não houver, usa a default do consultor (client_id IS NULL)
       supabase
         .from('assumptions')
@@ -100,6 +109,18 @@ export async function loadSimulationInput(client_id: string): Promise<{
     ativo_referenciado: ev.ativo_referenciado ?? undefined,
   }));
 
+  const liabilities: Liability[] = (liabilitiesRes.data ?? []).map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    tipo: l.tipo,
+    saldo_atual: Number(l.saldo_atual),
+    juros_aa: l.juros_aa != null ? Number(l.juros_aa) : undefined,
+    parcela_mensal: Number(l.parcela_mensal),
+    idade_inicio: l.idade_inicio,
+    idade_fim: l.idade_fim,
+    notas: l.notas ?? undefined,
+  }));
+
   const a = assumptionsRes.data;
   const assumptions: Assumptions = a
     ? {
@@ -144,6 +165,7 @@ export async function loadSimulationInput(client_id: string): Promise<{
     assets,
     expenses,
     events,
+    liabilities,
     assumptions,
     scenario,
     // usa hoje como data de referência por padrão; engine deriva idade
