@@ -243,6 +243,8 @@ export function StepPatrimonio({ state, update }: Props) {
                       a={a}
                       icon={meta.icon}
                       cor={meta.cor}
+                      expectativaVida={state.expectativa_vida_anos}
+                      idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
                       onUpdate={(updated) =>
                         update(
                           'assets',
@@ -382,6 +384,8 @@ export function StepPatrimonio({ state, update }: Props) {
                       key={l.id}
                       l={l}
                       label={meta?.label ?? l.tipo}
+                      expectativaVida={state.expectativa_vida_anos}
+                      idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
                       onUpdate={(updated) =>
                         update(
                           'liabilities',

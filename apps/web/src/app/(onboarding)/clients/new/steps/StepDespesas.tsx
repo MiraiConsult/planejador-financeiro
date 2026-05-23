@@ -266,6 +266,8 @@ export function StepDespesas({ state, update }: Props) {
                     icon={Icon}
                     cor={cor}
                     label={meta.label}
+                    expectativaVida={state.expectativa_vida_anos}
+                    idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
                     onUpdate={(updated) =>
                       update(
                         'expenses',

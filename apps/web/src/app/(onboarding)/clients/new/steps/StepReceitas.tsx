@@ -236,6 +236,8 @@ export function StepReceitas({ state, update }: Props) {
                     a={a}
                     icon={Icon}
                     cor={meta.cor}
+                    expectativaVida={state.expectativa_vida_anos}
+                    idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
                     onUpdate={(updated) =>
                       update(
                         'assets',
