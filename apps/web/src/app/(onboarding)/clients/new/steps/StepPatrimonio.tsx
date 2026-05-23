@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Building2,
   Plus,
@@ -9,13 +9,15 @@ import {
   Car,
   Trees,
   Gift,
-  Trash2,
   TrendingDown,
   CreditCard,
 } from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, EmptyState } from '../StepShell';
+import { CurrencyInput, idadeFromBirth } from '../helpers';
+import { EditableAssetEstoqueRow, EditableLiabilityRow } from '../EditableRows';
+import { toast } from '@/components/ui/Toast';
 import type { WizardState } from '../Wizard';
 import type { DraftAsset, DraftLiability } from '../types';
 
@@ -49,26 +51,32 @@ function brl(n: number) {
 export function StepPatrimonio({ state, update }: Props) {
   const [tipo, setTipo] = useState<DraftAsset['tipo']>('financeiro_liquido');
   const [nome, setNome] = useState('');
-  const [valor, setValor] = useState('');
+  const [valor, setValor] = useState<number>(0);
+  const ativosRef = useRef<HTMLDivElement>(null);
+  const passivosRef = useRef<HTMLDivElement>(null);
 
   const itens = state.assets.filter((a) => a.natureza === 'estoque');
 
   function addAsset() {
-    const v = Number(valor.replace(/\./g, '').replace(',', '.'));
-    if (!nome.trim() || !Number.isFinite(v) || v <= 0) return;
+    if (!nome.trim() || valor <= 0) return;
+    const idadeAtual = idadeFromBirth(state.data_nascimento) ?? 30;
     const asset: DraftAsset = {
       id: crypto.randomUUID(),
       nome: nome.trim(),
       tipo,
       natureza: 'estoque',
-      valor: v,
-      idade_inicio: state.idade_aposentadoria ?? 60,
+      valor,
+      idade_inicio: idadeAtual,
       idade_fim: state.expectativa_vida_anos,
       indexado_inflacao: true,
     };
     update('assets', [...state.assets, asset]);
+    toast.success(`Adicionado: ${asset.nome}`);
+    requestAnimationFrame(() => {
+      ativosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
     setNome('');
-    setValor('');
+    setValor(0);
   }
 
   function removeAsset(id: string) {
@@ -78,33 +86,35 @@ export function StepPatrimonio({ state, update }: Props) {
   // ─── Passivos ───
   const [pTipo, setPTipo] = useState<string>('financiamento_imovel');
   const [pNome, setPNome] = useState('');
-  const [pSaldo, setPSaldo] = useState('');
-  const [pParcela, setPParcela] = useState('');
+  const [pSaldo, setPSaldo] = useState<number>(0);
+  const [pParcela, setPParcela] = useState<number>(0);
   const [pJuros, setPJuros] = useState('');
 
   function addLiability() {
-    const saldo = Number(pSaldo.replace(/\./g, '').replace(',', '.'));
-    const parcela = Number(pParcela.replace(/\./g, '').replace(',', '.'));
-    if (!pNome.trim() || !Number.isFinite(saldo) || saldo <= 0 || !Number.isFinite(parcela) || parcela <= 0) return;
+    if (!pNome.trim() || pSaldo <= 0 || pParcela <= 0) return;
     const juros = pJuros ? Number(pJuros) / 100 : null;
     const idadeAtual = idadeFromBirth(state.data_nascimento) ?? 30;
     // Estima quantos anos até quitar: saldo/parcela_anual + pequena margem se há juros
-    const parcAnual = parcela * 12;
-    const anosAprox = Math.min(50, Math.ceil(saldo / Math.max(parcAnual, 1)) + (juros ? 5 : 0));
+    const parcAnual = pParcela * 12;
+    const anosAprox = Math.min(50, Math.ceil(pSaldo / Math.max(parcAnual, 1)) + (juros ? 5 : 0));
     const liability: DraftLiability = {
       id: crypto.randomUUID(),
       nome: pNome.trim(),
       tipo: pTipo,
-      saldo_atual: saldo,
+      saldo_atual: pSaldo,
       juros_aa: juros,
-      parcela_mensal: parcela,
+      parcela_mensal: pParcela,
       idade_inicio: idadeAtual,
       idade_fim: Math.min(state.expectativa_vida_anos, idadeAtual + anosAprox),
     };
     update('liabilities', [...state.liabilities, liability]);
+    toast.success(`Adicionado: ${liability.nome}`);
+    requestAnimationFrame(() => {
+      passivosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
     setPNome('');
-    setPSaldo('');
-    setPParcela('');
+    setPSaldo(0);
+    setPParcela(0);
     setPJuros('');
   }
 
@@ -193,11 +203,10 @@ export function StepPatrimonio({ state, update }: Props) {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
                     R$
                   </span>
-                  <Input
+                  <CurrencyInput
                     id="asset_valor"
-                    inputMode="decimal"
                     value={valor}
-                    onChange={(e) => setValor(e.target.value)}
+                    onChangeNumber={(n) => setValor(n)}
                     placeholder="100.000"
                     className="pl-9 tabular-nums"
                     onKeyDown={(e) => e.key === 'Enter' && addAsset()}
@@ -218,36 +227,30 @@ export function StepPatrimonio({ state, update }: Props) {
               description="Use o formulário acima ou pule esse passo se o cliente não tiver ativos."
             />
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+            <div ref={ativosRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
               <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                  {itens.length} {itens.length === 1 ? 'item' : 'itens'}
+                  {itens.length} {itens.length === 1 ? 'item' : 'itens'} · toque pra editar
                 </p>
                 <p className="text-sm font-bold tabular-nums text-emerald-600">+ {brl(totalAtivos)}</p>
               </div>
-              <ul className="divide-y divide-slate-100">
+              <ul>
                 {itens.map((a) => {
                   const meta = tiposEstoque.find((x) => x.tipo === a.tipo)!;
-                  const Icon = meta.icon;
                   return (
-                    <li key={a.id} className="px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 transition-colors">
-                      <div className={`h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 ${meta.cor}`}>
-                        <Icon size={15} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{a.nome}</p>
-                        <p className="text-xs text-slate-500">{meta.label}</p>
-                      </div>
-                      <p className="text-sm font-semibold tabular-nums text-slate-900">{brl(a.valor)}</p>
-                      <button
-                        type="button"
-                        onClick={() => removeAsset(a.id)}
-                        className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
-                        title="Remover"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </li>
+                    <EditableAssetEstoqueRow
+                      key={a.id}
+                      a={a}
+                      icon={meta.icon}
+                      cor={meta.cor}
+                      onUpdate={(updated) =>
+                        update(
+                          'assets',
+                          state.assets.map((x) => (x.id === a.id ? updated : x)),
+                        )
+                      }
+                      onRemove={() => removeAsset(a.id)}
+                    />
                   );
                 })}
               </ul>
@@ -307,11 +310,10 @@ export function StepPatrimonio({ state, update }: Props) {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
                     R$
                   </span>
-                  <Input
+                  <CurrencyInput
                     id="liab_saldo"
-                    inputMode="decimal"
                     value={pSaldo}
-                    onChange={(e) => setPSaldo(e.target.value)}
+                    onChangeNumber={(n) => setPSaldo(n)}
                     placeholder="250.000"
                     className="pl-9 tabular-nums"
                   />
@@ -323,11 +325,10 @@ export function StepPatrimonio({ state, update }: Props) {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
                     R$
                   </span>
-                  <Input
+                  <CurrencyInput
                     id="liab_parc"
-                    inputMode="decimal"
                     value={pParcela}
-                    onChange={(e) => setPParcela(e.target.value)}
+                    onChangeNumber={(n) => setPParcela(n)}
                     placeholder="2.300"
                     className="pl-9 tabular-nums"
                   />
@@ -366,37 +367,29 @@ export function StepPatrimonio({ state, update }: Props) {
           </div>
 
           {state.liabilities.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+            <div ref={passivosRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
               <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                  {state.liabilities.length} {state.liabilities.length === 1 ? 'dívida' : 'dívidas'}
+                  {state.liabilities.length} {state.liabilities.length === 1 ? 'dívida' : 'dívidas'} · toque pra editar
                 </p>
                 <p className="text-sm font-bold tabular-nums text-orange-600">− {brl(totalPassivos)}</p>
               </div>
-              <ul className="divide-y divide-slate-100">
+              <ul>
                 {state.liabilities.map((l) => {
                   const meta = tiposPassivo.find((x) => x.tipo === l.tipo);
                   return (
-                    <li key={l.id} className="px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 transition-colors">
-                      <div className="h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 bg-orange-50 text-orange-600 ring-orange-100">
-                        <CreditCard size={15} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{l.nome}</p>
-                        <p className="text-xs text-slate-500">
-                          {meta?.label ?? l.tipo} · {brl(l.parcela_mensal)}/mês
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold tabular-nums text-orange-600">{brl(l.saldo_atual)}</p>
-                      <button
-                        type="button"
-                        onClick={() => removeLiability(l.id)}
-                        className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
-                        title="Remover"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </li>
+                    <EditableLiabilityRow
+                      key={l.id}
+                      l={l}
+                      label={meta?.label ?? l.tipo}
+                      onUpdate={(updated) =>
+                        update(
+                          'liabilities',
+                          state.liabilities.map((x) => (x.id === l.id ? updated : x)),
+                        )
+                      }
+                      onRemove={() => removeLiability(l.id)}
+                    />
                   );
                 })}
               </ul>
@@ -406,18 +399,4 @@ export function StepPatrimonio({ state, update }: Props) {
       </div>
     </StepShell>
   );
-}
-
-function idadeFromBirth(iso: string): number | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  let idade = now.getUTCFullYear() - d.getUTCFullYear();
-  if (
-    now.getUTCMonth() < d.getUTCMonth() ||
-    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
-  )
-    idade -= 1;
-  return idade;
 }

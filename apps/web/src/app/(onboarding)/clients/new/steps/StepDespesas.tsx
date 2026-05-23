@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Home,
   UtensilsCrossed,
@@ -14,11 +14,13 @@ import {
   HandHeart,
   Plus,
   Receipt,
-  Trash2,
 } from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, EmptyState } from '../StepShell';
+import { CurrencyInput, idadeFromBirth } from '../helpers';
+import { EditableExpenseRow } from '../EditableRows';
+import { toast } from '@/components/ui/Toast';
 import type { WizardState } from '../Wizard';
 import type { DraftExpense } from '../types';
 
@@ -47,24 +49,33 @@ function brl(n: number) {
 export function StepDespesas({ state, update }: Props) {
   const [cat, setCat] = useState<DraftExpense['categoria']>('moradia');
   const [desc, setDesc] = useState('');
-  const [valorMensal, setValorMensal] = useState('');
+  const [valorMensal, setValorMensal] = useState<number>(0);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  function pushExpenses(items: DraftExpense[], message?: string) {
+    update('expenses', [...state.expenses, ...items]);
+    if (message) toast.success(message);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
 
   function add() {
-    const v = Number(valorMensal.replace(/\./g, '').replace(',', '.'));
-    if (!desc.trim() || !Number.isFinite(v) || v <= 0) return;
+    if (!desc.trim() || valorMensal <= 0) return;
     const meta = categorias.find((c) => c.cat === cat)!;
+    const idadeI = idadeFromBirth(state.data_nascimento) ?? 30;
     const exp: DraftExpense = {
       id: crypto.randomUUID(),
       categoria: cat,
       descricao: desc.trim(),
-      valor_mensal: v,
-      idade_inicio: state.idade_aposentadoria ?? 60,
+      valor_mensal: valorMensal,
+      idade_inicio: idadeI,
       idade_fim: state.expectativa_vida_anos,
       essencial: meta.essencial,
     };
-    update('expenses', [...state.expenses, exp]);
+    pushExpenses([exp], `Adicionado: ${exp.descricao}`);
     setDesc('');
-    setValorMensal('');
+    setValorMensal(0);
   }
 
   function remove(id: string) {
@@ -153,7 +164,7 @@ export function StepDespesas({ state, update }: Props) {
               <button
                 key={idx}
                 type="button"
-                onClick={() => update('expenses', [...state.expenses, ...p.build()])}
+                onClick={() => pushExpenses(p.build(), `${p.label} adicionado`)}
                 className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all"
               >
                 <p className="text-xs font-semibold text-slate-900">{p.label}</p>
@@ -210,11 +221,10 @@ export function StepDespesas({ state, update }: Props) {
               <Label htmlFor="d_valor">Valor mensal (BRL)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">R$</span>
-                <Input
+                <CurrencyInput
                   id="d_valor"
-                  inputMode="decimal"
                   value={valorMensal}
-                  onChange={(e) => setValorMensal(e.target.value)}
+                  onChangeNumber={(n) => setValorMensal(n)}
                   placeholder="3.500"
                   className="pl-9 tabular-nums"
                   onKeyDown={(e) => e.key === 'Enter' && add()}
@@ -235,42 +245,35 @@ export function StepDespesas({ state, update }: Props) {
             description="Adicione moradia, alimentação, transporte e demais gastos fixos."
           />
         ) : (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+          <div ref={listRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                {state.expenses.length} {state.expenses.length === 1 ? 'despesa' : 'despesas'} cadastradas
+                {state.expenses.length} {state.expenses.length === 1 ? 'despesa' : 'despesas'} · {brl(totalMensal)}/mês
               </p>
-              <p className="text-sm font-bold tabular-nums text-slate-900">{brl(totalMensal)}/mês</p>
+              <p className="text-[11px] text-slate-400">toque pra editar</p>
             </div>
-            <ul className="divide-y divide-slate-100">
+            <ul>
               {state.expenses.map((e) => {
                 const meta = categorias.find((c) => c.cat === e.categoria)!;
                 const Icon = meta.icon;
+                const cor = meta.essencial
+                  ? 'bg-rose-50 text-rose-600 ring-rose-100'
+                  : 'bg-slate-100 text-slate-600 ring-slate-200';
                 return (
-                  <li key={e.id} className="px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60">
-                    <div
-                      className={`h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 ${
-                        meta.essencial ? 'bg-rose-50 text-rose-600 ring-rose-100' : 'bg-slate-100 text-slate-600 ring-slate-200'
-                      }`}
-                    >
-                      <Icon size={15} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 truncate">{e.descricao}</p>
-                      <p className="text-xs text-slate-500">
-                        {meta.label}
-                        {e.essencial && <span className="ml-1.5 text-rose-500">· essencial</span>}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold tabular-nums text-red-600">{brl(e.valor_mensal)}/mês</p>
-                    <button
-                      type="button"
-                      onClick={() => remove(e.id)}
-                      className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </li>
+                  <EditableExpenseRow
+                    key={e.id}
+                    e={e}
+                    icon={Icon}
+                    cor={cor}
+                    label={meta.label}
+                    onUpdate={(updated) =>
+                      update(
+                        'expenses',
+                        state.expenses.map((x) => (x.id === e.id ? updated : x)),
+                      )
+                    }
+                    onRemove={() => remove(e.id)}
+                  />
                 );
               })}
             </ul>
@@ -279,18 +282,4 @@ export function StepDespesas({ state, update }: Props) {
       </div>
     </StepShell>
   );
-}
-
-function idadeFromBirth(iso: string): number | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  let idade = now.getUTCFullYear() - d.getUTCFullYear();
-  if (
-    now.getUTCMonth() < d.getUTCMonth() ||
-    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
-  )
-    idade -= 1;
-  return idade;
 }

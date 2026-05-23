@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Sparkles,
   ShoppingCart,
@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Plus,
   CalendarHeart,
-  Trash2,
   Home,
   GraduationCap,
   PartyPopper,
@@ -18,6 +17,9 @@ import {
 import { Input, Label } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, EmptyState } from '../StepShell';
+import { CurrencyInput, idadeFromBirth } from '../helpers';
+import { EditableEventRow } from '../EditableEventRow';
+import { toast } from '@/components/ui/Toast';
 import type { WizardState } from '../Wizard';
 import type { DraftEvent } from '../types';
 
@@ -49,30 +51,39 @@ function brl(n: number) {
 export function StepEventos({ state, update }: Props) {
   const [tipo, setTipo] = useState<DraftEvent['tipo']>('sonho');
   const [desc, setDesc] = useState('');
-  const [valor, setValor] = useState('');
+  const [valor, setValor] = useState<number>(0);
   const [idade, setIdade] = useState<string>('');
   const [recorrencia, setRecorrencia] = useState<DraftEvent['padrao_recorrencia']>('unico');
   const [intervalo, setIntervalo] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
+
+  function pushEvent(ev: DraftEvent, message?: string) {
+    update('events', [...state.events, ev]);
+    if (message) toast.success(message);
+    // Rola até a lista pra dar feedback visual
+    requestAnimationFrame(() => {
+      listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
 
   function add() {
-    const v = Number(valor.replace(/\./g, '').replace(',', '.'));
     const i = Number(idade);
-    if (!desc.trim() || !Number.isFinite(v) || v <= 0 || !Number.isFinite(i)) return;
+    if (!desc.trim() || valor <= 0 || !Number.isFinite(i)) return;
     const meta = tipos.find((t) => t.tipo === tipo)!;
     const ev: DraftEvent = {
       id: crypto.randomUUID(),
       tipo,
       descricao: desc.trim(),
-      valor: v * meta.defaultSinal,
+      valor: valor * meta.defaultSinal,
       padrao_recorrencia: recorrencia,
       idade_inicio: i,
       idade_fim: recorrencia === 'unico' ? null : state.expectativa_vida_anos,
       intervalo_anos: recorrencia === 'recorrente_espacado' ? Number(intervalo) || null : null,
       indexado_inflacao: true,
     };
-    update('events', [...state.events, ev]);
+    pushEvent(ev, `Adicionado: ${ev.descricao}`);
     setDesc('');
-    setValor('');
+    setValor(0);
     setIdade('');
     setIntervalo('');
   }
@@ -174,7 +185,7 @@ export function StepEventos({ state, update }: Props) {
               <button
                 key={idx}
                 type="button"
-                onClick={() => update('events', [...state.events, build(idadeAtual)])}
+                onClick={() => pushEvent(build(idadeAtual), `Adicionado: ${label}`)}
                 className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all group"
               >
                 <div className="flex items-start gap-2.5">
@@ -232,11 +243,10 @@ export function StepEventos({ state, update }: Props) {
               <Label htmlFor="ev_valor">Valor (BRL)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">R$</span>
-                <Input
+                <CurrencyInput
                   id="ev_valor"
-                  inputMode="decimal"
                   value={valor}
-                  onChange={(e) => setValor(e.target.value)}
+                  onChangeNumber={(n) => setValor(n)}
                   placeholder="50.000"
                   className="pl-9 tabular-nums"
                 />
@@ -312,56 +322,33 @@ export function StepEventos({ state, update }: Props) {
             description="Tudo bem — esta etapa é opcional. Você pode pular se o cliente não tem sonhos pontuais ou heranças previstas."
           />
         ) : (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
-            <ul className="divide-y divide-slate-100">
-              {state.events.map((e) => {
-                const meta = tipos.find((t) => t.tipo === e.tipo)!;
-                const Icon = meta.icon;
-                return (
-                  <li key={e.id} className="px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60">
-                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 ${meta.cor}`}>
-                      <Icon size={15} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 truncate">{e.descricao}</p>
-                      <p className="text-xs text-slate-500">
-                        {meta.label} · idade {e.idade_inicio}
-                        {e.padrao_recorrencia === 'recorrente_anual' && ' · todo ano até morte'}
-                        {e.padrao_recorrencia === 'recorrente_espacado' && ` · a cada ${e.intervalo_anos} anos`}
-                      </p>
-                    </div>
-                    <p className={`text-sm font-semibold tabular-nums ${e.valor >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {brl(e.valor)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => remove(e.id)}
-                      className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </li>
-                );
-              })}
+          <div ref={listRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                {state.events.length} {state.events.length === 1 ? 'sonho cadastrado' : 'sonhos cadastrados'}
+              </p>
+              <p className="text-[11px] text-slate-400">toque pra editar</p>
+            </div>
+            <ul>
+              {state.events.map((e, idx) => (
+                <EditableEventRow
+                  key={e.id}
+                  ev={e}
+                  idadeAtual={idadeAtual}
+                  expectativaVida={state.expectativa_vida_anos}
+                  onUpdate={(updated) =>
+                    update(
+                      'events',
+                      state.events.map((x, i) => (i === idx ? updated : x)),
+                    )
+                  }
+                  onRemove={() => remove(e.id)}
+                />
+              ))}
             </ul>
           </div>
         )}
       </div>
     </StepShell>
   );
-}
-
-
-function idadeFromBirth(iso: string): number | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  let idade = now.getUTCFullYear() - d.getUTCFullYear();
-  if (
-    now.getUTCMonth() < d.getUTCMonth() ||
-    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
-  )
-    idade -= 1;
-  return idade;
 }

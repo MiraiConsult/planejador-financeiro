@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { Briefcase, Building, Plus, TrendingUp, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Briefcase, Building, Plus, TrendingUp } from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, EmptyState } from '../StepShell';
+import { CurrencyInput, idadeFromBirth } from '../helpers';
+import { EditableAssetFluxoRow } from '../EditableRows';
+import { toast } from '@/components/ui/Toast';
 import type { WizardState } from '../Wizard';
 import type { DraftAsset } from '../types';
 
@@ -26,13 +29,21 @@ function brl(n: number) {
 export function StepReceitas({ state, update }: Props) {
   const [tipo, setTipo] = useState<DraftAsset['tipo']>('salario');
   const [nome, setNome] = useState('');
-  const [valorAnual, setValorAnual] = useState('');
+  const [valorAnual, setValorAnual] = useState<number>(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const itens = state.assets.filter((a) => a.natureza === 'fluxo');
 
+  function pushAsset(asset: DraftAsset, message?: string) {
+    update('assets', [...state.assets, asset]);
+    if (message) toast.success(message);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
   function add() {
-    const v = Number(valorAnual.replace(/\./g, '').replace(',', '.'));
-    if (!nome.trim() || !Number.isFinite(v) || v <= 0) return;
+    if (!nome.trim() || valorAnual <= 0) return;
     const meta = tiposFluxo.find((t) => t.tipo === tipo)!;
     const idadeFim =
       meta.defaultFim === 'aposentadoria'
@@ -43,14 +54,14 @@ export function StepReceitas({ state, update }: Props) {
       nome: nome.trim(),
       tipo,
       natureza: 'fluxo',
-      valor: v,
-      idade_inicio: state.idade_aposentadoria ? Math.min(state.idade_aposentadoria - 5, 60) : 60,
+      valor: valorAnual,
+      idade_inicio: idadeFromBirth(state.data_nascimento) ?? 30,
       idade_fim: idadeFim,
       indexado_inflacao: true,
     };
-    update('assets', [...state.assets, asset]);
+    pushAsset(asset, `Adicionado: ${asset.nome}`);
     setNome('');
-    setValorAnual('');
+    setValorAnual(0);
   }
 
   function remove(id: string) {
@@ -135,7 +146,7 @@ export function StepReceitas({ state, update }: Props) {
               <button
                 key={idx}
                 type="button"
-                onClick={() => update('assets', [...state.assets, pick.build()])}
+                onClick={() => pushAsset(pick.build(), `Adicionado: ${pick.label}`)}
                 className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all"
               >
                 <p className="text-xs font-semibold text-slate-900">{pick.label}</p>
@@ -184,11 +195,10 @@ export function StepReceitas({ state, update }: Props) {
               <Label htmlFor="r_valor">Valor anual (BRL)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">R$</span>
-                <Input
+                <CurrencyInput
                   id="r_valor"
-                  inputMode="decimal"
                   value={valorAnual}
-                  onChange={(e) => setValorAnual(e.target.value)}
+                  onChangeNumber={(n) => setValorAnual(n)}
                   placeholder="120.000"
                   className="pl-9 tabular-nums"
                   onKeyDown={(e) => e.key === 'Enter' && add()}
@@ -209,36 +219,31 @@ export function StepReceitas({ state, update }: Props) {
             description="Pode avançar — também é comum em planos pós-aposentadoria."
           />
         ) : (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+          <div ref={listRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                {itens.length} {itens.length === 1 ? 'receita' : 'receitas'} cadastradas · {brl(total)}/ano
+                {itens.length} {itens.length === 1 ? 'receita' : 'receitas'} · {brl(total)}/ano
               </p>
+              <p className="text-[11px] text-slate-400">toque pra editar</p>
             </div>
-            <ul className="divide-y divide-slate-100">
+            <ul>
               {itens.map((a) => {
                 const meta = tiposFluxo.find((x) => x.tipo === a.tipo) ?? tiposFluxo[2]!;
                 const Icon = meta.icon;
                 return (
-                  <li key={a.id} className="px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60">
-                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 ${meta.cor}`}>
-                      <Icon size={15} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 truncate">{a.nome}</p>
-                      <p className="text-xs text-slate-500">
-                        {meta.label} · idades {a.idade_inicio}–{a.idade_fim}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold tabular-nums text-emerald-600">{brl(a.valor)}/ano</p>
-                    <button
-                      type="button"
-                      onClick={() => remove(a.id)}
-                      className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </li>
+                  <EditableAssetFluxoRow
+                    key={a.id}
+                    a={a}
+                    icon={Icon}
+                    cor={meta.cor}
+                    onUpdate={(updated) =>
+                      update(
+                        'assets',
+                        state.assets.map((x) => (x.id === a.id ? updated : x)),
+                      )
+                    }
+                    onRemove={() => remove(a.id)}
+                  />
                 );
               })}
             </ul>
@@ -247,18 +252,4 @@ export function StepReceitas({ state, update }: Props) {
       </div>
     </StepShell>
   );
-}
-
-function idadeFromBirth(iso: string): number | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  let idade = now.getUTCFullYear() - d.getUTCFullYear();
-  if (
-    now.getUTCMonth() < d.getUTCMonth() ||
-    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
-  )
-    idade -= 1;
-  return idade;
 }
