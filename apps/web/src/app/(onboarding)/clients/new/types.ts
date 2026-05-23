@@ -58,6 +58,17 @@ export interface DraftEvent {
   indexado_inflacao: boolean;
 }
 
+export interface DraftLiability {
+  id: string;
+  nome: string;
+  tipo: string;
+  saldo_atual: number;
+  juros_aa: number | null;
+  parcela_mensal: number;
+  idade_inicio: number;
+  idade_fim: number;
+}
+
 export interface OnboardingPayload {
   nome_completo: string;
   data_nascimento: string; // ISO
@@ -70,4 +81,5 @@ export interface OnboardingPayload {
   assets: DraftAsset[];
   expenses: DraftExpense[];
   events: DraftEvent[];
+  liabilities: DraftLiability[];
 }

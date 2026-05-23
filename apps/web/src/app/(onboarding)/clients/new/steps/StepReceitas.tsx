@@ -61,9 +61,9 @@ export function StepReceitas({ state, update }: Props) {
 
   return (
     <StepShell
-      eyebrow="Passo 3"
-      title="Quais são as receitas anuais?"
-      description="Cadastre salários, aluguéis e outras rendas recorrentes. Use sempre o valor ANUAL (multiplicado por 12 se for mensal). Pode pular se o cliente já está aposentado e sem renda externa."
+      eyebrow="Passo 4"
+      title="Quanto entra hoje?"
+      description="Salário, aluguel recebido, aposentadoria — tudo que entra no caixa de forma recorrente. Sempre o valor ANUAL (multiplica por 12 se for mensal). Pode pular se nenhuma se aplica."
     >
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">

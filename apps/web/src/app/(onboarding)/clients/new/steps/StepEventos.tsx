@@ -70,9 +70,9 @@ export function StepEventos({ state, update }: Props) {
 
   return (
     <StepShell
-      eyebrow="Passo 5"
-      title="Sonhos e gastos pontuais"
-      description="Eventos que acontecem em uma idade específica ou se repetem espaçados (carro a cada 5 anos, viagem a cada 2 anos). Heranças a receber também entram aqui (com sinal positivo)."
+      eyebrow="Passo 2"
+      title="Quais são os sonhos?"
+      description="Antes da grana, o porquê. Casa nova, viagem, faculdade dos filhos, aposentar mais cedo — tudo que ele quer realizar no caminho. Pode entrar herança também (com sinal positivo)."
     >
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">

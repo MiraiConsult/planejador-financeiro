@@ -75,9 +75,9 @@ export function StepDespesas({ state, update }: Props) {
 
   return (
     <StepShell
-      eyebrow="Passo 4"
-      title="Quais são os gastos mensais?"
-      description="Despesas recorrentes do dia a dia. Use o VALOR MENSAL — o sistema multiplica por 12 automaticamente. Gastos pontuais (compra de carro, viagem) vão no próximo passo."
+      eyebrow="Passo 5"
+      title="Quanto sai todo mês?"
+      description="Aluguel, mercado, transporte, saúde, lazer… O sistema já anualiza pra você. Marque o que é essencial (não pode cortar) pra simulação saber se há gordura no orçamento."
     >
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">

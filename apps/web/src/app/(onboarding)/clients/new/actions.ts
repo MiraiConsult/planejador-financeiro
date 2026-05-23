@@ -86,6 +86,23 @@ export async function createClientFromOnboarding(payload: OnboardingPayload) {
     if (error) return { ok: false as const, error: error.message };
   }
 
+  // 4.5) liabilities (dívidas)
+  if (payload.liabilities.length > 0) {
+    const { error } = await supabase.from('liabilities').insert(
+      payload.liabilities.map((l) => ({
+        client_id,
+        nome: l.nome,
+        tipo: l.tipo,
+        saldo_atual: l.saldo_atual,
+        juros_aa: l.juros_aa,
+        parcela_mensal: l.parcela_mensal,
+        idade_inicio: l.idade_inicio,
+        idade_fim: l.idade_fim,
+      })),
+    );
+    if (error) return { ok: false as const, error: error.message };
+  }
+
   // 5) assumptions vinculado ao client (vai usar defaults da tabela; consultor pode editar depois)
   await supabase.from('assumptions').insert({ consultant_id: user.id, client_id });
 

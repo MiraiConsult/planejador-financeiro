@@ -14,8 +14,8 @@ export function StepDadosPessoais({ state, update }: Props) {
   return (
     <StepShell
       eyebrow="Passo 1"
-      title="Quem é o cliente?"
-      description="Comece com nome, idade e horizonte. Esses valores definem o intervalo da simulação."
+      title="Conta pra gente — quem é o cliente?"
+      description="Só o essencial: nome, quando nasceu e até quando vamos planejar. Esses três definem o horizonte de toda a simulação."
     >
       <div className="space-y-6">
         <div className="grid sm:grid-cols-2 gap-5">

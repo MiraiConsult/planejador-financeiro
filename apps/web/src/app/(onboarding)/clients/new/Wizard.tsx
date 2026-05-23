@@ -6,10 +6,10 @@ import Link from 'next/link';
 import {
   User,
   Wallet,
-  TrendingUp,
   Receipt,
   CalendarHeart,
-  CheckCircle2,
+  TrendingUp,
+  LineChart as LineChartIcon,
   ArrowLeft,
   ArrowRight,
   Loader2,
@@ -21,16 +21,22 @@ import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { createClientFromOnboarding } from './actions';
-import type { OnboardingPayload, DraftAsset, DraftExpense, DraftEvent } from './types';
+import type {
+  OnboardingPayload,
+  DraftAsset,
+  DraftExpense,
+  DraftEvent,
+  DraftLiability,
+} from './types';
+import { StepCapa } from './steps/StepCapa';
 import { StepDadosPessoais } from './steps/StepDadosPessoais';
+import { StepEventos } from './steps/StepEventos';
 import { StepPatrimonio } from './steps/StepPatrimonio';
 import { StepReceitas } from './steps/StepReceitas';
 import { StepDespesas } from './steps/StepDespesas';
-import { StepEventos } from './steps/StepEventos';
-import { StepRevisao } from './steps/StepRevisao';
+import { StepPreview } from './steps/StepPreview';
 
 export interface WizardState {
-  // step 1
   nome_completo: string;
   data_nascimento: string;
   expectativa_vida_anos: number;
@@ -39,10 +45,10 @@ export interface WizardState {
   perfil_carteira: 'conservador' | 'moderado' | 'arrojado' | 'custom';
   custom_retorno_aa: number | null;
   custom_volatilidade_aa: number | null;
-  // steps 2-5
   assets: DraftAsset[];
   expenses: DraftExpense[];
   events: DraftEvent[];
+  liabilities: DraftLiability[];
 }
 
 const initialState: WizardState = {
@@ -57,19 +63,27 @@ const initialState: WizardState = {
   assets: [],
   expenses: [],
   events: [],
+  liabilities: [],
 };
 
+// ─── Configuração dos passos (a Capa fica no índice 0 e é tratada à parte) ───
+// A ordem da jornada principal coloca SONHOS antes das finanças, pra
+// motivar a conversa. Patrimônio (com dívidas), depois receitas e despesas,
+// e fecha com Preview ao vivo.
 const stepsConfig = [
-  { id: 1, title: 'Dados pessoais', subtitle: 'Identificação e perfil', icon: User },
-  { id: 2, title: 'Patrimônio', subtitle: 'O que você tem hoje', icon: Wallet },
-  { id: 3, title: 'Receitas', subtitle: 'O que entra todo mês/ano', icon: TrendingUp },
-  { id: 4, title: 'Despesas', subtitle: 'O que sai todo mês', icon: Receipt },
-  { id: 5, title: 'Eventos', subtitle: 'Sonhos e gastos pontuais', icon: CalendarHeart },
-  { id: 6, title: 'Revisão', subtitle: 'Confirme e salve', icon: CheckCircle2 },
+  { id: 1, title: 'Sobre você',  subtitle: 'Quem é o cliente',           icon: User },
+  { id: 2, title: 'Sonhos',      subtitle: 'Onde quer chegar',           icon: CalendarHeart },
+  { id: 3, title: 'Patrimônio',  subtitle: 'O que tem · o que deve',     icon: Wallet },
+  { id: 4, title: 'Receitas',    subtitle: 'O que entra',                icon: TrendingUp },
+  { id: 5, title: 'Despesas',    subtitle: 'O que sai',                  icon: Receipt },
+  { id: 6, title: 'Preview',     subtitle: 'Olha o futuro',              icon: LineChartIcon },
 ];
 
+const TOTAL_STEPS = stepsConfig.length;
+
 export function Wizard() {
-  const [step, setStep] = useState(1);
+  // 0 = capa de boas-vindas; 1..N = passos da jornada
+  const [step, setStep] = useState(0);
   const [state, setState] = useState<WizardState>(initialState);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -81,17 +95,21 @@ export function Wizard() {
 
   function canAdvance(): boolean {
     if (step === 1) {
-      return state.nome_completo.trim().length >= 3 && !!state.data_nascimento && state.expectativa_vida_anos > 0;
+      return (
+        state.nome_completo.trim().length >= 3 &&
+        !!state.data_nascimento &&
+        state.expectativa_vida_anos > 0
+      );
     }
-    return true; // demais steps podem pular vazios
+    return true;
   }
 
   function handleNext() {
-    if (step < stepsConfig.length) setStep(step + 1);
+    if (step < TOTAL_STEPS) setStep(step + 1);
   }
 
   function handleBack() {
-    if (step > 1) setStep(step - 1);
+    if (step > 0) setStep(step - 1);
   }
 
   function handleSubmit() {
@@ -109,6 +127,7 @@ export function Wizard() {
         assets: state.assets,
         expenses: state.expenses,
         events: state.events,
+        liabilities: state.liabilities,
       };
       const res = await createClientFromOnboarding(payload);
       if (!res.ok) {
@@ -121,22 +140,44 @@ export function Wizard() {
     });
   }
 
+  // ─── Capa (step 0): sem progress, sem footer ───
+  if (step === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <header className="border-b border-slate-200 bg-white">
+          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <Logo />
+            <Link href="/clients">
+              <Button variant="ghost" size="sm">
+                <X size={14} />
+                Sair
+              </Button>
+            </Link>
+          </div>
+        </header>
+        <main className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="max-w-3xl w-full animate-fade-up">
+            <StepCapa onStart={() => setStep(1)} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Header */}
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Logo />
           <Link href="/clients">
             <Button variant="ghost" size="sm">
               <X size={14} />
-              Cancelar
+              Sair sem salvar
             </Button>
           </Link>
         </div>
       </header>
 
-      {/* Progress strip */}
       <div className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-6 py-5">
           <div className="hidden md:flex items-center justify-between gap-1">
@@ -146,7 +187,14 @@ export function Wizard() {
               const active = s.id === step;
               return (
                 <div key={s.id} className="flex items-center gap-3 flex-1">
-                  <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (s.id <= step) setStep(s.id);
+                    }}
+                    className="flex items-center gap-3 min-w-0 text-left"
+                    title={s.title}
+                  >
                     <div
                       className={cn(
                         'h-9 w-9 shrink-0 rounded-full flex items-center justify-center transition-all',
@@ -161,14 +209,14 @@ export function Wizard() {
                       <p
                         className={cn(
                           'text-xs font-semibold leading-tight truncate',
-                          (done || active) ? 'text-slate-900' : 'text-slate-400',
+                          done || active ? 'text-slate-900' : 'text-slate-400',
                         )}
                       >
                         {s.title}
                       </p>
                       <p className="text-[10px] text-slate-400 truncate">{s.subtitle}</p>
                     </div>
-                  </div>
+                  </button>
                   {i < stepsConfig.length - 1 && (
                     <div
                       className={cn(
@@ -182,33 +230,31 @@ export function Wizard() {
             })}
           </div>
 
-          {/* Mobile compact */}
           <div className="md:hidden">
             <div className="flex items-center justify-between mb-2 text-xs">
               <span className="font-semibold text-slate-900">
-                Passo {step} de {stepsConfig.length}
+                Passo {step} de {TOTAL_STEPS}
               </span>
               <span className="text-slate-500">{stepsConfig[step - 1]!.title}</span>
             </div>
             <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-brand-500 to-sky-500 transition-all"
-                style={{ width: `${(step / stepsConfig.length) * 100}%` }}
+                style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Step content */}
       <main className="flex-1 px-6 py-10">
         <div key={step} className="max-w-3xl mx-auto animate-slide-right">
           {step === 1 && <StepDadosPessoais state={state} update={update} />}
-          {step === 2 && <StepPatrimonio state={state} update={update} />}
-          {step === 3 && <StepReceitas state={state} update={update} />}
-          {step === 4 && <StepDespesas state={state} update={update} />}
-          {step === 5 && <StepEventos state={state} update={update} />}
-          {step === 6 && <StepRevisao state={state} />}
+          {step === 2 && <StepEventos state={state} update={update} />}
+          {step === 3 && <StepPatrimonio state={state} update={update} />}
+          {step === 4 && <StepReceitas state={state} update={update} />}
+          {step === 5 && <StepDespesas state={state} update={update} />}
+          {step === 6 && <StepPreview state={state} />}
 
           {error && (
             <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -218,28 +264,22 @@ export function Wizard() {
         </div>
       </main>
 
-      {/* Footer nav */}
       <footer className="sticky bottom-0 border-t border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            disabled={step === 1 || isPending}
-            size="md"
-          >
+          <Button variant="ghost" onClick={handleBack} disabled={isPending} size="md">
             <ArrowLeft size={14} />
-            Voltar
+            {step === 1 ? 'Voltar à capa' : 'Voltar'}
           </Button>
 
           <p className="hidden md:block text-xs text-slate-500">
-            {step < stepsConfig.length
-              ? `Passo ${step} de ${stepsConfig.length} — ${stepsConfig[step - 1]!.title}`
-              : 'Última etapa: confira e finalize'}
+            {step < TOTAL_STEPS
+              ? `Passo ${step} de ${TOTAL_STEPS} — ${stepsConfig[step - 1]!.title}`
+              : 'Último passo: revise e finalize'}
           </p>
 
-          {step < stepsConfig.length ? (
+          {step < TOTAL_STEPS ? (
             <Button onClick={handleNext} disabled={!canAdvance() || isPending} size="md">
-              Continuar
+              {step === 1 ? 'Avançar' : 'Continuar'}
               <ArrowRight size={14} />
             </Button>
           ) : (
@@ -247,7 +287,7 @@ export function Wizard() {
               {isPending ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Salvando...
+                  Criando...
                 </>
               ) : (
                 <>
