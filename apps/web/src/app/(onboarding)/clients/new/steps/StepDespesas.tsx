@@ -71,6 +71,69 @@ export function StepDespesas({ state, update }: Props) {
     update('expenses', state.expenses.filter((e) => e.id !== id));
   }
 
+  // ─── Pacotes prontos: criam vários itens de uma vez ───
+  function makeExpense(
+    cat: DraftExpense['categoria'],
+    descricao: string,
+    valor_mensal: number,
+  ): DraftExpense {
+    const idadeI = idadeFromBirth(state.data_nascimento) ?? 30;
+    const meta = categorias.find((c) => c.cat === cat)!;
+    return {
+      id: crypto.randomUUID(),
+      categoria: cat,
+      descricao,
+      valor_mensal,
+      idade_inicio: idadeI,
+      idade_fim: state.expectativa_vida_anos,
+      essencial: meta.essencial,
+    };
+  }
+
+  type Pacote = { label: string; detalhe: string; build: () => DraftExpense[] };
+  const pacotes: Pacote[] = [
+    {
+      label: 'Pacote básico (família)',
+      detalhe: 'Moradia · Alimentação · Transporte · Saúde · ~R$ 7k/mês',
+      build: () => [
+        makeExpense('moradia', 'Aluguel + condomínio + IPTU', 2500),
+        makeExpense('alimentacao', 'Mercado + restaurantes', 2000),
+        makeExpense('transporte', 'Combustível + transporte', 1000),
+        makeExpense('saude', 'Plano de saúde', 1500),
+      ],
+    },
+    {
+      label: 'Pacote enxuto',
+      detalhe: 'Vida mais simples · ~R$ 4k/mês',
+      build: () => [
+        makeExpense('moradia', 'Aluguel', 1500),
+        makeExpense('alimentacao', 'Alimentação', 1200),
+        makeExpense('transporte', 'Transporte', 500),
+        makeExpense('saude', 'Saúde', 800),
+      ],
+    },
+    {
+      label: 'Pacote padrão classe alta',
+      detalhe: 'Confortável · ~R$ 15k/mês',
+      build: () => [
+        makeExpense('moradia', 'Apartamento + condomínio + IPTU', 6000),
+        makeExpense('alimentacao', 'Mercado + restaurantes', 3000),
+        makeExpense('transporte', 'Carro próprio + gasolina', 1500),
+        makeExpense('saude', 'Plano de saúde premium', 2500),
+        makeExpense('lazer', 'Lazer e cultura', 2000),
+      ],
+    },
+    {
+      label: '+ Com filhos pequenos',
+      detalhe: 'Soma escola + atividades · R$ 4.5k/mês extra',
+      build: () => [
+        makeExpense('filhos', 'Escola particular', 2500),
+        makeExpense('filhos', 'Atividades extras + roupas', 1000),
+        makeExpense('saude', 'Plano de saúde dos filhos', 1000),
+      ],
+    },
+  ];
+
   const totalMensal = state.expenses.reduce((acc, e) => acc + e.valor_mensal, 0);
 
   return (
@@ -80,6 +143,30 @@ export function StepDespesas({ state, update }: Props) {
       description="Aluguel, mercado, transporte, saúde, lazer… O sistema já anualiza pra você. Marque o que é essencial (não pode cortar) pra simulação saber se há gordura no orçamento."
     >
       <div className="space-y-6">
+        {/* PACOTES */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-2">
+            Pacotes prontos — toque pra adicionar tudo de uma vez
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {pacotes.map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => update('expenses', [...state.expenses, ...p.build()])}
+                className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all"
+              >
+                <p className="text-xs font-semibold text-slate-900">{p.label}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{p.detalhe}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Adicione um pacote e depois ajuste cada item se precisar. Pode somar mais de um (ex.:
+            básico + filhos).
+          </p>
+        </div>
+
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
           <div>
             <Label>Categoria</Label>
@@ -192,4 +279,18 @@ export function StepDespesas({ state, update }: Props) {
       </div>
     </StepShell>
   );
+}
+
+function idadeFromBirth(iso: string): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let idade = now.getUTCFullYear() - d.getUTCFullYear();
+  if (
+    now.getUTCMonth() < d.getUTCMonth() ||
+    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
+  )
+    idade -= 1;
+  return idade;
 }

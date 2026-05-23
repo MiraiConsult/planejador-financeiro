@@ -1,7 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, ShoppingCart, Plane, Gift, AlertCircle, Plus, CalendarHeart, Trash2 } from 'lucide-react';
+import {
+  Sparkles,
+  ShoppingCart,
+  Plane,
+  Gift,
+  AlertCircle,
+  Plus,
+  CalendarHeart,
+  Trash2,
+  Home,
+  GraduationCap,
+  PartyPopper,
+  Car,
+} from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, EmptyState } from '../StepShell';
@@ -68,6 +81,82 @@ export function StepEventos({ state, update }: Props) {
     update('events', state.events.filter((e) => e.id !== id));
   }
 
+  // ─── Sonhos pré-prontos: cartões que criam DraftEvent direto ───
+  const quickPicks: {
+    icon: typeof Sparkles;
+    label: string;
+    detalhe: string;
+    build: (idadeBase: number) => DraftEvent;
+  }[] = [
+    {
+      icon: Home,
+      label: 'Casa própria',
+      detalhe: 'R$ 600k em 5 anos',
+      build: (i) => makeEvent('compra', 'Casa própria', -600_000, i + 5),
+    },
+    {
+      icon: Plane,
+      label: 'Viagem dos sonhos',
+      detalhe: 'R$ 30k em 3 anos',
+      build: (i) => makeEvent('viagem_pontual', 'Viagem dos sonhos', -30_000, i + 3),
+    },
+    {
+      icon: GraduationCap,
+      label: 'Faculdade dos filhos',
+      detalhe: 'R$ 200k aos 50',
+      build: (i) => makeEvent('compra', 'Faculdade dos filhos', -200_000, 50),
+    },
+    {
+      icon: PartyPopper,
+      label: 'Casamento',
+      detalhe: 'R$ 80k em 2 anos',
+      build: (i) => makeEvent('compra', 'Casamento', -80_000, i + 2),
+    },
+    {
+      icon: Car,
+      label: 'Carro novo',
+      detalhe: 'R$ 120k a cada 8 anos',
+      build: (i) => ({
+        id: crypto.randomUUID(),
+        tipo: 'compra',
+        descricao: 'Trocar de carro',
+        valor: -120_000,
+        padrao_recorrencia: 'recorrente_espacado',
+        idade_inicio: i + 3,
+        idade_fim: state.expectativa_vida_anos,
+        intervalo_anos: 8,
+        indexado_inflacao: true,
+      }),
+    },
+    {
+      icon: Gift,
+      label: 'Herança a receber',
+      detalhe: '+R$ 500k aos 55',
+      build: () => makeEvent('heranca', 'Herança esperada', 500_000, 55),
+    },
+  ];
+
+  function makeEvent(
+    tipo: DraftEvent['tipo'],
+    descricao: string,
+    valorComSinal: number,
+    idadeI: number,
+  ): DraftEvent {
+    return {
+      id: crypto.randomUUID(),
+      tipo,
+      descricao,
+      valor: valorComSinal,
+      padrao_recorrencia: 'unico',
+      idade_inicio: idadeI,
+      idade_fim: null,
+      intervalo_anos: null,
+      indexado_inflacao: true,
+    };
+  }
+
+  const idadeAtual = idadeFromBirth(state.data_nascimento) ?? 30;
+
   return (
     <StepShell
       eyebrow="Passo 2"
@@ -75,6 +164,36 @@ export function StepEventos({ state, update }: Props) {
       description="Antes da grana, o porquê. Casa nova, viagem, faculdade dos filhos, aposentar mais cedo — tudo que ele quer realizar no caminho. Pode entrar herança também (com sinal positivo)."
     >
       <div className="space-y-6">
+        {/* QUICK-PICKS */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-2">
+            Sonhos comuns — toque pra adicionar
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {quickPicks.map(({ icon: Icon, label, detalhe, build }, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => update('events', [...state.events, build(idadeAtual)])}
+                className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all group"
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 flex items-center justify-center shrink-0 group-hover:bg-brand-100">
+                    <Icon size={14} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-900 leading-tight">{label}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{detalhe}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Os valores são exemplos — depois você ajusta no item.
+          </p>
+        </div>
+
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
           <div>
             <Label>Tipo de evento</Label>
@@ -230,4 +349,19 @@ export function StepEventos({ state, update }: Props) {
       </div>
     </StepShell>
   );
+}
+
+
+function idadeFromBirth(iso: string): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let idade = now.getUTCFullYear() - d.getUTCFullYear();
+  if (
+    now.getUTCMonth() < d.getUTCMonth() ||
+    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
+  )
+    idade -= 1;
+  return idade;
 }

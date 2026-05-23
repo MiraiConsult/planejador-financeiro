@@ -59,6 +59,65 @@ export function StepReceitas({ state, update }: Props) {
 
   const total = itens.reduce((acc, a) => acc + a.valor, 0);
 
+  // ─── Quick-picks: receitas comuns ───
+  const quickPicks: { label: string; detalhe: string; build: () => DraftAsset }[] = [
+    {
+      label: 'Salário CLT',
+      detalhe: 'R$ 8.000/mês até aposentar',
+      build: () => makeAsset('salario', 'Salário', 8_000 * 12, 'aposentadoria'),
+    },
+    {
+      label: 'Salário executivo',
+      detalhe: 'R$ 20.000/mês até aposentar',
+      build: () => makeAsset('salario', 'Salário', 20_000 * 12, 'aposentadoria'),
+    },
+    {
+      label: 'Aposentadoria INSS',
+      detalhe: 'R$ 3.000/mês a partir dos 65',
+      build: () => {
+        const idadeApos = state.idade_aposentadoria ?? 65;
+        return {
+          id: crypto.randomUUID(),
+          nome: 'Aposentadoria INSS',
+          tipo: 'salario',
+          natureza: 'fluxo',
+          valor: 3_000 * 12,
+          idade_inicio: idadeApos,
+          idade_fim: state.expectativa_vida_anos,
+          indexado_inflacao: true,
+        };
+      },
+    },
+    {
+      label: 'Aluguel recebido',
+      detalhe: 'R$ 3.500/mês vitalício',
+      build: () => makeAsset('aluguel', 'Aluguel recebido', 3_500 * 12, 'expectativa'),
+    },
+  ];
+
+  function makeAsset(
+    tipo: DraftAsset['tipo'],
+    nome: string,
+    valor: number,
+    fim: 'aposentadoria' | 'expectativa',
+  ): DraftAsset {
+    const idadeAtual = idadeFromBirth(state.data_nascimento) ?? 30;
+    const idadeFim =
+      fim === 'aposentadoria'
+        ? state.idade_aposentadoria ?? state.expectativa_vida_anos
+        : state.expectativa_vida_anos;
+    return {
+      id: crypto.randomUUID(),
+      nome,
+      tipo,
+      natureza: 'fluxo',
+      valor,
+      idade_inicio: idadeAtual,
+      idade_fim: idadeFim,
+      indexado_inflacao: true,
+    };
+  }
+
   return (
     <StepShell
       eyebrow="Passo 4"
@@ -66,6 +125,26 @@ export function StepReceitas({ state, update }: Props) {
       description="Salário, aluguel recebido, aposentadoria — tudo que entra no caixa de forma recorrente. Sempre o valor ANUAL (multiplica por 12 se for mensal). Pode pular se nenhuma se aplica."
     >
       <div className="space-y-6">
+        {/* QUICK-PICKS */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-2">
+            Modelos de receita — toque pra usar
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
+            {quickPicks.map((pick, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => update('assets', [...state.assets, pick.build()])}
+                className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all"
+              >
+                <p className="text-xs font-semibold text-slate-900">{pick.label}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{pick.detalhe}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
           <div>
             <Label>Tipo de receita</Label>
@@ -168,4 +247,18 @@ export function StepReceitas({ state, update }: Props) {
       </div>
     </StepShell>
   );
+}
+
+function idadeFromBirth(iso: string): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let idade = now.getUTCFullYear() - d.getUTCFullYear();
+  if (
+    now.getUTCMonth() < d.getUTCMonth() ||
+    (now.getUTCMonth() === d.getUTCMonth() && now.getUTCDate() < d.getUTCDate())
+  )
+    idade -= 1;
+  return idade;
 }
