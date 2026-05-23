@@ -20,7 +20,10 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
-import { createClientFromOnboarding } from './actions';
+import {
+  saveOnboardingDraft,
+  finalizeOnboarding,
+} from './actions';
 import type {
   OnboardingPayload,
   DraftAsset,
@@ -51,7 +54,7 @@ export interface WizardState {
   liabilities: DraftLiability[];
 }
 
-const initialState: WizardState = {
+const emptyState: WizardState = {
   nome_completo: '',
   data_nascimento: '',
   expectativa_vida_anos: 90,
@@ -66,10 +69,6 @@ const initialState: WizardState = {
   liabilities: [],
 };
 
-// ─── Configuração dos passos (a Capa fica no índice 0 e é tratada à parte) ───
-// A ordem da jornada principal coloca SONHOS antes das finanças, pra
-// motivar a conversa. Patrimônio (com dívidas), depois receitas e despesas,
-// e fecha com Preview ao vivo.
 const stepsConfig = [
   { id: 1, title: 'Sobre você',  subtitle: 'Quem é o cliente',           icon: User },
   { id: 2, title: 'Sonhos',      subtitle: 'Onde quer chegar',           icon: CalendarHeart },
@@ -81,10 +80,16 @@ const stepsConfig = [
 
 const TOTAL_STEPS = stepsConfig.length;
 
-export function Wizard() {
-  // 0 = capa de boas-vindas; 1..N = passos da jornada
-  const [step, setStep] = useState(0);
-  const [state, setState] = useState<WizardState>(initialState);
+interface Props {
+  initialClientId?: string | null;
+  initialState?: WizardState | null;
+  initialStep?: number;
+}
+
+export function Wizard({ initialClientId = null, initialState = null, initialStep = 0 }: Props) {
+  const [step, setStep] = useState(initialStep);
+  const [clientId, setClientId] = useState<string | null>(initialClientId);
+  const [state, setState] = useState<WizardState>(initialState ?? emptyState);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -104,32 +109,105 @@ export function Wizard() {
     return true;
   }
 
+  function buildPayload(): OnboardingPayload {
+    return {
+      nome_completo: state.nome_completo.trim(),
+      data_nascimento: state.data_nascimento,
+      expectativa_vida_anos: state.expectativa_vida_anos,
+      idade_aposentadoria: state.idade_aposentadoria,
+      idade_reducao_trabalho: state.idade_reducao_trabalho,
+      perfil_carteira: state.perfil_carteira,
+      custom_retorno_aa: state.custom_retorno_aa,
+      custom_volatilidade_aa: state.custom_volatilidade_aa,
+      assets: state.assets,
+      expenses: state.expenses,
+      events: state.events,
+      liabilities: state.liabilities,
+    };
+  }
+
+  /**
+   * Persiste o rascunho no banco e sincroniza o client_id local + URL.
+   * Retorna true se gravou com sucesso.
+   */
+  async function persistDraft(nextStep: number): Promise<boolean> {
+    if (!state.nome_completo.trim() || !state.data_nascimento) {
+      // Sem dados mínimos não dá pra criar — só permite avançar localmente.
+      return true;
+    }
+    const res = await saveOnboardingDraft({
+      client_id: clientId,
+      step: nextStep,
+      payload: buildPayload(),
+    });
+    if (!res.ok) {
+      toast.error(`Falha ao salvar: ${res.error}`);
+      return false;
+    }
+    if (!clientId) {
+      // Primeiro save criou o cliente — atualiza URL pra permitir retomar
+      router.replace(`/clients/new?id=${res.client_id}`);
+      setClientId(res.client_id);
+      toast.success('Rascunho salvo · pode fechar a aba sem perder');
+    } else {
+      // Saves subsequentes: indicador discreto
+      toast.success('Rascunho salvo');
+    }
+    return true;
+  }
+
   function handleNext() {
-    if (step < TOTAL_STEPS) setStep(step + 1);
+    if (step >= TOTAL_STEPS) return;
+    startTransition(async () => {
+      const nextStep = step + 1;
+      const ok = await persistDraft(nextStep);
+      if (ok) setStep(nextStep);
+    });
   }
 
   function handleBack() {
-    if (step > 0) setStep(step - 1);
+    if (step <= 0) return;
+    startTransition(async () => {
+      const prevStep = Math.max(1, step - 1);
+      // grava o estado atual antes de voltar (não perde alterações)
+      if (clientId) await persistDraft(step);
+      setStep(prevStep);
+    });
   }
 
   function handleSubmit() {
     setError(null);
     startTransition(async () => {
-      const payload: OnboardingPayload = {
-        nome_completo: state.nome_completo.trim(),
-        data_nascimento: state.data_nascimento,
-        expectativa_vida_anos: state.expectativa_vida_anos,
-        idade_aposentadoria: state.idade_aposentadoria,
-        idade_reducao_trabalho: state.idade_reducao_trabalho,
-        perfil_carteira: state.perfil_carteira,
-        custom_retorno_aa: state.custom_retorno_aa,
-        custom_volatilidade_aa: state.custom_volatilidade_aa,
-        assets: state.assets,
-        expenses: state.expenses,
-        events: state.events,
-        liabilities: state.liabilities,
-      };
-      const res = await createClientFromOnboarding(payload);
+      if (!clientId) {
+        // edge case: usuário pulou tudo e está finalizando sem salvar nunca
+        const saveRes = await saveOnboardingDraft({
+          client_id: null,
+          step: 6,
+          payload: buildPayload(),
+        });
+        if (!saveRes.ok) {
+          setError(saveRes.error);
+          toast.error(saveRes.error);
+          return;
+        }
+        setClientId(saveRes.client_id);
+        const finRes = await finalizeOnboarding({
+          client_id: saveRes.client_id,
+          payload: buildPayload(),
+        });
+        if (!finRes.ok) {
+          setError(finRes.error);
+          toast.error(finRes.error);
+          return;
+        }
+        toast.success('Cliente criado com sucesso');
+        router.push(`/clients/${finRes.client_id}`);
+        return;
+      }
+      const res = await finalizeOnboarding({
+        client_id: clientId,
+        payload: buildPayload(),
+      });
       if (!res.ok) {
         setError(res.error);
         toast.error(res.error);
@@ -172,7 +250,7 @@ export function Wizard() {
           <Link href="/clients">
             <Button variant="ghost" size="sm">
               <X size={14} />
-              Sair sem salvar
+              {clientId ? 'Sair · rascunho salvo' : 'Sair sem salvar'}
             </Button>
           </Link>
         </div>
@@ -271,16 +349,26 @@ export function Wizard() {
             {step === 1 ? 'Voltar à capa' : 'Voltar'}
           </Button>
 
-          <p className="hidden md:block text-xs text-slate-500">
-            {step < TOTAL_STEPS
-              ? `Passo ${step} de ${TOTAL_STEPS} — ${stepsConfig[step - 1]!.title}`
-              : 'Último passo: revise e finalize'}
+          <p className="hidden md:flex items-center gap-2 text-xs text-slate-500">
+            {isPending && <Loader2 size={11} className="animate-spin" />}
+            {clientId
+              ? 'Rascunho salvo · você pode fechar a aba e voltar quando quiser'
+              : `Passo ${step} de ${TOTAL_STEPS} — ${stepsConfig[step - 1]!.title}`}
           </p>
 
           {step < TOTAL_STEPS ? (
             <Button onClick={handleNext} disabled={!canAdvance() || isPending} size="md">
-              {step === 1 ? 'Avançar' : 'Continuar'}
-              <ArrowRight size={14} />
+              {isPending ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  {step === 1 ? 'Avançar' : 'Continuar'}
+                  <ArrowRight size={14} />
+                </>
+              )}
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={isPending} size="md">

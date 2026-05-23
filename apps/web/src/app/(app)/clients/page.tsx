@@ -59,12 +59,15 @@ export default async function ClientsPage() {
   const supabase = await createClient();
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, nome_completo, data_nascimento, perfil_carteira, expectativa_vida_anos, created_at')
+    .select('id, nome_completo, data_nascimento, perfil_carteira, expectativa_vida_anos, created_at, onboarding_step, updated_at')
     .order('created_at', { ascending: false });
 
-  // roda simulação leve em cada cliente pra cards rolarem com KPI + sparkline
+  const drafts = (clients ?? []).filter((c) => c.onboarding_step != null);
+  const finalClients = (clients ?? []).filter((c) => c.onboarding_step == null);
+
+  // roda simulação leve só nos finalizados (drafts não têm dados consistentes)
   const enriched = await Promise.all(
-    (clients ?? []).map(async (c) => {
+    finalClients.map(async (c) => {
       const sim = await loadSimulationInput(c.id);
       if (!sim) return { client: c, summary: null, spark: [] as number[] };
       const result = simulate(sim.input);
@@ -90,7 +93,9 @@ export default async function ClientsPage() {
         description={
           total === 0
             ? 'Comece carregando um cliente de exemplo para ver o sistema em ação.'
-            : `${total} ${total === 1 ? 'cliente' : 'clientes'} sob sua gestão · patrimônio final projetado de ${brlCompact(patrimonioTotal)}.`
+            : `${total} ${total === 1 ? 'cliente' : 'clientes'} ativos · patrimônio final projetado de ${brlCompact(patrimonioTotal)}${
+                drafts.length > 0 ? ` · ${drafts.length} em rascunho` : ''
+              }.`
         }
         actions={
           <>
@@ -112,7 +117,38 @@ export default async function ClientsPage() {
         }
       />
 
-      {!clients || clients.length === 0 ? (
+      {/* Rascunhos em aberto */}
+      {drafts.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5 space-y-3">
+          <div className="flex items-center gap-2 text-amber-900">
+            <Sparkles size={14} />
+            <p className="text-sm font-semibold">
+              {drafts.length} cliente{drafts.length > 1 ? 's' : ''} em rascunho · continue de onde parou
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {drafts.map((d) => (
+              <Link
+                key={d.id}
+                href={`/clients/new?id=${d.id}`}
+                className="rounded-lg border border-amber-200 bg-white p-3 flex items-center justify-between hover:border-amber-400 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {d.nome_completo || 'Sem nome'}
+                  </p>
+                  <p className="text-[11px] text-amber-700">
+                    Passo {d.onboarding_step} de 6
+                  </p>
+                </div>
+                <ArrowRight size={14} className="text-amber-600 shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!finalClients || finalClients.length === 0 ? (
         <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-soft">
           <div className="absolute inset-0 bg-mesh-brand opacity-60" />
           <div className="relative px-8 py-16 text-center">
