@@ -275,6 +275,17 @@ export function StepDespesas({ state, update }: Props) {
                       )
                     }
                     onRemove={() => remove(e.id)}
+                    onDuplicate={() => {
+                      const copy: DraftExpense = {
+                        ...e,
+                        id: crypto.randomUUID(),
+                        descricao: `${e.descricao} (cópia)`,
+                      };
+                      const idx = state.expenses.findIndex((x) => x.id === e.id);
+                      const next = [...state.expenses];
+                      next.splice(idx + 1, 0, copy);
+                      update('expenses', next);
+                    }}
                   />
                 );
               })}

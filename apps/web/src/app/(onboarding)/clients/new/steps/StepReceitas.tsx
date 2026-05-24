@@ -245,6 +245,17 @@ export function StepReceitas({ state, update }: Props) {
                       )
                     }
                     onRemove={() => remove(a.id)}
+                    onDuplicate={() => {
+                      const copy: DraftAsset = {
+                        ...a,
+                        id: crypto.randomUUID(),
+                        nome: `${a.nome} (cópia)`,
+                      };
+                      const idx = state.assets.findIndex((x) => x.id === a.id);
+                      const next = [...state.assets];
+                      next.splice(idx + 1, 0, copy);
+                      update('assets', next);
+                    }}
                   />
                 );
               })}

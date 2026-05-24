@@ -343,6 +343,18 @@ export function StepEventos({ state, update }: Props) {
                     )
                   }
                   onRemove={() => remove(e.id)}
+                  onDuplicate={() => {
+                    const copy: DraftEvent = {
+                      ...e,
+                      id: crypto.randomUUID(),
+                      descricao: `${e.descricao} (cópia)`,
+                    };
+                    update('events', [
+                      ...state.events.slice(0, idx + 1),
+                      copy,
+                      ...state.events.slice(idx + 1),
+                    ]);
+                  }}
                 />
               ))}
             </ul>

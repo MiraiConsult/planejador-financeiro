@@ -8,20 +8,12 @@ import {
   Gift,
   AlertCircle,
   Trash2,
+  Copy,
   ChevronDown,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { Input, Label } from '@/components/ui/Input';
 import { CurrencyInput, formatBRL } from './helpers';
+import { MiniChart } from './MiniChart';
 import type { DraftEvent } from './types';
 
 const iconByTipo: Record<DraftEvent['tipo'], typeof Sparkles> = {
@@ -47,17 +39,11 @@ function brl(n: number) {
   return `${sign} ${abs.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`;
 }
 
-const brlK = (n: number) => {
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${(abs / 1_000).toFixed(0)}k`;
-  return `${abs.toFixed(0)}`;
-};
-
 interface Props {
   ev: DraftEvent;
   onUpdate: (e: DraftEvent) => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
   idadeAtual: number;
   expectativaVida: number;
 }
@@ -66,6 +52,7 @@ export function EditableEventRow({
   ev,
   onUpdate,
   onRemove,
+  onDuplicate,
   idadeAtual,
   expectativaVida,
 }: Props) {
@@ -79,8 +66,7 @@ export function EditableEventRow({
     const inicio = ev.idade_inicio;
     const fim = ev.idade_fim ?? expectativaVida;
     if (fim < inicio) return [];
-    const pts: { idade: number; impacto: number }[] = [];
-    let acumulado = 0;
+    const pts: { idade: number; v: number }[] = [];
     for (let idade = idadeAtual; idade <= expectativaVida; idade++) {
       let impactoAno = 0;
       if (idade >= inicio && idade <= fim) {
@@ -93,10 +79,8 @@ export function EditableEventRow({
           }
         }
       }
-      acumulado += impactoAno;
-      pts.push({ idade, impacto: impactoAno });
+      pts.push({ idade, v: impactoAno });
     }
-    void acumulado;
     return pts;
   }, [ev, idadeAtual, expectativaVida]);
 
@@ -146,6 +130,19 @@ export function EditableEventRow({
         >
           {brl(ev.valor)}
         </p>
+        {onDuplicate && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center shrink-0"
+            title="Duplicar"
+          >
+            <Copy size={13} />
+          </button>
+        )}
         <button
           type="button"
           onClick={(e) => {
@@ -161,54 +158,20 @@ export function EditableEventRow({
 
       {expanded && (
         <div className="px-5 pb-5 pt-2 bg-slate-50/40 space-y-4 border-t border-slate-100">
-          {/* Mini-gráfico de impacto recorrente */}
+          {/* Mini-gráfico de impacto recorrente (arrastável verticalmente) */}
           {chartData.length > 0 && (
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-[11px] text-slate-500 mb-2">
-                Impacto deste sonho no caixa ano a ano (
-                {ev.padrao_recorrencia === 'recorrente_anual'
+            <MiniChart
+              data={chartData}
+              color={positivo ? '#10b981' : '#ef4444'}
+              kind="bar"
+              caption={`Impacto deste sonho no caixa ano a ano (${
+                ev.padrao_recorrencia === 'recorrente_anual'
                   ? 'todo ano'
-                  : `a cada ${ev.intervalo_anos ?? '?'} anos`}
-                )
-              </p>
-              <div style={{ height: 140, width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-                    <CartesianGrid stroke="#f1f5f9" vertical={false} />
-                    <XAxis
-                      dataKey="idade"
-                      tick={{ fontSize: 10, fill: '#94a3b8' }}
-                      tickLine={false}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: '#94a3b8' }}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={brlK}
-                      width={48}
-                    />
-                    <ReferenceLine y={0} stroke="#cbd5e1" />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        const p = payload[0]!.payload as { idade: number; impacto: number };
-                        if (p.impacto === 0) return null;
-                        return (
-                          <div className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
-                            <p className="font-medium text-slate-900">aos {p.idade}</p>
-                            <p className={`tabular-nums ${p.impacto >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              {brl(p.impacto)}
-                            </p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Bar dataKey="impacto" fill={positivo ? '#10b981' : '#ef4444'} radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+                  : `a cada ${ev.intervalo_anos ?? '?'} anos`
+              })`}
+              baseValue={ev.valor}
+              onChangeValue={(v) => onUpdate({ ...ev, valor: v })}
+            />
           )}
 
           {/* Form inline */}

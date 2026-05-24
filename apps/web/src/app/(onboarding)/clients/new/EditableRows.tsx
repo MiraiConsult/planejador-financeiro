@@ -1,21 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, Trash2 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { ChevronDown, Copy, Trash2 } from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { CurrencyInput } from './helpers';
+import { MiniChart } from './MiniChart';
 import type { DraftAsset, DraftExpense, DraftLiability } from './types';
 
 const brl = (n: number) =>
@@ -35,6 +24,7 @@ function Row({
   rightValue,
   rightSubtitle,
   onRemove,
+  onDuplicate,
   children,
   valueClassName,
 }: {
@@ -42,6 +32,7 @@ function Row({
   rightValue: string;
   rightSubtitle?: string;
   onRemove: () => void;
+  onDuplicate?: () => void;
   children: React.ReactNode;
   valueClassName?: string;
 }) {
@@ -64,6 +55,19 @@ function Row({
           </p>
           {rightSubtitle && <p className="text-[10px] text-slate-400 leading-tight">{rightSubtitle}</p>}
         </div>
+        {onDuplicate && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center shrink-0"
+            title="Duplicar"
+          >
+            <Copy size={13} />
+          </button>
+        )}
         <button
           type="button"
           onClick={(e) => {
@@ -85,72 +89,6 @@ function Row({
   );
 }
 
-// ─── Mini-gráfico genérico (linha ou barra) ───
-
-function MiniChart({
-  data,
-  color,
-  kind,
-  caption,
-}: {
-  data: { idade: number; v: number }[];
-  color: string;
-  kind: 'line' | 'bar';
-  caption: string;
-}) {
-  if (data.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-[11px] text-slate-500 mb-2">{caption}</p>
-      <div style={{ height: 140, width: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {kind === 'line' ? (
-            <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-              <CartesianGrid stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="idade" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={brlK} width={48} />
-              <ReferenceLine y={0} stroke="#cbd5e1" />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  const p = payload[0]!.payload as { idade: number; v: number };
-                  return (
-                    <div className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
-                      <p className="font-medium text-slate-900">aos {p.idade}</p>
-                      <p className="tabular-nums text-slate-700">{brl(p.v)}</p>
-                    </div>
-                  );
-                }}
-              />
-              <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
-            </LineChart>
-          ) : (
-            <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-              <CartesianGrid stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="idade" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={brlK} width={48} />
-              <ReferenceLine y={0} stroke="#cbd5e1" />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  const p = payload[0]!.payload as { idade: number; v: number };
-                  if (p.v === 0) return null;
-                  return (
-                    <div className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
-                      <p className="font-medium text-slate-900">aos {p.idade}</p>
-                      <p className="tabular-nums text-slate-700">{brl(p.v)}</p>
-                    </div>
-                  );
-                }}
-              />
-              <Bar dataKey="v" fill={color} radius={[2, 2, 0, 0]} />
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
 
 // ─── Asset estoque (patrimônio físico/financeiro) ───
 
@@ -173,6 +111,7 @@ export function EditableAssetEstoqueRow({
   idadeAtual,
   onUpdate,
   onRemove,
+  onDuplicate,
 }: {
   a: DraftAsset;
   icon: React.ComponentType<{ size?: number }>;
@@ -181,6 +120,7 @@ export function EditableAssetEstoqueRow({
   idadeAtual: number;
   onUpdate: (u: DraftAsset) => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
 }) {
   // Curva de valor de mercado: por simplicidade no onboarding,
   // mantemos plana (valor não muda) entre idade atual e idade_fim.
@@ -212,12 +152,15 @@ export function EditableAssetEstoqueRow({
       }
       rightValue={brl(a.valor)}
       onRemove={onRemove}
+      onDuplicate={onDuplicate}
     >
       <MiniChart
         data={chartData}
         color="#8b5cf6"
         kind="line"
-        caption={`Valor estimado projetado (${brl(a.valor)} sustentado entre ${idadeAtual} e ${a.idade_fim})`}
+        caption={`Valor estimado projetado · ${brl(a.valor)} entre ${idadeAtual} e ${a.idade_fim}`}
+        baseValue={a.valor}
+        onChangeValue={(v) => onUpdate({ ...a, valor: Math.max(0, v) })}
       />
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1 sm:col-span-2">
@@ -267,6 +210,7 @@ export function EditableAssetFluxoRow({
   idadeAtual,
   onUpdate,
   onRemove,
+  onDuplicate,
 }: {
   a: DraftAsset;
   icon: React.ComponentType<{ size?: number }>;
@@ -275,6 +219,7 @@ export function EditableAssetFluxoRow({
   idadeAtual: number;
   onUpdate: (u: DraftAsset) => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
 }) {
   // Receita anual: barra em cada ano dentro de [idade_inicio, idade_fim]; 0 fora.
   const chartData = useMemo(() => {
@@ -305,12 +250,15 @@ export function EditableAssetFluxoRow({
       rightSubtitle="/ano"
       valueClassName="text-emerald-600"
       onRemove={onRemove}
+      onDuplicate={onDuplicate}
     >
       <MiniChart
         data={chartData}
         color="#10b981"
         kind="bar"
         caption={`Receita anual entre ${a.idade_inicio} e ${a.idade_fim} anos`}
+        baseValue={a.valor}
+        onChangeValue={(v) => onUpdate({ ...a, valor: Math.max(0, v) })}
       />
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1 sm:col-span-2">
@@ -373,6 +321,7 @@ export function EditableExpenseRow({
   idadeAtual,
   onUpdate,
   onRemove,
+  onDuplicate,
 }: {
   e: DraftExpense;
   icon: React.ComponentType<{ size?: number }>;
@@ -382,6 +331,7 @@ export function EditableExpenseRow({
   idadeAtual: number;
   onUpdate: (u: DraftExpense) => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
 }) {
   // Despesa anual = valor_mensal × 12, dentro do período.
   const chartData = useMemo(() => {
@@ -414,12 +364,15 @@ export function EditableExpenseRow({
       rightSubtitle="/mês"
       valueClassName="text-red-600"
       onRemove={onRemove}
+      onDuplicate={onDuplicate}
     >
       <MiniChart
         data={chartData}
         color="#ef4444"
         kind="bar"
-        caption={`Despesa anual entre ${e.idade_inicio} e ${e.idade_fim} (${brl(e.valor_mensal * 12)}/ano)`}
+        caption={`Despesa anual entre ${e.idade_inicio} e ${e.idade_fim} · ${brl(e.valor_mensal * 12)}/ano`}
+        baseValue={e.valor_mensal * 12}
+        onChangeValue={(vAnual) => onUpdate({ ...e, valor_mensal: Math.max(0, Math.round(vAnual / 12)) })}
       />
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1 sm:col-span-2">
@@ -489,6 +442,7 @@ export function EditableLiabilityRow({
   idadeAtual,
   onUpdate,
   onRemove,
+  onDuplicate,
 }: {
   l: DraftLiability;
   label: string;
@@ -496,6 +450,7 @@ export function EditableLiabilityRow({
   idadeAtual: number;
   onUpdate: (u: DraftLiability) => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
 }) {
   // Saldo devedor projetado: saldo*(1+juros) − parcela_anual ano a ano,
   // floor 0. Mostra a amortização da dívida.
@@ -542,6 +497,7 @@ export function EditableLiabilityRow({
       rightValue={brl(l.saldo_atual)}
       valueClassName="text-orange-600"
       onRemove={onRemove}
+      onDuplicate={onDuplicate}
     >
       <MiniChart
         data={chartData}

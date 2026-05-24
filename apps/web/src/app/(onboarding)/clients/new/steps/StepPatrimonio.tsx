@@ -252,6 +252,17 @@ export function StepPatrimonio({ state, update }: Props) {
                         )
                       }
                       onRemove={() => removeAsset(a.id)}
+                      onDuplicate={() => {
+                        const copy: DraftAsset = {
+                          ...a,
+                          id: crypto.randomUUID(),
+                          nome: `${a.nome} (cópia)`,
+                        };
+                        const idx = state.assets.findIndex((x) => x.id === a.id);
+                        const next = [...state.assets];
+                        next.splice(idx + 1, 0, copy);
+                        update('assets', next);
+                      }}
                     />
                   );
                 })}
@@ -393,6 +404,17 @@ export function StepPatrimonio({ state, update }: Props) {
                         )
                       }
                       onRemove={() => removeLiability(l.id)}
+                      onDuplicate={() => {
+                        const copy: DraftLiability = {
+                          ...l,
+                          id: crypto.randomUUID(),
+                          nome: `${l.nome} (cópia)`,
+                        };
+                        const idx = state.liabilities.findIndex((x) => x.id === l.id);
+                        const next = [...state.liabilities];
+                        next.splice(idx + 1, 0, copy);
+                        update('liabilities', next);
+                      }}
                     />
                   );
                 })}
