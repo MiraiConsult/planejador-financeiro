@@ -90,10 +90,10 @@ export function ToastViewport() {
           key={t.id}
           className={cn(
             'pointer-events-auto rounded-lg border bg-white shadow-lg px-4 py-3 flex items-start gap-3 min-w-[280px] max-w-[400px]',
-            'animate-slide-right',
-            t.kind === 'success' && 'border-emerald-200',
-            t.kind === 'error' && 'border-red-200',
-            t.kind === 'info' && 'border-slate-200',
+            'animate-slide-right dark:bg-slate-800',
+            t.kind === 'success' && 'border-emerald-200 dark:border-emerald-800',
+            t.kind === 'error' && 'border-red-200 dark:border-red-800',
+            t.kind === 'info' && 'border-slate-200 dark:border-slate-700',
           )}
         >
           <div
@@ -108,7 +108,7 @@ export function ToastViewport() {
             {t.kind === 'error' && <AlertCircle size={18} />}
             {t.kind === 'info' && <Info size={18} />}
           </div>
-          <p className="flex-1 text-sm text-slate-900">{t.message}</p>
+          <p className="flex-1 text-sm text-slate-900 dark:text-slate-100">{t.message}</p>
           {t.action && (
             <button
               type="button"

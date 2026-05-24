@@ -3,19 +3,40 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── Light mode (default) ─── */
   :root {
-    --background: 250 250 252;
-    --foreground: 9 9 11;
+    --surface: 250 250 252;
+    --surface-raised: 255 255 255;
+    --on-surface: 15 23 42;
+    --on-surface-muted: 100 116 139;
+    --border-color: 226 232 240;
+    color-scheme: light;
   }
+
+  /* ─── Dark mode (MC Castro: azul profundo, clean) ─── */
+  .dark {
+    --surface: 1 8 22;           /* #010816 */
+    --surface-raised: 15 23 42;   /* slate-900 */
+    --on-surface: 247 249 251;    /* #F7F9FB */
+    --on-surface-muted: 148 163 183; /* #94A3B7 */
+    --border-color: 30 41 59;     /* #1E293B */
+    color-scheme: dark;
+  }
+
   html { @apply antialiased; }
+
   body {
-    background: rgb(var(--background));
-    color: rgb(var(--foreground));
-    @apply font-sans;
+    background: rgb(var(--surface));
+    color: rgb(var(--on-surface));
+    @apply font-sans transition-colors duration-200;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
+
   ::selection {
     @apply bg-brand-200 text-brand-900;
+  }
+  .dark ::selection {
+    @apply bg-brand-800 text-brand-100;
   }
 }
 
@@ -24,27 +45,24 @@
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
 
-  /* Glass effect */
   .glass {
-    background: rgb(255 255 255 / 0.7);
+    background: rgb(var(--surface-raised) / 0.7);
     backdrop-filter: blur(12px) saturate(160%);
     -webkit-backdrop-filter: blur(12px) saturate(160%);
   }
 
-  /* Mask gradients for soft edges */
   .mask-fade-r {
     mask-image: linear-gradient(to right, black 80%, transparent);
   }
 
-  /* Scrollbar refinada */
   .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgb(203 213 225 / 0.6);
+    background: rgb(var(--on-surface-muted) / 0.3);
     border-radius: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgb(148 163 184 / 0.8);
+    background: rgb(var(--on-surface-muted) / 0.5);
   }
 }
 
@@ -54,16 +72,16 @@
 .recharts-cartesian-grid line { stroke-dasharray: 3 3; }
 .recharts-default-tooltip {
   border-radius: 10px !important;
-  border: 1px solid rgb(226 232 240) !important;
+  border: 1px solid rgb(var(--border-color)) !important;
   box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.15) !important;
-  background: rgb(255 255 255 / 0.95) !important;
+  background: rgb(var(--surface-raised) / 0.95) !important;
   backdrop-filter: blur(8px);
+  color: rgb(var(--on-surface)) !important;
 }
 
-/* Subtle background grid pattern */
 .bg-grid {
   background-image:
-    linear-gradient(rgb(15 23 42 / 0.04) 1px, transparent 1px),
-    linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px);
+    linear-gradient(rgb(var(--on-surface) / 0.04) 1px, transparent 1px),
+    linear-gradient(to right, rgb(var(--on-surface) / 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
 }

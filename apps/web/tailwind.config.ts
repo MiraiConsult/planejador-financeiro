@@ -2,22 +2,35 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // Brand: azul puro (Tailwind blue) — identidade financeira séria
+        // MC Castro brand: azul institucional (gradiente #2B5EA7 → #4B8BCB)
         brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50: '#eef4fb',
+          100: '#d9e7f6',
+          200: '#b3cfed',
+          300: '#7caede',
+          400: '#4b8bcb',
+          500: '#3373b5',
+          600: '#2b5ea7',
+          700: '#244d8a',
+          800: '#1e3f6e',
+          900: '#1a345a',
+          950: '#0f1f38',
+        },
+        // Surface colors (CSS vars pra dark mode)
+        surface: {
+          DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+          raised: 'rgb(var(--surface-raised) / <alpha-value>)',
+        },
+        on: {
+          DEFAULT: 'rgb(var(--on-surface) / <alpha-value>)',
+          muted: 'rgb(var(--on-surface-muted) / <alpha-value>)',
+        },
+        border: {
+          DEFAULT: 'rgb(var(--border-color) / <alpha-value>)',
         },
       },
       fontFamily: {
@@ -33,15 +46,15 @@ const config: Config = {
       boxShadow: {
         soft: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06)',
         'soft-lg': '0 1px 3px 0 rgb(0 0 0 / 0.05), 0 10px 30px -10px rgb(0 0 0 / 0.1)',
-        glow: '0 0 0 1px rgb(59 130 246 / 0.1), 0 4px 16px -2px rgb(59 130 246 / 0.25)',
+        glow: '0 0 0 1px rgb(43 94 167 / 0.15), 0 4px 16px -2px rgb(43 94 167 / 0.25)',
         'inner-glow': 'inset 0 1px 0 0 rgb(255 255 255 / 0.05)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'grid-slate':
-          'linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px)',
+          'linear-gradient(to right, rgb(var(--on-surface) / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(var(--on-surface) / 0.04) 1px, transparent 1px)',
         'mesh-brand':
-          'radial-gradient(at 0% 0%, rgb(59 130 246 / 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgb(14 165 233 / 0.1) 0px, transparent 50%), radial-gradient(at 50% 100%, rgb(59 130 246 / 0.05) 0px, transparent 50%)',
+          'radial-gradient(at 0% 0%, rgb(43 94 167 / 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgb(75 139 203 / 0.1) 0px, transparent 50%), radial-gradient(at 50% 100%, rgb(43 94 167 / 0.05) 0px, transparent 50%)',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',

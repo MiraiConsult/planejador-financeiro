@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, Settings2, LogOut, HelpCircle, Sparkles } from 'lucide-react';
 import { Logo } from './Logo';
+import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -34,9 +35,10 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-sm sticky top-0 h-screen">
-      <div className="px-6 py-5">
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-sm sticky top-0 h-screen dark:border-slate-700/70 dark:bg-slate-900/70">
+      <div className="px-6 py-5 flex items-center justify-between">
         <Logo />
+        <ThemeToggle />
       </div>
 
       <div className="px-3 mb-3">
@@ -83,8 +85,8 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
                     className={cn(
                       'relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                       active
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                        ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100',
                     )}
                   >
                     <Icon size={15} strokeWidth={2} />
@@ -102,17 +104,17 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
         ))}
       </nav>
 
-      <div className="border-t border-slate-200/70 p-3 space-y-1">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50/80 ring-1 ring-inset ring-slate-200/60">
+      <div className="border-t border-slate-200/70 dark:border-slate-700/70 p-3 space-y-1">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50/80 ring-1 ring-inset ring-slate-200/60 dark:bg-slate-800/80 dark:ring-slate-700/60">
           <div className="relative">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-sky-600 text-white text-sm font-semibold shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-400 text-white text-sm font-semibold shadow-sm">
               {userEmail.charAt(0).toUpperCase()}
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-900 truncate">{userEmail}</p>
-            <p className="text-[10px] text-slate-500">Consultor</p>
+            <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{userEmail}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">Consultor</p>
           </div>
         </div>
         <a
@@ -140,7 +142,7 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
 
 export function MobileTopBar({ userEmail, signOutAction }: Props) {
   return (
-    <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/80 backdrop-blur-md px-4 py-3">
+    <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/80 backdrop-blur-md px-4 py-3 dark:border-slate-700/70 dark:bg-slate-900/80">
       <Logo />
       <form action={signOutAction}>
         <button
