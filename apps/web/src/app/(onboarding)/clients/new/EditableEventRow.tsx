@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Input, Label } from '@/components/ui/Input';
 import { CurrencyInput, formatBRL } from './helpers';
-import { MiniChart } from './MiniChart';
+import { DraggableLineChart } from './DraggableLineChart';
 import type { DraftEvent } from './types';
 
 const iconByTipo: Record<DraftEvent['tipo'], typeof Sparkles> = {
@@ -184,61 +184,22 @@ export function EditableEventRow({
 
       {expanded && (
         <div className="px-5 pb-5 pt-2 bg-slate-50/40 space-y-4 border-t border-slate-100">
-          {/* Mini-gráfico de impacto recorrente */}
+          {/* Gráfico de linha editável (arraste cada ponto pra ajustar valor naquele ano) */}
           {chartData.length > 0 && (
-            <>
-              <MiniChart
-                data={chartData}
-                color={positivo ? '#10b981' : '#ef4444'}
-                kind="bar"
-                caption={`Impacto ano a ano · clique nos valores abaixo pra ajustar cada ano`}
-              />
-              {/* Grid de inputs por ano: cada ano onde o evento dispara tem
-                  seu valor editável individualmente */}
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Valor por ano (altere qualquer um pra ter valores diferentes):
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                  {activeAges.map((idade) => {
-                    const ovr = ev.overrides?.[String(idade)];
-                    const currentVal = ovr !== undefined ? ovr : ev.valor;
-                    const isOverridden = ovr !== undefined;
-                    return (
-                      <div key={idade} className="flex items-center gap-1.5">
-                        <span className={`text-[11px] tabular-nums w-7 shrink-0 ${isOverridden ? 'font-bold text-brand-700' : 'text-slate-400'}`}>
-                          {idade}
-                        </span>
-                        <div className="relative flex-1">
-                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
-                            R$
-                          </span>
-                          <CurrencyInput
-                            value={currentVal}
-                            onChangeNumber={(n) => setOverrideForAge(idade, n)}
-                            allowNegative
-                            className={`h-7 text-[11px] pl-6 pr-1 tabular-nums ${
-                              isOverridden
-                                ? 'border-brand-300 bg-brand-50/40'
-                                : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {Object.keys(ev.overrides ?? {}).length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdate({ ...ev, overrides: undefined })}
-                    className="mt-2 text-[11px] text-slate-500 hover:text-slate-900 underline"
-                  >
-                    Resetar todos pra R$ {formatBRL(Math.abs(ev.valor))}
-                  </button>
-                )}
-              </div>
-            </>
+            <DraggableLineChart
+              data={activeAges.map((idade) => {
+                const ovr = ev.overrides?.[String(idade)];
+                return { idade, valor: ovr !== undefined ? ovr : ev.valor };
+              })}
+              color={positivo ? '#10b981' : '#ef4444'}
+              onChangePoint={(idade, valor) => setOverrideForAge(idade, valor)}
+              onReset={
+                Object.keys(ev.overrides ?? {}).length > 0
+                  ? () => onUpdate({ ...ev, overrides: undefined })
+                  : undefined
+              }
+              resetLabel={`Resetar pra R$ ${formatBRL(Math.abs(ev.valor))}`}
+            />
           )}
 
           {/* Form inline */}
