@@ -31,15 +31,18 @@ export function StepReceitas({ state, update }: Props) {
   const [nome, setNome] = useState('');
   const [valorAnual, setValorAnual] = useState<number>(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
   const itens = state.assets.filter((a) => a.natureza === 'fluxo');
 
   function pushAsset(asset: DraftAsset, message?: string) {
     update('assets', [...state.assets, asset]);
+    setLastAddedId(asset.id);
     if (message) toast.success(message);
     requestAnimationFrame(() => {
       listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+    setTimeout(() => setLastAddedId((curr) => (curr === asset.id ? null : curr)), 1600);
   }
 
   function add() {
@@ -238,6 +241,8 @@ export function StepReceitas({ state, update }: Props) {
                     cor={meta.cor}
                     expectativaVida={state.expectativa_vida_anos}
                     idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
+                    defaultExpanded={a.id === lastAddedId}
+                    highlight={a.id === lastAddedId}
                     onUpdate={(updated) =>
                       update(
                         'assets',
@@ -255,6 +260,11 @@ export function StepReceitas({ state, update }: Props) {
                       const next = [...state.assets];
                       next.splice(idx + 1, 0, copy);
                       update('assets', next);
+                      setLastAddedId(copy.id);
+                      setTimeout(
+                        () => setLastAddedId((curr) => (curr === copy.id ? null : curr)),
+                        1600,
+                      );
                     }}
                   />
                 );

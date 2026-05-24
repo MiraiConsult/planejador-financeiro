@@ -54,8 +54,20 @@ export function StepPatrimonio({ state, update }: Props) {
   const [valor, setValor] = useState<number>(0);
   const ativosRef = useRef<HTMLDivElement>(null);
   const passivosRef = useRef<HTMLDivElement>(null);
+  const [lastAddedAssetId, setLastAddedAssetId] = useState<string | null>(null);
+  const [lastAddedLiabId, setLastAddedLiabId] = useState<string | null>(null);
 
   const itens = state.assets.filter((a) => a.natureza === 'estoque');
+
+  function pushAsset(asset: DraftAsset, message: string) {
+    update('assets', [...state.assets, asset]);
+    setLastAddedAssetId(asset.id);
+    toast.success(message);
+    requestAnimationFrame(() => {
+      ativosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    setTimeout(() => setLastAddedAssetId((curr) => (curr === asset.id ? null : curr)), 1600);
+  }
 
   function addAsset() {
     if (!nome.trim() || valor <= 0) return;
@@ -70,11 +82,7 @@ export function StepPatrimonio({ state, update }: Props) {
       idade_fim: state.expectativa_vida_anos,
       indexado_inflacao: true,
     };
-    update('assets', [...state.assets, asset]);
-    toast.success(`Adicionado: ${asset.nome}`);
-    requestAnimationFrame(() => {
-      ativosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+    pushAsset(asset, `Adicionado: ${asset.nome}`);
     setNome('');
     setValor(0);
   }
@@ -108,10 +116,15 @@ export function StepPatrimonio({ state, update }: Props) {
       idade_fim: Math.min(state.expectativa_vida_anos, idadeAtual + anosAprox),
     };
     update('liabilities', [...state.liabilities, liability]);
+    setLastAddedLiabId(liability.id);
     toast.success(`Adicionado: ${liability.nome}`);
     requestAnimationFrame(() => {
       passivosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+    setTimeout(
+      () => setLastAddedLiabId((curr) => (curr === liability.id ? null : curr)),
+      1600,
+    );
     setPNome('');
     setPSaldo(0);
     setPParcela(0);
@@ -245,6 +258,8 @@ export function StepPatrimonio({ state, update }: Props) {
                       cor={meta.cor}
                       expectativaVida={state.expectativa_vida_anos}
                       idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
+                      defaultExpanded={a.id === lastAddedAssetId}
+                      highlight={a.id === lastAddedAssetId}
                       onUpdate={(updated) =>
                         update(
                           'assets',
@@ -262,6 +277,12 @@ export function StepPatrimonio({ state, update }: Props) {
                         const next = [...state.assets];
                         next.splice(idx + 1, 0, copy);
                         update('assets', next);
+                        setLastAddedAssetId(copy.id);
+                        setTimeout(
+                          () =>
+                            setLastAddedAssetId((curr) => (curr === copy.id ? null : curr)),
+                          1600,
+                        );
                       }}
                     />
                   );
@@ -397,6 +418,8 @@ export function StepPatrimonio({ state, update }: Props) {
                       label={meta?.label ?? l.tipo}
                       expectativaVida={state.expectativa_vida_anos}
                       idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
+                      defaultExpanded={l.id === lastAddedLiabId}
+                      highlight={l.id === lastAddedLiabId}
                       onUpdate={(updated) =>
                         update(
                           'liabilities',
@@ -414,6 +437,12 @@ export function StepPatrimonio({ state, update }: Props) {
                         const next = [...state.liabilities];
                         next.splice(idx + 1, 0, copy);
                         update('liabilities', next);
+                        setLastAddedLiabId(copy.id);
+                        setTimeout(
+                          () =>
+                            setLastAddedLiabId((curr) => (curr === copy.id ? null : curr)),
+                          1600,
+                        );
                       }}
                     />
                   );

@@ -46,6 +46,8 @@ interface Props {
   onDuplicate?: () => void;
   idadeAtual: number;
   expectativaVida: number;
+  defaultExpanded?: boolean;
+  highlight?: boolean;
 }
 
 export function EditableEventRow({
@@ -55,8 +57,10 @@ export function EditableEventRow({
   onDuplicate,
   idadeAtual,
   expectativaVida,
+  defaultExpanded = false,
+  highlight = false,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const Icon = iconByTipo[ev.tipo] ?? Sparkles;
   const positivo = ev.valor >= 0;
 
@@ -96,7 +100,11 @@ export function EditableEventRow({
         : `a cada ${ev.intervalo_anos ?? '?'} anos · ${ev.idade_inicio}–${ev.idade_fim ?? expectativaVida}`;
 
   return (
-    <li className="border-b border-slate-100 last:border-b-0">
+    <li
+      className={`border-b border-slate-100 last:border-b-0 transition-colors ${
+        highlight ? 'bg-brand-50/30' : ''
+      }`}
+    >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}

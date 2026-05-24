@@ -51,13 +51,17 @@ export function StepDespesas({ state, update }: Props) {
   const [desc, setDesc] = useState('');
   const [valorMensal, setValorMensal] = useState<number>(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const [lastAddedIds, setLastAddedIds] = useState<Set<string>>(new Set());
 
   function pushExpenses(items: DraftExpense[], message?: string) {
     update('expenses', [...state.expenses, ...items]);
+    const ids = new Set(items.map((i) => i.id));
+    setLastAddedIds(ids);
     if (message) toast.success(message);
     requestAnimationFrame(() => {
       listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+    setTimeout(() => setLastAddedIds(new Set()), 1600);
   }
 
   function add() {
@@ -268,6 +272,8 @@ export function StepDespesas({ state, update }: Props) {
                     label={meta.label}
                     expectativaVida={state.expectativa_vida_anos}
                     idadeAtual={idadeFromBirth(state.data_nascimento) ?? 30}
+                    defaultExpanded={lastAddedIds.has(e.id) && lastAddedIds.size === 1}
+                    highlight={lastAddedIds.has(e.id)}
                     onUpdate={(updated) =>
                       update(
                         'expenses',
@@ -285,6 +291,8 @@ export function StepDespesas({ state, update }: Props) {
                       const next = [...state.expenses];
                       next.splice(idx + 1, 0, copy);
                       update('expenses', next);
+                      setLastAddedIds(new Set([copy.id]));
+                      setTimeout(() => setLastAddedIds(new Set()), 1600);
                     }}
                   />
                 );

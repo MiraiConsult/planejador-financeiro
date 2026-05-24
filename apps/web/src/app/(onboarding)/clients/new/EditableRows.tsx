@@ -27,6 +27,8 @@ function Row({
   onDuplicate,
   children,
   valueClassName,
+  defaultExpanded = false,
+  highlight = false,
 }: {
   header: React.ReactNode;
   rightValue: string;
@@ -35,10 +37,16 @@ function Row({
   onDuplicate?: () => void;
   children: React.ReactNode;
   valueClassName?: string;
+  defaultExpanded?: boolean;
+  highlight?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   return (
-    <li className="border-b border-slate-100 last:border-b-0">
+    <li
+      className={`border-b border-slate-100 last:border-b-0 transition-colors ${
+        highlight ? 'bg-brand-50/30' : ''
+      }`}
+    >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -112,6 +120,8 @@ export function EditableAssetEstoqueRow({
   onUpdate,
   onRemove,
   onDuplicate,
+  defaultExpanded,
+  highlight,
 }: {
   a: DraftAsset;
   icon: React.ComponentType<{ size?: number }>;
@@ -121,6 +131,8 @@ export function EditableAssetEstoqueRow({
   onUpdate: (u: DraftAsset) => void;
   onRemove: () => void;
   onDuplicate?: () => void;
+  defaultExpanded?: boolean;
+  highlight?: boolean;
 }) {
   // Curva de valor de mercado: por simplicidade no onboarding,
   // mantemos plana (valor não muda) entre idade atual e idade_fim.
@@ -153,6 +165,8 @@ export function EditableAssetEstoqueRow({
       rightValue={brl(a.valor)}
       onRemove={onRemove}
       onDuplicate={onDuplicate}
+      defaultExpanded={defaultExpanded}
+      highlight={highlight}
     >
       <MiniChart
         data={chartData}
@@ -211,6 +225,8 @@ export function EditableAssetFluxoRow({
   onUpdate,
   onRemove,
   onDuplicate,
+  defaultExpanded,
+  highlight,
 }: {
   a: DraftAsset;
   icon: React.ComponentType<{ size?: number }>;
@@ -220,6 +236,8 @@ export function EditableAssetFluxoRow({
   onUpdate: (u: DraftAsset) => void;
   onRemove: () => void;
   onDuplicate?: () => void;
+  defaultExpanded?: boolean;
+  highlight?: boolean;
 }) {
   // Receita anual: barra em cada ano dentro de [idade_inicio, idade_fim]; 0 fora.
   const chartData = useMemo(() => {
@@ -251,6 +269,8 @@ export function EditableAssetFluxoRow({
       valueClassName="text-emerald-600"
       onRemove={onRemove}
       onDuplicate={onDuplicate}
+      defaultExpanded={defaultExpanded}
+      highlight={highlight}
     >
       <MiniChart
         data={chartData}
@@ -322,6 +342,8 @@ export function EditableExpenseRow({
   onUpdate,
   onRemove,
   onDuplicate,
+  defaultExpanded,
+  highlight,
 }: {
   e: DraftExpense;
   icon: React.ComponentType<{ size?: number }>;
@@ -332,6 +354,8 @@ export function EditableExpenseRow({
   onUpdate: (u: DraftExpense) => void;
   onRemove: () => void;
   onDuplicate?: () => void;
+  defaultExpanded?: boolean;
+  highlight?: boolean;
 }) {
   // Despesa anual = valor_mensal × 12, dentro do período.
   const chartData = useMemo(() => {
@@ -365,6 +389,8 @@ export function EditableExpenseRow({
       valueClassName="text-red-600"
       onRemove={onRemove}
       onDuplicate={onDuplicate}
+      defaultExpanded={defaultExpanded}
+      highlight={highlight}
     >
       <MiniChart
         data={chartData}
@@ -443,6 +469,8 @@ export function EditableLiabilityRow({
   onUpdate,
   onRemove,
   onDuplicate,
+  defaultExpanded,
+  highlight,
 }: {
   l: DraftLiability;
   label: string;
@@ -451,6 +479,8 @@ export function EditableLiabilityRow({
   onUpdate: (u: DraftLiability) => void;
   onRemove: () => void;
   onDuplicate?: () => void;
+  defaultExpanded?: boolean;
+  highlight?: boolean;
 }) {
   // Saldo devedor projetado: saldo*(1+juros) − parcela_anual ano a ano,
   // floor 0. Mostra a amortização da dívida.
@@ -498,6 +528,8 @@ export function EditableLiabilityRow({
       valueClassName="text-orange-600"
       onRemove={onRemove}
       onDuplicate={onDuplicate}
+      defaultExpanded={defaultExpanded}
+      highlight={highlight}
     >
       <MiniChart
         data={chartData}

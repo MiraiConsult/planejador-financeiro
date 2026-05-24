@@ -56,14 +56,17 @@ export function StepEventos({ state, update }: Props) {
   const [recorrencia, setRecorrencia] = useState<DraftEvent['padrao_recorrencia']>('unico');
   const [intervalo, setIntervalo] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
   function pushEvent(ev: DraftEvent, message?: string) {
     update('events', [...state.events, ev]);
+    setLastAddedId(ev.id);
     if (message) toast.success(message);
-    // Rola até a lista pra dar feedback visual
     requestAnimationFrame(() => {
       listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+    // remove o highlight depois de 1.6s; manter expansão
+    setTimeout(() => setLastAddedId((curr) => (curr === ev.id ? null : curr)), 1600);
   }
 
   function add() {
@@ -92,48 +95,52 @@ export function StepEventos({ state, update }: Props) {
     update('events', state.events.filter((e) => e.id !== id));
   }
 
-  // ─── Sonhos pré-prontos: cartões que criam DraftEvent direto ───
-  const quickPicks: {
+  // ─── Sonhos pré-prontos: cada clique cria um item novo deslocado no
+  //     tempo (evita "duplicado idêntico" se você clicar 2x na mesma casa).
+  type QuickPick = {
     icon: typeof Sparkles;
     label: string;
     detalhe: string;
-    build: (idadeBase: number) => DraftEvent;
-  }[] = [
+    /** offset = quantos eventos do mesmo label já existem — usado pra
+     *  espaçar idades. Ex.: Casa #1 em +5 anos, Casa #2 em +15 anos. */
+    build: (idadeBase: number, offset: number) => DraftEvent;
+  };
+  const quickPicks: QuickPick[] = [
     {
       icon: Home,
       label: 'Casa própria',
       detalhe: 'R$ 600k em 5 anos',
-      build: (i) => makeEvent('compra', 'Casa própria', -600_000, i + 5),
+      build: (i, n) => makeEvent('compra', `Casa própria${n ? ` ${n + 1}` : ''}`, -600_000, i + 5 + n * 10),
     },
     {
       icon: Plane,
       label: 'Viagem dos sonhos',
       detalhe: 'R$ 30k em 3 anos',
-      build: (i) => makeEvent('viagem_pontual', 'Viagem dos sonhos', -30_000, i + 3),
+      build: (i, n) => makeEvent('viagem_pontual', `Viagem dos sonhos${n ? ` ${n + 1}` : ''}`, -30_000, i + 3 + n * 4),
     },
     {
       icon: GraduationCap,
       label: 'Faculdade dos filhos',
       detalhe: 'R$ 200k aos 50',
-      build: (i) => makeEvent('compra', 'Faculdade dos filhos', -200_000, 50),
+      build: (_i, n) => makeEvent('compra', `Faculdade dos filhos${n ? ` ${n + 1}` : ''}`, -200_000, 50 + n * 4),
     },
     {
       icon: PartyPopper,
       label: 'Casamento',
       detalhe: 'R$ 80k em 2 anos',
-      build: (i) => makeEvent('compra', 'Casamento', -80_000, i + 2),
+      build: (i, n) => makeEvent('compra', `Casamento${n ? ` ${n + 1}` : ''}`, -80_000, i + 2 + n * 10),
     },
     {
       icon: Car,
       label: 'Carro novo',
       detalhe: 'R$ 120k a cada 8 anos',
-      build: (i) => ({
+      build: (i, n) => ({
         id: crypto.randomUUID(),
         tipo: 'compra',
-        descricao: 'Trocar de carro',
+        descricao: `Trocar de carro${n ? ` ${n + 1}` : ''}`,
         valor: -120_000,
         padrao_recorrencia: 'recorrente_espacado',
-        idade_inicio: i + 3,
+        idade_inicio: i + 3 + n * 2,
         idade_fim: state.expectativa_vida_anos,
         intervalo_anos: 8,
         indexado_inflacao: true,
@@ -143,9 +150,14 @@ export function StepEventos({ state, update }: Props) {
       icon: Gift,
       label: 'Herança a receber',
       detalhe: '+R$ 500k aos 55',
-      build: () => makeEvent('heranca', 'Herança esperada', 500_000, 55),
+      build: (_i, n) => makeEvent('heranca', `Herança esperada${n ? ` ${n + 1}` : ''}`, 500_000, 55 + n * 5),
     },
   ];
+
+  /** Conta quantos eventos já existem cujo nome começa com o label do quick-pick. */
+  function countExisting(label: string): number {
+    return state.events.filter((e) => e.descricao.startsWith(label.replace(/ dos.*/, ''))).length;
+  }
 
   function makeEvent(
     tipo: DraftEvent['tipo'],
@@ -185,7 +197,10 @@ export function StepEventos({ state, update }: Props) {
               <button
                 key={idx}
                 type="button"
-                onClick={() => pushEvent(build(idadeAtual), `Adicionado: ${label}`)}
+                onClick={() => {
+                  const offset = countExisting(label);
+                  pushEvent(build(idadeAtual, offset), `Adicionado: ${label}${offset ? ` ${offset + 1}` : ''}`);
+                }}
                 className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all group"
               >
                 <div className="flex items-start gap-2.5">
@@ -201,7 +216,8 @@ export function StepEventos({ state, update }: Props) {
             ))}
           </div>
           <p className="text-[11px] text-slate-400 mt-2">
-            Os valores são exemplos — depois você ajusta no item.
+            Toque várias vezes pra adicionar mais de um · cada novo abre
+            pronto pra você ajustar valor e idade.
           </p>
         </div>
 
@@ -336,6 +352,8 @@ export function StepEventos({ state, update }: Props) {
                   ev={e}
                   idadeAtual={idadeAtual}
                   expectativaVida={state.expectativa_vida_anos}
+                  defaultExpanded={e.id === lastAddedId}
+                  highlight={e.id === lastAddedId}
                   onUpdate={(updated) =>
                     update(
                       'events',
@@ -354,6 +372,11 @@ export function StepEventos({ state, update }: Props) {
                       copy,
                       ...state.events.slice(idx + 1),
                     ]);
+                    setLastAddedId(copy.id);
+                    setTimeout(
+                      () => setLastAddedId((curr) => (curr === copy.id ? null : curr)),
+                      1600,
+                    );
                   }}
                 />
               ))}
