@@ -119,14 +119,14 @@ export function EditableEventRow({
 
   return (
     <li
-      className={`border-b border-slate-100 last:border-b-0 transition-colors ${
+      className={`border-b border-slate-100 dark:border-slate-800 last:border-b-0 transition-colors ${
         highlight ? 'bg-brand-50/30' : ''
       }`}
     >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 transition-colors text-left"
+        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-950/60 transition-colors text-left"
       >
         <ChevronDown
           size={13}
@@ -142,7 +142,7 @@ export function EditableEventRow({
           <Icon size={15} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-slate-900 truncate">
+          <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
             {ev.descricao || <span className="text-slate-400 italic">sem descrição</span>}
           </p>
           <p className="text-xs text-slate-500">
@@ -163,7 +163,7 @@ export function EditableEventRow({
               e.stopPropagation();
               onDuplicate();
             }}
-            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center shrink-0"
+            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-900 dark:text-slate-100 flex items-center justify-center shrink-0"
             title="Duplicar"
           >
             <Copy size={13} />
@@ -183,7 +183,7 @@ export function EditableEventRow({
       </button>
 
       {expanded && (
-        <div className="px-5 pb-5 pt-2 bg-slate-50/40 space-y-4 border-t border-slate-100">
+        <div className="px-5 pb-5 pt-2 bg-slate-50 dark:bg-slate-950/40 space-y-4 border-t border-slate-100 dark:border-slate-800">
           {/* Gráfico de linha editável (arraste cada ponto pra ajustar valor naquele ano) */}
           {chartData.length > 0 && (
             <DraggableLineChart
@@ -259,7 +259,7 @@ export function EditableEventRow({
                     className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       ev.padrao_recorrencia === r
                         ? 'border-brand-500 bg-brand-50 text-brand-700'
-                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 hover:border-slate-300'
                     }`}
                   >
                     {r === 'unico' && 'Único'}

@@ -169,9 +169,9 @@ export function StepDespesas({ state, update }: Props) {
                 key={idx}
                 type="button"
                 onClick={() => pushExpenses(p.build(), `${p.label} adicionado`)}
-                className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all"
+                className="text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-brand-400 hover:bg-brand-50/30 transition-all"
               >
-                <p className="text-xs font-semibold text-slate-900">{p.label}</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{p.label}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{p.detalhe}</p>
               </button>
             ))}
@@ -182,7 +182,7 @@ export function StepDespesas({ state, update }: Props) {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-soft dark:shadow-none space-y-4">
           <div>
             <Label>Categoria</Label>
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -194,12 +194,12 @@ export function StepDespesas({ state, update }: Props) {
                   className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                     cat === c
                       ? 'border-brand-500 bg-brand-50/40 shadow-glow'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                   }`}
                 >
                   <div
                     className={`h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset ${
-                      essencial ? 'bg-rose-50 text-rose-600 ring-rose-100' : 'bg-slate-100 text-slate-600 ring-slate-200'
+                      essencial ? 'bg-rose-50 text-rose-600 ring-rose-100' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200'
                     }`}
                   >
                     <Icon size={14} />
@@ -249,8 +249,8 @@ export function StepDespesas({ state, update }: Props) {
             description="Adicione moradia, alimentação, transporte e demais gastos fixos."
           />
         ) : (
-          <div ref={listRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+          <div ref={listRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                 {state.expenses.length} {state.expenses.length === 1 ? 'despesa' : 'despesas'} · {brl(totalMensal)}/mês
               </p>
@@ -262,7 +262,7 @@ export function StepDespesas({ state, update }: Props) {
                 const Icon = meta.icon;
                 const cor = meta.essencial
                   ? 'bg-rose-50 text-rose-600 ring-rose-100'
-                  : 'bg-slate-100 text-slate-600 ring-slate-200';
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200';
                 return (
                   <EditableExpenseRow
                     key={e.id}

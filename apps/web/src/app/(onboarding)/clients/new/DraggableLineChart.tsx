@@ -125,7 +125,7 @@ export function DraggableLineChart({ data, color, onChangePoint, onReset, resetL
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-2">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 p-4 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-slate-500 dark:text-slate-400">
           Arraste qualquer ponto pra ajustar o valor naquele ano
@@ -137,7 +137,7 @@ export function DraggableLineChart({ data, color, onChangePoint, onReset, resetL
               setLocalOverrides({});
               onReset();
             }}
-            className="text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 flex items-center gap-1 shrink-0"
+            className="text-[11px] text-slate-500 hover:text-slate-900 dark:text-slate-100 dark:hover:text-slate-200 flex items-center gap-1 shrink-0"
           >
             <RotateCcw size={11} />
             {resetLabel ?? 'Resetar'}
@@ -173,7 +173,7 @@ export function DraggableLineChart({ data, color, onChangePoint, onReset, resetL
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const p = (payload[0] as any).payload as { idade: number; valor: number; isOverride: boolean };
                 return (
-                  <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs shadow-sm">
+                  <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:bg-slate-800 px-3 py-2 text-xs shadow-sm">
                     <p className="font-medium text-slate-900 dark:text-slate-100">idade {p.idade}</p>
                     <p className="tabular-nums text-slate-700 dark:text-slate-300">{brl(p.valor)}</p>
                     {p.isOverride && (

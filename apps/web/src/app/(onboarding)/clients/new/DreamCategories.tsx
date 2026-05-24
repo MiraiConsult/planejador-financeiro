@@ -109,7 +109,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'carro',
     label: 'Carros',
     icon: Car,
-    cor: 'bg-slate-100 text-slate-600 ring-slate-200',
+    cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200',
     matchers: ['carro', 'veículo'],
     positivo: false,
     build: ({ offset, idadeAtual, expectativaVida }) => ({
@@ -264,12 +264,12 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
             ref={(el) => {
               groupsRef.current.set(cat.key, el);
             }}
-            className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden"
           >
             <button
               type="button"
               onClick={() => toggle(cat.key)}
-              className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 text-left"
+              className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-950/60 text-left"
             >
               <ChevronDown
                 size={13}
@@ -279,7 +279,7 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
                 <Icon size={15} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 truncate">
+                <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                   {cat.label}
                   {items.length > 0 && (
                     <span className="ml-2 text-xs font-medium text-slate-400">
@@ -303,7 +303,7 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
             </button>
 
             {isOpen && (
-              <div className="border-t border-slate-100">
+              <div className="border-t border-slate-100 dark:border-slate-800">
                 {items.length === 0 ? (
                   <div className="px-5 py-6 text-center text-xs text-slate-400">
                     Nada por aqui ainda. Use o botão abaixo pra adicionar a primeira.
@@ -338,11 +338,11 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
                   </ul>
                 )}
 
-                <div className="px-5 py-3 bg-slate-50/40 border-t border-slate-100">
+                <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => addToCategory(cat)}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-medium text-brand-600 hover:bg-white hover:border-brand-400 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-medium text-brand-600 hover:bg-white dark:bg-slate-900 hover:border-brand-400 transition-colors"
                   >
                     <Plus size={13} />
                     Adicionar {items.length === 0 ? `primeira ${cat.label.replace(/s$/, '').toLowerCase()}` : `outra ${cat.label.replace(/s$/, '').toLowerCase()}`}

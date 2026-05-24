@@ -19,7 +19,7 @@ interface Props {
 const tiposFluxo: { tipo: DraftAsset['tipo']; label: string; icon: typeof Briefcase; cor: string; defaultFim: 'aposentadoria' | 'expectativa' }[] = [
   { tipo: 'salario', label: 'Salário', icon: Briefcase, cor: 'bg-brand-50 text-brand-600 ring-brand-100', defaultFim: 'aposentadoria' },
   { tipo: 'aluguel', label: 'Aluguel / arrendamento', icon: Building, cor: 'bg-emerald-50 text-emerald-600 ring-emerald-100', defaultFim: 'expectativa' },
-  { tipo: 'outro', label: 'Outra renda', icon: TrendingUp, cor: 'bg-slate-100 text-slate-600 ring-slate-200', defaultFim: 'expectativa' },
+  { tipo: 'outro', label: 'Outra renda', icon: TrendingUp, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200', defaultFim: 'expectativa' },
 ];
 
 function brl(n: number) {
@@ -150,16 +150,16 @@ export function StepReceitas({ state, update }: Props) {
                 key={idx}
                 type="button"
                 onClick={() => pushAsset(pick.build(), `Adicionado: ${pick.label}`)}
-                className="text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-brand-400 hover:bg-brand-50/30 transition-all"
+                className="text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-brand-400 hover:bg-brand-50/30 transition-all"
               >
-                <p className="text-xs font-semibold text-slate-900">{pick.label}</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{pick.label}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{pick.detalhe}</p>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-soft dark:shadow-none space-y-4">
           <div>
             <Label>Tipo de receita</Label>
             <div className="mt-2 grid sm:grid-cols-3 gap-2">
@@ -171,7 +171,7 @@ export function StepReceitas({ state, update }: Props) {
                   className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                     tipo === t
                       ? 'border-brand-500 bg-brand-50/40 shadow-glow'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                   }`}
                 >
                   <div className={`h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset ${cor}`}>
@@ -222,8 +222,8 @@ export function StepReceitas({ state, update }: Props) {
             description="Pode avançar — também é comum em planos pós-aposentadoria."
           />
         ) : (
-          <div ref={listRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+          <div ref={listRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                 {itens.length} {itens.length === 1 ? 'receita' : 'receitas'} · {brl(total)}/ano
               </p>

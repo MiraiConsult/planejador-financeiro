@@ -36,7 +36,7 @@ export function StepRevisao({ state }: Props) {
     >
       <div className="space-y-4">
         {/* Resumo card */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-brand-50/40 via-white to-sky-50/40 p-6 shadow-soft">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-brand-50/40 via-white to-sky-50/40 p-6 shadow-soft dark:shadow-none">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-brand-300 to-transparent" />
           <div className="flex items-start gap-4">
             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-brand-500 to-sky-600 text-white text-lg font-bold flex items-center justify-center shrink-0 shadow-glow ring-1 ring-inset ring-white/20">
@@ -50,7 +50,7 @@ export function StepRevisao({ state }: Props) {
                 : '?'}
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 {state.nome_completo || '— sem nome —'}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
@@ -143,8 +143,8 @@ function ReviewSection({
   items: { label: string; value: string; highlight?: boolean }[];
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100 dark:border-slate-800">
         <Icon size={14} />
         <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-600">{title}</h3>
       </div>
@@ -154,7 +154,7 @@ function ReviewSection({
             <dt className="text-slate-500">{item.label}</dt>
             <dd
               className={`tabular-nums ${
-                item.highlight ? 'font-bold text-slate-900' : 'text-slate-700'
+                item.highlight ? 'font-bold text-slate-900 dark:text-slate-100' : 'text-slate-700'
               }`}
             >
               {item.value}

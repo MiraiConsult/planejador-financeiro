@@ -30,9 +30,9 @@ const tiposEstoque: { tipo: DraftAsset['tipo']; label: string; icon: typeof Bank
   { tipo: 'financeiro_liquido', label: 'Aplicação financeira', icon: Banknote, cor: 'bg-emerald-50 text-emerald-600 ring-emerald-100' },
   { tipo: 'imovel', label: 'Imóvel', icon: Home, cor: 'bg-blue-50 text-blue-600 ring-blue-100' },
   { tipo: 'terreno', label: 'Terreno', icon: Trees, cor: 'bg-amber-50 text-amber-600 ring-amber-100' },
-  { tipo: 'carro', label: 'Carro / veículo', icon: Car, cor: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  { tipo: 'carro', label: 'Carro / veículo', icon: Car, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200' },
   { tipo: 'heranca_recebida', label: 'Herança', icon: Gift, cor: 'bg-rose-50 text-rose-600 ring-rose-100' },
-  { tipo: 'outro', label: 'Outro', icon: Building2, cor: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  { tipo: 'outro', label: 'Outro', icon: Building2, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200' },
 ];
 
 const tiposPassivo: { tipo: string; label: string }[] = [
@@ -153,7 +153,7 @@ export function StepPatrimonio({ state, update }: Props) {
               Patrimônio líquido estimado
             </p>
             <p
-              className={`text-3xl font-bold tabular-nums ${patrimonioLiquido < 0 ? 'text-red-600' : 'text-slate-900'}`}
+              className={`text-3xl font-bold tabular-nums ${patrimonioLiquido < 0 ? 'text-red-600' : 'text-slate-900 dark:text-slate-100'}`}
             >
               {brl(patrimonioLiquido)}
             </p>
@@ -166,7 +166,7 @@ export function StepPatrimonio({ state, update }: Props) {
         {/* ─── ATIVOS ─── */}
         <section className="space-y-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Building2 size={16} className="text-emerald-600" />
               O que tem
             </h2>
@@ -175,7 +175,7 @@ export function StepPatrimonio({ state, update }: Props) {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-soft dark:shadow-none space-y-4">
             <div>
               <Label>Tipo</Label>
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -187,7 +187,7 @@ export function StepPatrimonio({ state, update }: Props) {
                     className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                       tipo === t
                         ? 'border-brand-500 bg-brand-50/40 shadow-glow'
-                        : 'border-slate-200 hover:border-slate-300'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                     }`}
                   >
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset ${cor}`}>
@@ -240,8 +240,8 @@ export function StepPatrimonio({ state, update }: Props) {
               description="Use o formulário acima ou pule esse passo se o cliente não tiver ativos."
             />
           ) : (
-            <div ref={ativosRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+            <div ref={ativosRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                   {itens.length} {itens.length === 1 ? 'item' : 'itens'} · toque pra editar
                 </p>
@@ -293,9 +293,9 @@ export function StepPatrimonio({ state, update }: Props) {
         </section>
 
         {/* ─── PASSIVOS ─── */}
-        <section className="space-y-4 pt-4 border-t border-slate-200">
+        <section className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <TrendingDown size={16} className="text-orange-600" />
               O que deve
             </h2>
@@ -304,7 +304,7 @@ export function StepPatrimonio({ state, update }: Props) {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft space-y-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-soft dark:shadow-none space-y-4">
             <div>
               <Label>Tipo da dívida</Label>
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -316,7 +316,7 @@ export function StepPatrimonio({ state, update }: Props) {
                     className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                       pTipo === t
                         ? 'border-orange-500 bg-orange-50/40 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                     }`}
                   >
                     <div className="h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset bg-orange-50 text-orange-600 ring-orange-100">
@@ -401,8 +401,8 @@ export function StepPatrimonio({ state, update }: Props) {
           </div>
 
           {state.liabilities.length > 0 && (
-            <div ref={passivosRef} className="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+            <div ref={passivosRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                   {state.liabilities.length} {state.liabilities.length === 1 ? 'dívida' : 'dívidas'} · toque pra editar
                 </p>

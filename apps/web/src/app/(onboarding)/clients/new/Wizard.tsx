@@ -221,8 +221,8 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
   // ─── Capa (step 0): sem progress, sem footer ───
   if (step === 0) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <header className="border-b border-slate-200 bg-white">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+        <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <Logo />
             <Link href="/clients">
@@ -243,8 +243,8 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Logo />
           <Link href="/clients">
@@ -256,7 +256,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
         </div>
       </header>
 
-      <div className="border-b border-slate-200 bg-white">
+      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
         <div className="max-w-6xl mx-auto px-6 py-5">
           <div className="hidden md:flex items-center justify-between gap-1">
             {stepsConfig.map((s, i) => {
@@ -277,8 +277,8 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
                       className={cn(
                         'h-9 w-9 shrink-0 rounded-full flex items-center justify-center transition-all',
                         done && 'bg-brand-600 text-white',
-                        active && 'bg-slate-900 text-white ring-4 ring-brand-100',
-                        !done && !active && 'bg-slate-100 text-slate-400',
+                        active && 'bg-slate-900 dark:bg-slate-100 dark:bg-slate-800 text-white dark:text-slate-900 dark:text-slate-100 ring-4 ring-brand-100 dark:ring-brand-800/50',
+                        !done && !active && 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
                       )}
                     >
                       {done ? <Check size={16} /> : <Icon size={15} />}
@@ -287,19 +287,19 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
                       <p
                         className={cn(
                           'text-xs font-semibold leading-tight truncate',
-                          done || active ? 'text-slate-900' : 'text-slate-400',
+                          done || active ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500',
                         )}
                       >
                         {s.title}
                       </p>
-                      <p className="text-[10px] text-slate-400 truncate">{s.subtitle}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{s.subtitle}</p>
                     </div>
                   </button>
                   {i < stepsConfig.length - 1 && (
                     <div
                       className={cn(
                         'flex-1 h-px transition-colors',
-                        done ? 'bg-brand-500' : 'bg-slate-200',
+                        done ? 'bg-brand-500' : 'bg-slate-200 dark:bg-slate-700',
                       )}
                     />
                   )}
@@ -310,12 +310,12 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
 
           <div className="md:hidden">
             <div className="flex items-center justify-between mb-2 text-xs">
-              <span className="font-semibold text-slate-900">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">
                 Passo {step} de {TOTAL_STEPS}
               </span>
-              <span className="text-slate-500">{stepsConfig[step - 1]!.title}</span>
+              <span className="text-slate-500 dark:text-slate-400">{stepsConfig[step - 1]!.title}</span>
             </div>
-            <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+            <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-brand-500 to-sky-500 transition-all"
                 style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
@@ -335,21 +335,21 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
           {step === 6 && <StepPreview state={state} />}
 
           {error && (
-            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-6 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-400">
               {error}
             </div>
           )}
         </div>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-slate-200 bg-white/80 backdrop-blur-md">
+      <footer className="sticky bottom-0 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <Button variant="ghost" onClick={handleBack} disabled={isPending} size="md">
             <ArrowLeft size={14} />
             {step === 1 ? 'Voltar à capa' : 'Voltar'}
           </Button>
 
-          <p className="hidden md:flex items-center gap-2 text-xs text-slate-500">
+          <p className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             {isPending && <Loader2 size={11} className="animate-spin" />}
             {clientId
               ? 'Rascunho salvo · você pode fechar a aba e voltar quando quiser'

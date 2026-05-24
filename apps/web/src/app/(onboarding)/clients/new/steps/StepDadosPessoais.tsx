@@ -139,7 +139,7 @@ export function StepDadosPessoais({ state, update }: Props) {
           </div>
 
           {isCustom && (
-            <div className="grid sm:grid-cols-2 gap-4 p-5 rounded-xl bg-slate-50/60 border border-slate-200 animate-fade-up">
+            <div className="grid sm:grid-cols-2 gap-4 p-5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-700 animate-fade-up">
               <div className="space-y-1.5">
                 <Label htmlFor="custom_retorno">Retorno anual esperado</Label>
                 <div className="relative">

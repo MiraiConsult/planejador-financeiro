@@ -133,7 +133,7 @@ export function StepPreview({ state }: Props) {
         title="Pronto pra criar"
         description="Você não cadastrou números ainda — tudo bem, ajeitamos depois no painel do cliente. Clique em Finalizar pra criar."
       >
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/30 p-10 text-center">
+        <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/30 p-10 text-center">
           <Sparkles size={28} className="mx-auto text-slate-400 mb-3" />
           <p className="text-sm text-slate-500 max-w-md mx-auto">
             Sem dados suficientes pra simular agora. Você poderá adicionar ativos, receitas e
@@ -179,20 +179,20 @@ export function StepPreview({ state }: Props) {
       <div className="space-y-6">
         {/* Cards de KPI */}
         <div className="grid sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
               Patrimônio final
             </p>
             <p
               className={`mt-1 text-xl font-bold tabular-nums ${
-                positivoFinal ? 'text-slate-900' : 'text-red-600'
+                positivoFinal ? 'text-slate-900 dark:text-slate-100' : 'text-red-600'
               }`}
             >
               {brlK(finalRow.patrimonio_total)}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">aos {finalRow.idade} anos</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
               Pico de patrimônio
             </p>
@@ -202,13 +202,13 @@ export function StepPreview({ state }: Props) {
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">aos {picoIdade} anos</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
               Break-even
             </p>
             <p
               className={`mt-1 text-xl font-bold tabular-nums flex items-center gap-1 ${
-                breakEven !== null ? 'text-amber-600' : 'text-slate-900'
+                breakEven !== null ? 'text-amber-600' : 'text-slate-900 dark:text-slate-100'
               }`}
             >
               {breakEven !== null ? (
@@ -243,9 +243,9 @@ export function StepPreview({ state }: Props) {
         </div>
 
         {/* Gráfico */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <LineChartIcon size={14} className="text-brand-600" />
               Patrimônio ao longo da vida
             </p>
@@ -274,8 +274,8 @@ export function StepPreview({ state }: Props) {
                     if (!active || !payload?.length) return null;
                     const p = payload[0]!.payload as { idade: number; patrimonio: number };
                     return (
-                      <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
-                        <p className="font-medium text-slate-900">aos {p.idade}</p>
+                      <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs shadow-sm">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">aos {p.idade}</p>
                         <p className="tabular-nums text-slate-700">{brl(p.patrimonio)}</p>
                       </div>
                     );

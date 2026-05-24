@@ -97,15 +97,15 @@ export function MiniChart({ data, color, kind, caption, onChangeValue, baseValue
     const p = payload[0].payload as { idade: number; v: number };
     if (p.v === 0 && kind === 'bar') return null;
     return (
-      <div className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
-        <p className="font-medium text-slate-900">aos {p.idade}</p>
+      <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs shadow-sm">
+        <p className="font-medium text-slate-900 dark:text-slate-100">aos {p.idade}</p>
         <p className="tabular-nums text-slate-700">{brl(p.v)}</p>
       </div>
     );
   };
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
       <div className="flex items-center justify-between mb-2 gap-2">
         <p className="text-[11px] text-slate-500 flex-1">{caption}</p>
         {interactive && (

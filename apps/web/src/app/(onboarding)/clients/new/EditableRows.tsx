@@ -43,14 +43,14 @@ function Row({
   const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <li
-      className={`border-b border-slate-100 last:border-b-0 transition-colors ${
+      className={`border-b border-slate-100 dark:border-slate-800 last:border-b-0 transition-colors ${
         highlight ? 'bg-brand-50/30' : ''
       }`}
     >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 transition-colors text-left"
+        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-950/60 transition-colors text-left"
       >
         <ChevronDown
           size={13}
@@ -58,7 +58,7 @@ function Row({
         />
         {header}
         <div className="shrink-0 text-right">
-          <p className={`text-sm font-semibold tabular-nums ${valueClassName ?? 'text-slate-900'}`}>
+          <p className={`text-sm font-semibold tabular-nums ${valueClassName ?? 'text-slate-900 dark:text-slate-100'}`}>
             {rightValue}
           </p>
           {rightSubtitle && <p className="text-[10px] text-slate-400 leading-tight">{rightSubtitle}</p>}
@@ -70,7 +70,7 @@ function Row({
               e.stopPropagation();
               onDuplicate();
             }}
-            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center shrink-0"
+            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-900 dark:text-slate-100 flex items-center justify-center shrink-0"
             title="Duplicar"
           >
             <Copy size={13} />
@@ -89,7 +89,7 @@ function Row({
         </button>
       </button>
       {expanded && (
-        <div className="px-5 pb-5 pt-2 bg-slate-50/40 space-y-4 border-t border-slate-100">
+        <div className="px-5 pb-5 pt-2 bg-slate-50 dark:bg-slate-950/40 space-y-4 border-t border-slate-100 dark:border-slate-800">
           {children}
         </div>
       )}
@@ -155,7 +155,7 @@ export function EditableAssetEstoqueRow({
             <Icon size={15} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-slate-900 truncate">{a.nome}</p>
+            <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{a.nome}</p>
             <p className="text-xs text-slate-500">
               {assetTipoLabels[a.tipo] ?? a.tipo} · vale até os {a.idade_fim}
             </p>
@@ -257,7 +257,7 @@ export function EditableAssetFluxoRow({
             <Icon size={15} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-slate-900 truncate">{a.nome}</p>
+            <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{a.nome}</p>
             <p className="text-xs text-slate-500">
               {assetTipoLabels[a.tipo] ?? a.tipo} · {a.idade_inicio}–{a.idade_fim}
             </p>
@@ -376,7 +376,7 @@ export function EditableExpenseRow({
             <Icon size={15} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-slate-900 truncate">{e.descricao}</p>
+            <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{e.descricao}</p>
             <p className="text-xs text-slate-500">
               {label} · {e.idade_inicio}–{e.idade_fim}
               {e.essencial && ' · essencial'}
@@ -517,7 +517,7 @@ export function EditableLiabilityRow({
             <CreditCardIcon />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-slate-900 truncate">{l.nome}</p>
+            <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{l.nome}</p>
             <p className="text-xs text-slate-500">
               {label} · {brl(l.parcela_mensal)}/mês
             </p>
