@@ -201,6 +201,7 @@ export async function loadOnboardingDraft(client_id: string): Promise<
       idade_fim: ev.idade_fim ?? null,
       intervalo_anos: ev.intervalo_anos ?? null,
       indexado_inflacao: ev.indexado_inflacao,
+      overrides: ev.overrides ?? undefined,
     })),
     liabilities: (liabilities ?? []).map<DraftLiability>((l) => ({
       id: l.id,
@@ -325,6 +326,7 @@ async function syncItems(client_id: string, payload: OnboardingPayload, hardDele
         idade_fim: ev.idade_fim,
         intervalo_anos: ev.intervalo_anos,
         indexado_inflacao: ev.indexado_inflacao,
+        overrides: ev.overrides ?? {},
       })),
     );
   }

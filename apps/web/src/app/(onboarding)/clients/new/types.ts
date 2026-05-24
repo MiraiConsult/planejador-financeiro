@@ -50,12 +50,14 @@ export interface DraftEvent {
     | 'viagem_pontual'
     | 'imprevisto';
   descricao: string;
-  valor: number; // com sinal
+  valor: number; // com sinal (padrão pra anos sem override)
   padrao_recorrencia: 'unico' | 'recorrente_anual' | 'recorrente_espacado';
   idade_inicio: number;
   idade_fim: number | null;
   intervalo_anos: number | null;
   indexado_inflacao: boolean;
+  /** valor diferente por idade: { "40": -200000, "50": -500000 } */
+  overrides?: Record<string, number>;
 }
 
 export interface DraftLiability {
