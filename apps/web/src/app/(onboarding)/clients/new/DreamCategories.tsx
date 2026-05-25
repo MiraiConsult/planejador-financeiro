@@ -10,176 +10,106 @@ import {
   Gift,
   Sparkles,
   ChevronDown,
-  Plus,
 } from 'lucide-react';
 import { toast } from '@/components/ui/Toast';
-import { EditableEventRow } from './EditableEventRow';
+import { DraggableLineChart } from './DraggableLineChart';
+import { formatBRL } from './helpers';
 import type { DraftEvent } from './types';
 
 interface CategoryDef {
   key: string;
   label: string;
+  singularLabel: string;
   icon: typeof Home;
   cor: string;
-  /** match na descrição do evento pra agrupar */
-  matchers: string[];
-  /** template pra criar nova instância */
-  build: (args: { offset: number; idadeAtual: number; expectativaVida: number }) => DraftEvent;
+  tipo: DraftEvent['tipo'];
   positivo: boolean;
+  defaultValor: number;
 }
 
 const dreamCategories: CategoryDef[] = [
   {
     key: 'casa',
     label: 'Casas',
+    singularLabel: 'casa',
     icon: Home,
     cor: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 ring-blue-100 dark:ring-blue-800/50',
-    matchers: ['casa'],
+    tipo: 'compra',
     positivo: false,
-    build: ({ offset, idadeAtual }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'compra',
-      descricao: `Casa ${offset + 1}`,
-      valor: -600_000,
-      padrao_recorrencia: 'unico',
-      idade_inicio: idadeAtual + 5 + offset * 10,
-      idade_fim: null,
-      intervalo_anos: null,
-      indexado_inflacao: true,
-    }),
+    defaultValor: -600_000,
   },
   {
     key: 'viagem',
     label: 'Viagens',
+    singularLabel: 'viagem',
     icon: Plane,
     cor: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-emerald-100 dark:ring-emerald-800/50',
-    matchers: ['viagem'],
+    tipo: 'viagem_pontual',
     positivo: false,
-    build: ({ offset, idadeAtual }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'viagem_pontual',
-      descricao: `Viagem ${offset + 1}`,
-      valor: -30_000,
-      padrao_recorrencia: 'unico',
-      idade_inicio: idadeAtual + 3 + offset * 4,
-      idade_fim: null,
-      intervalo_anos: null,
-      indexado_inflacao: true,
-    }),
+    defaultValor: -30_000,
   },
   {
     key: 'faculdade',
     label: 'Faculdades / educação',
+    singularLabel: 'faculdade',
     icon: GraduationCap,
     cor: 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 ring-violet-100 dark:ring-violet-800/50',
-    matchers: ['faculdade', 'educação', 'curso', 'mba'],
+    tipo: 'compra',
     positivo: false,
-    build: ({ offset }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'compra',
-      descricao: `Faculdade ${offset + 1}`,
-      valor: -200_000,
-      padrao_recorrencia: 'unico',
-      idade_inicio: 50 + offset * 4,
-      idade_fim: null,
-      intervalo_anos: null,
-      indexado_inflacao: true,
-    }),
+    defaultValor: -200_000,
   },
   {
     key: 'casamento',
     label: 'Casamentos',
+    singularLabel: 'casamento',
     icon: PartyPopper,
     cor: 'bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 ring-pink-100 dark:ring-pink-800/50',
-    matchers: ['casamento'],
+    tipo: 'compra',
     positivo: false,
-    build: ({ offset, idadeAtual }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'compra',
-      descricao: `Casamento ${offset + 1}`,
-      valor: -80_000,
-      padrao_recorrencia: 'unico',
-      idade_inicio: idadeAtual + 2 + offset * 5,
-      idade_fim: null,
-      intervalo_anos: null,
-      indexado_inflacao: true,
-    }),
+    defaultValor: -80_000,
   },
   {
     key: 'carro',
     label: 'Carros',
+    singularLabel: 'carro',
     icon: Car,
     cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ring-slate-200 dark:ring-slate-700',
-    matchers: ['carro', 'veículo'],
+    tipo: 'compra',
     positivo: false,
-    build: ({ offset, idadeAtual, expectativaVida }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'compra',
-      descricao: `Carro ${offset + 1}`,
-      valor: -120_000,
-      padrao_recorrencia: 'recorrente_espacado',
-      idade_inicio: idadeAtual + 3 + offset * 2,
-      idade_fim: expectativaVida,
-      intervalo_anos: 8,
-      indexado_inflacao: true,
-    }),
+    defaultValor: -120_000,
   },
   {
     key: 'heranca',
     label: 'Heranças a receber',
+    singularLabel: 'herança',
     icon: Gift,
     cor: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 ring-amber-100 dark:ring-amber-800/50',
-    matchers: ['herança', 'heranca'],
+    tipo: 'heranca',
     positivo: true,
-    build: ({ offset }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'heranca',
-      descricao: `Herança ${offset + 1}`,
-      valor: 500_000,
-      padrao_recorrencia: 'unico',
-      idade_inicio: 55 + offset * 5,
-      idade_fim: null,
-      intervalo_anos: null,
-      indexado_inflacao: true,
-    }),
+    defaultValor: 500_000,
   },
   {
     key: 'outros',
     label: 'Outros sonhos',
+    singularLabel: 'sonho',
     icon: Sparkles,
     cor: 'bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 ring-brand-100 dark:ring-brand-800/50',
-    matchers: [],
+    tipo: 'sonho',
     positivo: false,
-    build: ({ offset, idadeAtual }) => ({
-      id: crypto.randomUUID(),
-      tipo: 'sonho',
-      descricao: `Sonho ${offset + 1}`,
-      valor: -50_000,
-      padrao_recorrencia: 'unico',
-      idade_inicio: idadeAtual + 5 + offset * 3,
-      idade_fim: null,
-      intervalo_anos: null,
-      indexado_inflacao: true,
-    }),
+    defaultValor: -50_000,
   },
 ];
 
-function categoryOf(ev: DraftEvent): CategoryDef {
+function categoryKeyOf(ev: DraftEvent): string {
   const desc = ev.descricao.toLowerCase();
   for (const cat of dreamCategories) {
-    if (cat.matchers.some((m) => desc.startsWith(m))) return cat;
+    if (cat.key === 'outros') continue;
+    if (desc.startsWith(cat.key) || desc.includes(cat.key)) return cat.key;
   }
-  // fallback por tipo
-  if (ev.tipo === 'heranca') return dreamCategories.find((c) => c.key === 'heranca')!;
-  if (ev.tipo === 'viagem_pontual') return dreamCategories.find((c) => c.key === 'viagem')!;
-  return dreamCategories.find((c) => c.key === 'outros')!;
+  if (ev.tipo === 'heranca') return 'heranca';
+  if (ev.tipo === 'viagem_pontual') return 'viagem';
+  return 'outros';
 }
-
-const brl = (n: number) => {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '−' : '+';
-  return `${sign} ${abs.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`;
-};
 
 const brlK = (n: number) => {
   const abs = Math.abs(n);
@@ -196,29 +126,7 @@ interface Props {
 }
 
 export function DreamCategories({ events, onChange, idadeAtual, expectativaVida }: Props) {
-  // agrupa eventos por categoria
-  const grouped = useMemo(() => {
-    const map = new Map<string, DraftEvent[]>();
-    for (const ev of events) {
-      const cat = categoryOf(ev);
-      const arr = map.get(cat.key) ?? [];
-      arr.push(ev);
-      map.set(cat.key, arr);
-    }
-    return map;
-  }, [events]);
-
-  // estado de quais categorias estão expandidas
-  const [open, setOpen] = useState<Set<string>>(() => {
-    // categorias que já têm items começam abertas
-    const s = new Set<string>();
-    for (const [k, arr] of grouped) {
-      if (arr.length > 0) s.add(k);
-    }
-    return s;
-  });
-  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
-  const groupsRef = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const [open, setOpen] = useState<Set<string>>(new Set());
 
   function toggle(key: string) {
     setOpen((s) => {
@@ -229,47 +137,73 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
     });
   }
 
-  function addToCategory(cat: CategoryDef) {
-    const existing = grouped.get(cat.key)?.length ?? 0;
-    const novo = cat.build({ offset: existing, idadeAtual, expectativaVida });
-    onChange([...events, novo]);
-    setOpen((s) => new Set(s).add(cat.key));
-    setLastAddedId(novo.id);
-    toast.success(`${cat.label.replace(/s$/, '')} adicionada`);
-    requestAnimationFrame(() => {
-      groupsRef.current.get(cat.key)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-    setTimeout(() => setLastAddedId((c) => (c === novo.id ? null : c)), 1600);
+  function ensureEvent(cat: CategoryDef): DraftEvent {
+    const existing = events.find((e) => categoryKeyOf(e) === cat.key);
+    if (existing) return existing;
+    const ev: DraftEvent = {
+      id: crypto.randomUUID(),
+      tipo: cat.tipo,
+      descricao: cat.label,
+      valor: 0,
+      padrao_recorrencia: 'recorrente_anual',
+      idade_inicio: idadeAtual,
+      idade_fim: expectativaVida,
+      intervalo_anos: null,
+      indexado_inflacao: true,
+      overrides: {},
+    };
+    onChange([...events, ev]);
+    return ev;
   }
 
-  function updateEvent(updated: DraftEvent) {
-    onChange(events.map((e) => (e.id === updated.id ? updated : e)));
+  function getEventForCategory(catKey: string): DraftEvent | undefined {
+    return events.find((e) => categoryKeyOf(e) === catKey);
   }
 
-  function removeEvent(id: string) {
-    onChange(events.filter((e) => e.id !== id));
+  function updateEvent(id: string, patch: Partial<DraftEvent>) {
+    onChange(events.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
+
+  function getActiveYears(ev: DraftEvent | undefined): { count: number; total: number } {
+    if (!ev) return { count: 0, total: 0 };
+    const ovr = ev.overrides ?? {};
+    let count = 0;
+    let total = 0;
+    for (const [, v] of Object.entries(ovr)) {
+      if (v !== 0) {
+        count++;
+        total += v;
+      }
+    }
+    if (ev.valor !== 0 && count === 0) {
+      const inicio = ev.idade_inicio;
+      const fim = ev.idade_fim ?? expectativaVida;
+      count = fim - inicio + 1;
+      total = ev.valor * count;
+    }
+    return { count, total };
   }
 
   return (
     <div className="space-y-3">
       {dreamCategories.map((cat) => {
-        const items = grouped.get(cat.key) ?? [];
+        const ev = getEventForCategory(cat.key);
+        const { count, total } = getActiveYears(ev);
         const isOpen = open.has(cat.key);
-        const total = items.reduce((acc, e) => acc + e.valor, 0);
-        const positivo = total >= 0;
         const Icon = cat.icon;
+        const positivo = total >= 0;
         return (
           <div
             key={cat.key}
-            ref={(el) => {
-              groupsRef.current.set(cat.key, el);
-            }}
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm dark:shadow-none overflow-hidden"
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden"
           >
             <button
               type="button"
-              onClick={() => toggle(cat.key)}
-              className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-800 transition-colors text-left"
+              onClick={() => {
+                if (!isOpen) ensureEvent(cat);
+                toggle(cat.key);
+              }}
+              className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
             >
               <ChevronDown
                 size={13}
@@ -281,73 +215,50 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                   {cat.label}
-                  {items.length > 0 && (
+                  {count > 0 && (
                     <span className="ml-2 text-xs font-medium text-slate-400 dark:text-slate-500">
-                      ({items.length})
+                      ({count} {count === 1 ? cat.singularLabel : cat.label.toLowerCase()})
                     </span>
                   )}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {items.length === 0
-                    ? 'Nenhum cadastrado · toque pra adicionar'
-                    : items.length === 1
-                      ? '1 item'
-                      : `${items.length} itens`}
+                  {count === 0
+                    ? 'Toque pra abrir o gráfico e arrastar nos anos que quiser'
+                    : `Arraste pra cima = ${cat.singularLabel} naquele ano · arraste pra baixo = remove`}
                 </p>
               </div>
-              {items.length > 0 && (
+              {count > 0 && (
                 <p className={`text-sm font-semibold tabular-nums shrink-0 ${positivo ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {positivo ? '+' : '−'} R$ {brlK(total)}
+                  {positivo ? '+' : '−'} R$ {brlK(Math.abs(total))}
                 </p>
               )}
             </button>
 
-            {isOpen && (
-              <div className="border-t border-slate-100 dark:border-slate-800">
-                {items.length === 0 ? (
-                  <div className="px-5 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
-                    Nada por aqui ainda. Use o botão abaixo pra adicionar a primeira.
-                  </div>
-                ) : (
-                  <ul>
-                    {items.map((ev) => (
-                      <EditableEventRow
-                        key={ev.id}
-                        ev={ev}
-                        idadeAtual={idadeAtual}
-                        expectativaVida={expectativaVida}
-                        defaultExpanded={ev.id === lastAddedId}
-                        highlight={ev.id === lastAddedId}
-                        onUpdate={updateEvent}
-                        onRemove={() => removeEvent(ev.id)}
-                        onDuplicate={() => {
-                          const copy: DraftEvent = {
-                            ...ev,
-                            id: crypto.randomUUID(),
-                            descricao: `${ev.descricao} (cópia)`,
-                          };
-                          onChange([...events, copy]);
-                          setLastAddedId(copy.id);
-                          setTimeout(
-                            () => setLastAddedId((c) => (c === copy.id ? null : c)),
-                            1600,
-                          );
-                        }}
-                      />
-                    ))}
-                  </ul>
-                )}
-
-                <div className="px-5 py-3 bg-slate-50/40 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => addToCategory(cat)}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-white dark:hover:bg-slate-800 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
-                  >
-                    <Plus size={13} />
-                    Adicionar {items.length === 0 ? `primeira ${cat.label.replace(/s$/, '').toLowerCase()}` : `outra ${cat.label.replace(/s$/, '').toLowerCase()}`}
-                  </button>
-                </div>
+            {isOpen && ev && (
+              <div className="border-t border-slate-100 dark:border-slate-800 p-4">
+                <CategoryChart
+                  ev={ev}
+                  cat={cat}
+                  idadeAtual={idadeAtual}
+                  expectativaVida={expectativaVida}
+                  onChangePoint={(idade, valor) => {
+                    const overrides = { ...(ev.overrides ?? {}) };
+                    if (valor === 0) {
+                      delete overrides[String(idade)];
+                    } else {
+                      overrides[String(idade)] = valor;
+                    }
+                    updateEvent(ev.id, { overrides, valor: 0 });
+                  }}
+                  onReset={() => {
+                    updateEvent(ev.id, { overrides: {}, valor: 0 });
+                    toast.info('Gráfico resetado');
+                  }}
+                />
+                <p className="mt-3 text-[11px] text-slate-400 dark:text-slate-500 text-center">
+                  Cada ponto que sobe = uma {cat.singularLabel} naquele ano · valor = quanto custa ·
+                  arraste pra zero = remove
+                </p>
               </div>
             )}
           </div>
@@ -357,5 +268,39 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
   );
 }
 
-// Silencia warning de brl/brlK importados mas só usados condicionalmente.
-void brl;
+function CategoryChart({
+  ev,
+  cat,
+  idadeAtual,
+  expectativaVida,
+  onChangePoint,
+  onReset,
+}: {
+  ev: DraftEvent;
+  cat: CategoryDef;
+  idadeAtual: number;
+  expectativaVida: number;
+  onChangePoint: (idade: number, valor: number) => void;
+  onReset: () => void;
+}) {
+  const data = useMemo(() => {
+    const pts: { idade: number; valor: number }[] = [];
+    for (let i = idadeAtual; i <= expectativaVida; i++) {
+      const ovr = ev.overrides?.[String(i)];
+      pts.push({ idade: i, valor: ovr ?? ev.valor });
+    }
+    return pts;
+  }, [ev, idadeAtual, expectativaVida]);
+
+  const hasOverrides = Object.keys(ev.overrides ?? {}).length > 0 || ev.valor !== 0;
+
+  return (
+    <DraggableLineChart
+      data={data}
+      color={cat.positivo ? '#10b981' : '#ef4444'}
+      onChangePoint={onChangePoint}
+      onReset={hasOverrides ? onReset : undefined}
+      resetLabel="Limpar tudo"
+    />
+  );
+}
