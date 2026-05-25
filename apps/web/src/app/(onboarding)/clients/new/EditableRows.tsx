@@ -44,24 +44,24 @@ function Row({
   return (
     <li
       className={`border-b border-slate-100 dark:border-slate-800 last:border-b-0 transition-colors ${
-        highlight ? 'bg-brand-50/30' : ''
+        highlight ? 'bg-brand-50/30 dark:bg-brand-950/20' : ''
       }`}
     >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-950/60 transition-colors text-left"
+        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-800 transition-colors text-left"
       >
         <ChevronDown
           size={13}
-          className={`text-slate-300 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`text-slate-300 dark:text-slate-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
         />
         {header}
         <div className="shrink-0 text-right">
           <p className={`text-sm font-semibold tabular-nums ${valueClassName ?? 'text-slate-900 dark:text-slate-100'}`}>
             {rightValue}
           </p>
-          {rightSubtitle && <p className="text-[10px] text-slate-400 leading-tight">{rightSubtitle}</p>}
+          {rightSubtitle && <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">{rightSubtitle}</p>}
         </div>
         {onDuplicate && (
           <button
@@ -70,7 +70,7 @@ function Row({
               e.stopPropagation();
               onDuplicate();
             }}
-            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-900 dark:text-slate-100 flex items-center justify-center shrink-0"
+            className="h-7 w-7 rounded-md text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 flex items-center justify-center shrink-0"
             title="Duplicar"
           >
             <Copy size={13} />
@@ -82,14 +82,14 @@ function Row({
             e.stopPropagation();
             onRemove();
           }}
-          className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"
+          className="h-7 w-7 rounded-md text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 flex items-center justify-center shrink-0"
           title="Remover"
         >
           <Trash2 size={13} />
         </button>
       </button>
       {expanded && (
-        <div className="px-5 pb-5 pt-2 bg-slate-50 dark:bg-slate-950/40 space-y-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="px-5 pb-5 pt-2 bg-slate-50/40 dark:bg-slate-800/20 space-y-4 border-t border-slate-100 dark:border-slate-800">
           {children}
         </div>
       )}
@@ -156,7 +156,7 @@ export function EditableAssetEstoqueRow({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{a.nome}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {assetTipoLabels[a.tipo] ?? a.tipo} · vale até os {a.idade_fim}
             </p>
           </div>
@@ -258,7 +258,7 @@ export function EditableAssetFluxoRow({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{a.nome}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {assetTipoLabels[a.tipo] ?? a.tipo} · {a.idade_inicio}–{a.idade_fim}
             </p>
           </div>
@@ -377,7 +377,7 @@ export function EditableExpenseRow({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{e.descricao}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {label} · {e.idade_inicio}–{e.idade_fim}
               {e.essencial && ' · essencial'}
             </p>
@@ -445,7 +445,7 @@ export function EditableExpenseRow({
             />
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 sm:col-span-2">
           <input
             type="checkbox"
             checked={e.essencial}
@@ -513,12 +513,12 @@ export function EditableLiabilityRow({
     <Row
       header={
         <>
-          <div className="h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 bg-orange-50 text-orange-600 ring-orange-100">
+          <div className="h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 ring-orange-100 dark:ring-orange-800/50">
             <CreditCardIcon />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{l.nome}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {label} · {brl(l.parcela_mensal)}/mês
             </p>
           </div>

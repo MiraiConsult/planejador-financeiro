@@ -17,9 +17,9 @@ interface Props {
 }
 
 const tiposFluxo: { tipo: DraftAsset['tipo']; label: string; icon: typeof Briefcase; cor: string; defaultFim: 'aposentadoria' | 'expectativa' }[] = [
-  { tipo: 'salario', label: 'Salário', icon: Briefcase, cor: 'bg-brand-50 text-brand-600 ring-brand-100', defaultFim: 'aposentadoria' },
-  { tipo: 'aluguel', label: 'Aluguel / arrendamento', icon: Building, cor: 'bg-emerald-50 text-emerald-600 ring-emerald-100', defaultFim: 'expectativa' },
-  { tipo: 'outro', label: 'Outra renda', icon: TrendingUp, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200', defaultFim: 'expectativa' },
+  { tipo: 'salario', label: 'Salário', icon: Briefcase, cor: 'bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 ring-brand-100 dark:ring-brand-800/50', defaultFim: 'aposentadoria' },
+  { tipo: 'aluguel', label: 'Aluguel / arrendamento', icon: Building, cor: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-emerald-100 dark:ring-emerald-800/50', defaultFim: 'expectativa' },
+  { tipo: 'outro', label: 'Outra renda', icon: TrendingUp, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ring-slate-200 dark:ring-slate-700', defaultFim: 'expectativa' },
 ];
 
 function brl(n: number) {
@@ -141,7 +141,7 @@ export function StepReceitas({ state, update }: Props) {
       <div className="space-y-6">
         {/* QUICK-PICKS */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 dark:text-brand-400 mb-2">
             Modelos de receita — toque pra usar
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
@@ -150,10 +150,10 @@ export function StepReceitas({ state, update }: Props) {
                 key={idx}
                 type="button"
                 onClick={() => pushAsset(pick.build(), `Adicionado: ${pick.label}`)}
-                className="text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-brand-400 hover:bg-brand-50/30 transition-all"
+                className="text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-brand-50/30 dark:hover:bg-brand-950/20 transition-all"
               >
                 <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{pick.label}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{pick.detalhe}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{pick.detalhe}</p>
               </button>
             ))}
           </div>
@@ -170,14 +170,14 @@ export function StepReceitas({ state, update }: Props) {
                   onClick={() => setTipo(t)}
                   className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                     tipo === t
-                      ? 'border-brand-500 bg-brand-50/40 shadow-glow'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                      ? 'border-brand-500 bg-brand-50/40 dark:bg-brand-950/30 shadow-glow'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
                   <div className={`h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset ${cor}`}>
                     <Icon size={14} />
                   </div>
-                  <span className="text-xs font-semibold text-slate-800">{label}</span>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{label}</span>
                 </button>
               ))}
             </div>
@@ -223,11 +223,11 @@ export function StepReceitas({ state, update }: Props) {
           />
         ) : (
           <div ref={listRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 {itens.length} {itens.length === 1 ? 'receita' : 'receitas'} · {brl(total)}/ano
               </p>
-              <p className="text-[11px] text-slate-400">toque pra editar</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">toque pra editar</p>
             </div>
             <ul>
               {itens.map((a) => {

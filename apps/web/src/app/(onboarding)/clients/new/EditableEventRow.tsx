@@ -120,32 +120,32 @@ export function EditableEventRow({
   return (
     <li
       className={`border-b border-slate-100 dark:border-slate-800 last:border-b-0 transition-colors ${
-        highlight ? 'bg-brand-50/30' : ''
+        highlight ? 'bg-brand-50/30 dark:bg-brand-950/20' : ''
       }`}
     >
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-950/60 transition-colors text-left"
+        className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-800 transition-colors text-left"
       >
         <ChevronDown
           size={13}
-          className={`text-slate-300 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`text-slate-300 dark:text-slate-600 transition-transform ${expanded ? 'rotate-180' : ''}`}
         />
         <div
           className={`h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 ${
             positivo
-              ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
-              : 'bg-amber-50 text-amber-600 ring-amber-100'
+              ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-emerald-100 dark:ring-emerald-800/50'
+              : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 ring-amber-100 dark:ring-amber-800/50'
           }`}
         >
           <Icon size={15} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
-            {ev.descricao || <span className="text-slate-400 italic">sem descrição</span>}
+            {ev.descricao || <span className="text-slate-400 dark:text-slate-500 italic">sem descrição</span>}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {labelTipo[ev.tipo]} · {subtitleDetail}
           </p>
         </div>
@@ -163,7 +163,7 @@ export function EditableEventRow({
               e.stopPropagation();
               onDuplicate();
             }}
-            className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 dark:bg-slate-800 hover:text-slate-900 dark:text-slate-100 flex items-center justify-center shrink-0"
+            className="h-7 w-7 rounded-md text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 flex items-center justify-center shrink-0"
             title="Duplicar"
           >
             <Copy size={13} />
@@ -175,7 +175,7 @@ export function EditableEventRow({
             e.stopPropagation();
             onRemove();
           }}
-          className="h-7 w-7 rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"
+          className="h-7 w-7 rounded-md text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 flex items-center justify-center shrink-0"
           title="Remover"
         >
           <Trash2 size={13} />
@@ -183,7 +183,7 @@ export function EditableEventRow({
       </button>
 
       {expanded && (
-        <div className="px-5 pb-5 pt-2 bg-slate-50 dark:bg-slate-950/40 space-y-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="px-5 pb-5 pt-2 bg-slate-50/40 dark:bg-slate-800/20 space-y-4 border-t border-slate-100 dark:border-slate-800">
           {/* Gráfico de linha editável (arraste cada ponto pra ajustar valor naquele ano) */}
           {chartData.length > 0 && (
             <DraggableLineChart
@@ -226,7 +226,7 @@ export function EditableEventRow({
                   className="pl-9 tabular-nums"
                 />
               </div>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
                 {positivo ? 'entrada (+)' : 'saída (−)'} de {formatBRL(Math.abs(ev.valor))}
               </p>
             </div>
@@ -258,8 +258,8 @@ export function EditableEventRow({
                     }}
                     className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       ev.padrao_recorrencia === r
-                        ? 'border-brand-500 bg-brand-50 text-brand-700'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 hover:border-slate-300'
+                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-300'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     {r === 'unico' && 'Único'}

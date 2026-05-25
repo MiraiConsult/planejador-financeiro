@@ -27,12 +27,12 @@ interface Props {
 }
 
 const tiposEstoque: { tipo: DraftAsset['tipo']; label: string; icon: typeof Banknote; cor: string }[] = [
-  { tipo: 'financeiro_liquido', label: 'Aplicação financeira', icon: Banknote, cor: 'bg-emerald-50 text-emerald-600 ring-emerald-100' },
-  { tipo: 'imovel', label: 'Imóvel', icon: Home, cor: 'bg-blue-50 text-blue-600 ring-blue-100' },
-  { tipo: 'terreno', label: 'Terreno', icon: Trees, cor: 'bg-amber-50 text-amber-600 ring-amber-100' },
-  { tipo: 'carro', label: 'Carro / veículo', icon: Car, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200' },
-  { tipo: 'heranca_recebida', label: 'Herança', icon: Gift, cor: 'bg-rose-50 text-rose-600 ring-rose-100' },
-  { tipo: 'outro', label: 'Outro', icon: Building2, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200' },
+  { tipo: 'financeiro_liquido', label: 'Aplicação financeira', icon: Banknote, cor: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-emerald-100 dark:ring-emerald-800/50' },
+  { tipo: 'imovel', label: 'Imóvel', icon: Home, cor: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 ring-blue-100 dark:ring-blue-800/50' },
+  { tipo: 'terreno', label: 'Terreno', icon: Trees, cor: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 ring-amber-100 dark:ring-amber-800/50' },
+  { tipo: 'carro', label: 'Carro / veículo', icon: Car, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ring-slate-200 dark:ring-slate-700' },
+  { tipo: 'heranca_recebida', label: 'Herança', icon: Gift, cor: 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 ring-rose-100 dark:ring-rose-800/50' },
+  { tipo: 'outro', label: 'Outro', icon: Building2, cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ring-slate-200 dark:ring-slate-700' },
 ];
 
 const tiposPassivo: { tipo: string; label: string }[] = [
@@ -148,8 +148,8 @@ export function StepPatrimonio({ state, update }: Props) {
       <div className="space-y-8">
         {/* RESUMO LÍQUIDO */}
         {(itens.length > 0 || state.liabilities.length > 0) && (
-          <div className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50/60 to-sky-50/40 p-5">
-            <p className="text-[10px] uppercase tracking-widest text-brand-700 font-semibold mb-1">
+          <div className="rounded-2xl border border-brand-200 dark:border-brand-800/50 bg-gradient-to-br from-brand-50/60 to-sky-50/40 dark:from-brand-950/30 dark:to-sky-950/20 p-5">
+            <p className="text-[10px] uppercase tracking-widest text-brand-700 dark:text-brand-300 font-semibold mb-1">
               Patrimônio líquido estimado
             </p>
             <p
@@ -157,7 +157,7 @@ export function StepPatrimonio({ state, update }: Props) {
             >
               {brl(patrimonioLiquido)}
             </p>
-            <p className="text-xs text-slate-600 mt-1.5">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5">
               {brl(totalAtivos)} em ativos − {brl(totalPassivos)} em dívidas
             </p>
           </div>
@@ -170,7 +170,7 @@ export function StepPatrimonio({ state, update }: Props) {
               <Building2 size={16} className="text-emerald-600" />
               O que tem
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Aplicações, imóveis, veículos, herança recebida.
             </p>
           </div>
@@ -186,14 +186,14 @@ export function StepPatrimonio({ state, update }: Props) {
                     onClick={() => setTipo(t)}
                     className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                       tipo === t
-                        ? 'border-brand-500 bg-brand-50/40 shadow-glow'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                        ? 'border-brand-500 bg-brand-50/40 dark:bg-brand-950/30 shadow-glow'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset ${cor}`}>
                       <Icon size={14} />
                     </div>
-                    <span className="text-xs font-semibold text-slate-800 leading-tight">{label}</span>
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{label}</span>
                   </button>
                 ))}
               </div>
@@ -241,8 +241,8 @@ export function StepPatrimonio({ state, update }: Props) {
             />
           ) : (
             <div ref={ativosRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                   {itens.length} {itens.length === 1 ? 'item' : 'itens'} · toque pra editar
                 </p>
                 <p className="text-sm font-bold tabular-nums text-emerald-600">+ {brl(totalAtivos)}</p>
@@ -299,7 +299,7 @@ export function StepPatrimonio({ state, update }: Props) {
               <TrendingDown size={16} className="text-orange-600" />
               O que deve
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Financiamentos, empréstimos, cartão. Se não tem dívida, pode pular.
             </p>
           </div>
@@ -315,14 +315,14 @@ export function StepPatrimonio({ state, update }: Props) {
                     onClick={() => setPTipo(t)}
                     className={`p-3 rounded-xl border-2 transition-all text-left flex flex-col gap-2 ${
                       pTipo === t
-                        ? 'border-orange-500 bg-orange-50/40 shadow-sm'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                        ? 'border-orange-500 bg-orange-50/40 dark:bg-orange-950/30 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset bg-orange-50 text-orange-600 ring-orange-100">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center ring-1 ring-inset bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 ring-orange-100 dark:ring-orange-800/50">
                       <CreditCard size={14} />
                     </div>
-                    <span className="text-xs font-semibold text-slate-800 leading-tight">{label}</span>
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{label}</span>
                   </button>
                 ))}
               </div>
@@ -402,8 +402,8 @@ export function StepPatrimonio({ state, update }: Props) {
 
           {state.liabilities.length > 0 && (
             <div ref={passivosRef} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft dark:shadow-none overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                   {state.liabilities.length} {state.liabilities.length === 1 ? 'dívida' : 'dívidas'} · toque pra editar
                 </p>
                 <p className="text-sm font-bold tabular-nums text-orange-600">− {brl(totalPassivos)}</p>

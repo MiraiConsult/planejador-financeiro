@@ -277,7 +277,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
                       className={cn(
                         'h-9 w-9 shrink-0 rounded-full flex items-center justify-center transition-all',
                         done && 'bg-brand-600 text-white',
-                        active && 'bg-slate-900 dark:bg-slate-100 dark:bg-slate-800 text-white dark:text-slate-900 dark:text-slate-100 ring-4 ring-brand-100 dark:ring-brand-800/50',
+                        active && 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 ring-4 ring-brand-100 dark:ring-brand-800/50',
                         !done && !active && 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
                       )}
                     >
@@ -342,7 +342,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
         </div>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80 dark:bg-slate-900/80 backdrop-blur-md">
+      <footer className="sticky bottom-0 border-t border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <Button variant="ghost" onClick={handleBack} disabled={isPending} size="md">
             <ArrowLeft size={14} />

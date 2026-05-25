@@ -99,7 +99,7 @@ export function MiniChart({ data, color, kind, caption, onChangeValue, baseValue
     return (
       <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs shadow-sm">
         <p className="font-medium text-slate-900 dark:text-slate-100">aos {p.idade}</p>
-        <p className="tabular-nums text-slate-700">{brl(p.v)}</p>
+        <p className="tabular-nums text-slate-700 dark:text-slate-300">{brl(p.v)}</p>
       </div>
     );
   };
@@ -107,10 +107,10 @@ export function MiniChart({ data, color, kind, caption, onChangeValue, baseValue
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
       <div className="flex items-center justify-between mb-2 gap-2">
-        <p className="text-[11px] text-slate-500 flex-1">{caption}</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 flex-1">{caption}</p>
         {interactive && (
-          <p className="text-[10px] text-brand-600 shrink-0 flex items-center gap-1">
-            <span className="inline-block h-2 w-3 rounded-sm border border-brand-300 bg-brand-50" />
+          <p className="text-[10px] text-brand-600 dark:text-brand-400 shrink-0 flex items-center gap-1">
+            <span className="inline-block h-2 w-3 rounded-sm border border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-950/30" />
             arraste vertical pra ajustar
           </p>
         )}

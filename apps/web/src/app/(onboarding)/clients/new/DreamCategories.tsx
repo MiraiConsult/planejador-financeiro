@@ -33,7 +33,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'casa',
     label: 'Casas',
     icon: Home,
-    cor: 'bg-blue-50 text-blue-600 ring-blue-100',
+    cor: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 ring-blue-100 dark:ring-blue-800/50',
     matchers: ['casa'],
     positivo: false,
     build: ({ offset, idadeAtual }) => ({
@@ -52,7 +52,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'viagem',
     label: 'Viagens',
     icon: Plane,
-    cor: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+    cor: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-emerald-100 dark:ring-emerald-800/50',
     matchers: ['viagem'],
     positivo: false,
     build: ({ offset, idadeAtual }) => ({
@@ -71,7 +71,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'faculdade',
     label: 'Faculdades / educação',
     icon: GraduationCap,
-    cor: 'bg-violet-50 text-violet-600 ring-violet-100',
+    cor: 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 ring-violet-100 dark:ring-violet-800/50',
     matchers: ['faculdade', 'educação', 'curso', 'mba'],
     positivo: false,
     build: ({ offset }) => ({
@@ -90,7 +90,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'casamento',
     label: 'Casamentos',
     icon: PartyPopper,
-    cor: 'bg-pink-50 text-pink-600 ring-pink-100',
+    cor: 'bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 ring-pink-100 dark:ring-pink-800/50',
     matchers: ['casamento'],
     positivo: false,
     build: ({ offset, idadeAtual }) => ({
@@ -109,7 +109,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'carro',
     label: 'Carros',
     icon: Car,
-    cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 ring-slate-200',
+    cor: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 ring-slate-200 dark:ring-slate-700',
     matchers: ['carro', 'veículo'],
     positivo: false,
     build: ({ offset, idadeAtual, expectativaVida }) => ({
@@ -128,7 +128,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'heranca',
     label: 'Heranças a receber',
     icon: Gift,
-    cor: 'bg-amber-50 text-amber-600 ring-amber-100',
+    cor: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 ring-amber-100 dark:ring-amber-800/50',
     matchers: ['herança', 'heranca'],
     positivo: true,
     build: ({ offset }) => ({
@@ -147,7 +147,7 @@ const dreamCategories: CategoryDef[] = [
     key: 'outros',
     label: 'Outros sonhos',
     icon: Sparkles,
-    cor: 'bg-brand-50 text-brand-600 ring-brand-100',
+    cor: 'bg-brand-50 dark:bg-brand-950/30 text-brand-600 dark:text-brand-400 ring-brand-100 dark:ring-brand-800/50',
     matchers: [],
     positivo: false,
     build: ({ offset, idadeAtual }) => ({
@@ -264,16 +264,16 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
             ref={(el) => {
               groupsRef.current.set(cat.key, el);
             }}
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden"
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm dark:shadow-none overflow-hidden"
           >
             <button
               type="button"
               onClick={() => toggle(cat.key)}
-              className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-950/60 text-left"
+              className="w-full px-5 py-3 flex items-center gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-800 transition-colors text-left"
             >
               <ChevronDown
                 size={13}
-                className={`text-slate-300 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                className={`text-slate-300 dark:text-slate-600 transition-transform ${isOpen ? 'rotate-180' : ''}`}
               />
               <div className={`h-9 w-9 rounded-lg flex items-center justify-center ring-1 ring-inset shrink-0 ${cat.cor}`}>
                 <Icon size={15} />
@@ -282,12 +282,12 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
                 <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                   {cat.label}
                   {items.length > 0 && (
-                    <span className="ml-2 text-xs font-medium text-slate-400">
+                    <span className="ml-2 text-xs font-medium text-slate-400 dark:text-slate-500">
                       ({items.length})
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {items.length === 0
                     ? 'Nenhum cadastrado · toque pra adicionar'
                     : items.length === 1
@@ -305,7 +305,7 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
             {isOpen && (
               <div className="border-t border-slate-100 dark:border-slate-800">
                 {items.length === 0 ? (
-                  <div className="px-5 py-6 text-center text-xs text-slate-400">
+                  <div className="px-5 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
                     Nada por aqui ainda. Use o botão abaixo pra adicionar a primeira.
                   </div>
                 ) : (
@@ -338,11 +338,11 @@ export function DreamCategories({ events, onChange, idadeAtual, expectativaVida 
                   </ul>
                 )}
 
-                <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800">
+                <div className="px-5 py-3 bg-slate-50/40 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => addToCategory(cat)}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-medium text-brand-600 hover:bg-white dark:bg-slate-900 hover:border-brand-400 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-white dark:hover:bg-slate-800 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
                   >
                     <Plus size={13} />
                     Adicionar {items.length === 0 ? `primeira ${cat.label.replace(/s$/, '').toLowerCase()}` : `outra ${cat.label.replace(/s$/, '').toLowerCase()}`}

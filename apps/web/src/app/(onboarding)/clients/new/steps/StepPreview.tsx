@@ -133,9 +133,9 @@ export function StepPreview({ state }: Props) {
         title="Pronto pra criar"
         description="Você não cadastrou números ainda — tudo bem, ajeitamos depois no painel do cliente. Clique em Finalizar pra criar."
       >
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/30 p-10 text-center">
-          <Sparkles size={28} className="mx-auto text-slate-400 mb-3" />
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
+        <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/30 p-10 text-center">
+          <Sparkles size={28} className="mx-auto text-slate-400 dark:text-slate-500 mb-3" />
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             Sem dados suficientes pra simular agora. Você poderá adicionar ativos, receitas e
             despesas no painel do cliente depois de criar.
           </p>
@@ -180,7 +180,7 @@ export function StepPreview({ state }: Props) {
         {/* Cards de KPI */}
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold">
               Patrimônio final
             </p>
             <p
@@ -190,20 +190,20 @@ export function StepPreview({ state }: Props) {
             >
               {brlK(finalRow.patrimonio_total)}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">aos {finalRow.idade} anos</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">aos {finalRow.idade} anos</p>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold">
               Pico de patrimônio
             </p>
             <p className="mt-1 text-xl font-bold tabular-nums text-emerald-600 flex items-center gap-1">
               <TrendingUp size={16} />
               {brlK(pico)}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">aos {picoIdade} anos</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">aos {picoIdade} anos</p>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold">
               Break-even
             </p>
             <p
@@ -223,7 +223,7 @@ export function StepPreview({ state }: Props) {
                 </>
               )}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               {breakEven !== null ? 'saldo fica negativo' : 'sustenta o plano todo'}
             </p>
           </div>
@@ -233,10 +233,10 @@ export function StepPreview({ state }: Props) {
         <div
           className={`rounded-xl border p-4 text-sm leading-relaxed ${
             positivoFinal && breakEven === null
-              ? 'border-emerald-200 bg-emerald-50/40 text-emerald-900'
+              ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/40 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300'
               : positivoFinal
-                ? 'border-amber-200 bg-amber-50/40 text-amber-900'
-                : 'border-red-200 bg-red-50/40 text-red-900'
+                ? 'border-amber-200 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300'
+                : 'border-red-200 dark:border-red-800/50 bg-red-50/40 dark:bg-red-950/30 text-red-900 dark:text-red-300'
           }`}
         >
           {narrativa}
@@ -246,10 +246,10 @@ export function StepPreview({ state }: Props) {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <LineChartIcon size={14} className="text-brand-600" />
+              <LineChartIcon size={14} className="text-brand-600 dark:text-brand-400" />
               Patrimônio ao longo da vida
             </p>
-            <p className="text-[11px] text-slate-500">cenário base</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">cenário base</p>
           </div>
           <div style={{ height: 280, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -276,7 +276,7 @@ export function StepPreview({ state }: Props) {
                     return (
                       <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs shadow-sm">
                         <p className="font-medium text-slate-900 dark:text-slate-100">aos {p.idade}</p>
-                        <p className="tabular-nums text-slate-700">{brl(p.patrimonio)}</p>
+                        <p className="tabular-nums text-slate-700 dark:text-slate-300">{brl(p.patrimonio)}</p>
                       </div>
                     );
                   }}
@@ -294,9 +294,9 @@ export function StepPreview({ state }: Props) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 text-sm">
-          <p className="font-medium text-brand-900 mb-1">É só uma prévia.</p>
-          <p className="text-brand-800/80 text-[13px]">
+        <div className="rounded-xl border border-brand-100 dark:border-brand-800/50 bg-brand-50/40 dark:bg-brand-950/30 p-4 text-sm">
+          <p className="font-medium text-brand-900 dark:text-brand-200 mb-1">É só uma prévia.</p>
+          <p className="text-brand-800/80 dark:text-brand-300/80 text-[13px]">
             Você terá acesso a cenários otimista/pessimista, edição em gráfico, ajustes ponto-a-ponto
             e simulação detalhada depois de criar o cliente.
           </p>
