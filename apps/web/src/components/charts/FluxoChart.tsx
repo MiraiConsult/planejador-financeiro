@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export function FluxoChart({ rows }: { rows: RowSlim[] }) {
   return (
-    <ResponsiveContainer width="100%" height={320}>
+    <ResponsiveContainer width="100%" height={420}>
       <BarChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
         <defs>
           <linearGradient id="barPositive" x1="0" y1="0" x2="0" y2="1">

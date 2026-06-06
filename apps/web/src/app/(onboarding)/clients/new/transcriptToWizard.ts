@@ -34,6 +34,7 @@ export function transcriptToWizardState(extr: TranscriptExtraction, rawTranscrip
     idade_inicio: r.idade_inicio,
     idade_fim: r.idade_fim,
     indexado_inflacao: true,
+    crescimento_real_aa: r.crescimento_real_aa_pct != null ? r.crescimento_real_aa_pct / 100 : null,
   }));
 
   // Ativos
@@ -59,6 +60,7 @@ export function transcriptToWizardState(extr: TranscriptExtraction, rawTranscrip
     idade_inicio: d.idade_inicio,
     idade_fim: d.idade_fim,
     essencial: d.essencial,
+    crescimento_real_aa: d.crescimento_real_aa_pct != null ? d.crescimento_real_aa_pct / 100 : null,
   }));
 
   // Passivos

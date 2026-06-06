@@ -39,6 +39,7 @@ import {
   duplicateExpense,
   duplicateEvent,
   duplicateLiability,
+  convertEventToFinancing,
 } from './actions';
 
 // ─── tipos compartilhados ───
@@ -1078,7 +1079,176 @@ export function EventEditor({
           />
         )}
       </div>
+
+      {local.tipo === 'compra' && local.padrao_recorrencia === 'unico' && (
+        <FinancingPanel
+          event_id={event.id}
+          client_id={client_id}
+          valor_total={Math.abs(valorNum)}
+          descricao={local.descricao}
+        />
+      )}
     </EditorCard>
+  );
+}
+
+// ─── FINANCING PANEL (compra parcelada) ───
+
+function FinancingPanel({
+  event_id,
+  client_id,
+  valor_total,
+  descricao,
+}: {
+  event_id: string;
+  client_id: string;
+  valor_total: number;
+  descricao: string;
+}) {
+  const [forma, setForma] = useState<'avista' | 'financiado' | null>(null);
+  const [entradaPct, setEntradaPct] = useState('20');
+  const [prazoAnos, setPrazoAnos] = useState('30');
+  const [jurosPct, setJurosPct] = useState('10');
+  const [submitting, setSubmitting] = useState(false);
+
+  const entradaNum = Math.max(0, Math.min(100, Number(entradaPct) || 0));
+  const prazoNum = Math.max(1, Number(prazoAnos) || 1);
+  const jurosNum = Math.max(0, Number(jurosPct) || 0);
+  const entrada = valor_total * (entradaNum / 100);
+  const financiado = valor_total - entrada;
+  const rMensal = Math.pow(1 + jurosNum / 100, 1 / 12) - 1;
+  const n = prazoNum * 12;
+  const parcela =
+    n <= 0
+      ? 0
+      : rMensal === 0
+        ? financiado / n
+        : (financiado * rMensal) / (1 - Math.pow(1 + rMensal, -n));
+
+  async function aplicar() {
+    setSubmitting(true);
+    try {
+      const res = await convertEventToFinancing({
+        event_id,
+        client_id,
+        entrada_pct: entradaNum,
+        prazo_anos: prazoNum,
+        juros_aa_pct: jurosNum,
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        `Financiamento criado: entrada ${brl(res.entrada)} + parcela ${brl(res.parcela_mensal)}/mês`,
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 uppercase tracking-wide">
+            Forma de pagamento
+          </p>
+          <p className="text-[11px] text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+            {descricao || 'Esta compra'} será paga à vista ou financiada?
+          </p>
+        </div>
+        <div className="inline-flex rounded-md border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setForma('avista')}
+            className={`px-3 py-1 rounded transition-colors ${
+              forma === 'avista'
+                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 font-medium'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            À vista
+          </button>
+          <button
+            type="button"
+            onClick={() => setForma('financiado')}
+            className={`px-3 py-1 rounded transition-colors ${
+              forma === 'financiado'
+                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 font-medium'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            Financiado
+          </button>
+        </div>
+      </div>
+
+      {forma === 'avista' && (
+        <p className="text-[11px] text-slate-600 dark:text-slate-400">
+          OK — esta compra está modelada como saída única no ano de aquisição.
+        </p>
+      )}
+
+      {forma === 'financiado' && (
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-3 gap-3">
+            <NumField
+              label="Entrada (%)"
+              value={entradaPct}
+              onChange={setEntradaPct}
+              suffix="%"
+              step={5}
+            />
+            <NumField
+              label="Prazo (anos)"
+              value={prazoAnos}
+              onChange={setPrazoAnos}
+              step={5}
+            />
+            <NumField
+              label="Juros (% a.a.)"
+              value={jurosPct}
+              onChange={setJurosPct}
+              suffix="%"
+              step={0.5}
+            />
+          </div>
+          <div className="rounded-md bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/40 px-3 py-2 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Entrada</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                {brl(entrada)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Financiado</p>
+              <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                {brl(financiado)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Parcela/mês</p>
+              <p className="text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                {brl(parcela)}
+              </p>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Ao aplicar, o evento ficará apenas com a entrada e um passivo de financiamento será
+            criado pra parcela mensal (saldo {brl(financiado)} · {prazoNum} anos · {jurosNum}% a.a.).
+          </p>
+          <Button
+            size="sm"
+            onClick={aplicar}
+            disabled={submitting || valor_total <= 0}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            {submitting ? 'Aplicando…' : 'Criar financiamento vinculado'}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 

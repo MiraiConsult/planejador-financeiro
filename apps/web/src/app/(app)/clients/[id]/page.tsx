@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { KpiCard } from '@/components/KpiCard';
 import { PatrimonioChart } from '@/components/charts/PatrimonioChart';
 import { FluxoChart } from '@/components/charts/FluxoChart';
+import { IncomeExpenseChart } from '@/components/charts/IncomeExpenseChart';
 import { EntityLists } from '@/components/EntityLists';
 
 const brl = (n: number) =>
@@ -237,8 +238,8 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
       </section>
 
       {/* Gráficos */}
-      <section className="grid lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
+      <section className="space-y-4">
+        <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -248,11 +249,11 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
                 </CardDescription>
               </div>
               <div className="flex gap-3 text-xs">
-                <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                   <span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-br from-brand-400 to-brand-600" />
                   Patrimônio
                 </span>
-                <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                   <span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-br from-emerald-400 to-emerald-600" />
                   Saldo
                 </span>
@@ -271,6 +272,18 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
           </CardHeader>
           <CardContent className="pt-2">
             <FluxoChart rows={result.rows} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Receitas vs despesas</CardTitle>
+            <CardDescription>
+              Composição ano a ano — receitas acima do zero, despesas abaixo. Passe o mouse pra ver a divisão por origem/categoria
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <IncomeExpenseChart rows={result.rows} />
           </CardContent>
         </Card>
       </section>

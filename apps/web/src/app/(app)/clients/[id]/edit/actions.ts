@@ -448,6 +448,90 @@ export async function duplicateLiability(formData: FormData) {
   revalidatePath(`/clients/${client_id}/edit`);
 }
 
+// ─────────── FINANCIAMENTO DE EVENTO (compra parcelada) ───────────
+
+/**
+ * Converte um evento de compra (ex: casa) em compra parcelada:
+ *  - reduz o `valor` do evento pra apenas o valor da ENTRADA (sinal negativo),
+ *  - cria um passivo do tipo `financiamento_imovel` com PMT calculado.
+ *
+ * PMT (Price/SAF francês): P = principal financiado, r = juros mensais,
+ * n = total de parcelas → parcela = P · r / (1 − (1+r)^−n).
+ * Se juros = 0, é só P / n.
+ */
+export async function convertEventToFinancing(args: {
+  event_id: string;
+  client_id: string;
+  entrada_pct: number; // 0–100 (ex: 20 → 20%)
+  prazo_anos: number; // ex: 30
+  juros_aa_pct: number; // ex: 10 → 10% a.a.
+  liability_tipo?: string;
+}): Promise<
+  | { ok: true; liability_id: string; entrada: number; parcela_mensal: number; financiado: number }
+  | { ok: false; error: string }
+> {
+  const supabase = await createClient();
+  const { data: ev, error: evErr } = await supabase
+    .from('events')
+    .select('id, descricao, valor, idade_inicio')
+    .eq('id', args.event_id)
+    .single();
+  if (evErr || !ev) return { ok: false, error: evErr?.message ?? 'evento não encontrado' };
+
+  const total = Math.abs(Number(ev.valor));
+  if (!Number.isFinite(total) || total <= 0) {
+    return { ok: false, error: 'evento sem valor de compra válido' };
+  }
+  const entradaPct = Math.max(0, Math.min(100, args.entrada_pct)) / 100;
+  const prazoAnos = Math.max(1, Math.round(args.prazo_anos));
+  const jurosAa = Math.max(0, args.juros_aa_pct) / 100;
+  const entrada = total * entradaPct;
+  const financiado = total - entrada;
+  const n = prazoAnos * 12;
+  const rMensal = Math.pow(1 + jurosAa, 1 / 12) - 1;
+  const parcela =
+    rMensal === 0
+      ? financiado / n
+      : (financiado * rMensal) / (1 - Math.pow(1 + rMensal, -n));
+
+  // 1) cria passivo
+  const { data: liab, error: liabErr } = await supabase
+    .from('liabilities')
+    .insert({
+      client_id: args.client_id,
+      nome: `Financiamento — ${ev.descricao}`,
+      tipo: args.liability_tipo ?? 'financiamento_imovel',
+      saldo_atual: Math.round(financiado),
+      juros_aa: jurosAa,
+      parcela_mensal: Math.round(parcela),
+      idade_inicio: ev.idade_inicio,
+      idade_fim: ev.idade_inicio + prazoAnos,
+    })
+    .select('id')
+    .single();
+  if (liabErr || !liab) return { ok: false, error: liabErr?.message ?? 'falha ao criar passivo' };
+
+  // 2) ajusta evento pra refletir somente a entrada
+  const sinal = Number(ev.valor) < 0 ? -1 : -1; // compra é sempre saída
+  await supabase
+    .from('events')
+    .update({
+      valor: sinal * Math.round(entrada),
+      descricao: `${ev.descricao} — entrada`,
+    })
+    .eq('id', args.event_id);
+
+  revalidatePath(`/clients/${args.client_id}`);
+  revalidatePath(`/clients/${args.client_id}/edit`);
+  return {
+    ok: true,
+    liability_id: liab.id,
+    entrada: Math.round(entrada),
+    parcela_mensal: Math.round(parcela),
+    financiado: Math.round(financiado),
+  };
+}
+
 // ─────────── PATCH GRANULAR (auto-save) ───────────
 
 const ASSET_FIELDS = new Set([

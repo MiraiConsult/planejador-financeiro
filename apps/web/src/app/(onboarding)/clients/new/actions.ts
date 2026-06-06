@@ -305,6 +305,7 @@ async function syncItems(client_id: string, payload: OnboardingPayload, hardDele
         idade_inicio: a.idade_inicio,
         idade_fim: a.idade_fim,
         indexado_inflacao: a.indexado_inflacao,
+        crescimento_real_aa: a.natureza === 'fluxo' ? (a.crescimento_real_aa ?? null) : null,
       })),
     );
   }
@@ -319,6 +320,7 @@ async function syncItems(client_id: string, payload: OnboardingPayload, hardDele
         idade_fim: d.idade_fim,
         indexado_inflacao: true,
         essencial: d.essencial,
+        crescimento_real_aa: d.crescimento_real_aa ?? null,
       })),
     );
   }

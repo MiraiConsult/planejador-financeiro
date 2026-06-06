@@ -17,6 +17,8 @@ export interface DraftAsset {
   idade_inicio: number;
   idade_fim: number;
   indexado_inflacao: boolean;
+  /** Crescimento real anual em FRAÇÃO (0.10 = 10% a.a.). Só faz sentido pra fluxos. */
+  crescimento_real_aa?: number | null;
 }
 
 export interface DraftExpense {
@@ -38,6 +40,8 @@ export interface DraftExpense {
   idade_inicio: number;
   idade_fim: number;
   essencial: boolean;
+  /** Crescimento real anual em FRAÇÃO (0.10 = 10% a.a.). */
+  crescimento_real_aa?: number | null;
 }
 
 export interface DraftEvent {
