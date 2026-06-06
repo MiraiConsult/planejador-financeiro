@@ -50,6 +50,7 @@ export interface WizardState {
   custom_retorno_aa: number | null;
   custom_volatilidade_aa: number | null;
   perfil_subjetivo: PerfilSubjetivo;
+  transcricao?: string;
   assets: DraftAsset[];
   expenses: DraftExpense[];
   events: DraftEvent[];
@@ -123,6 +124,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
       custom_retorno_aa: state.custom_retorno_aa,
       custom_volatilidade_aa: state.custom_volatilidade_aa,
       perfil_subjetivo: state.perfil_subjetivo,
+      ...(state.transcricao ? { transcricao: state.transcricao } : {}),
       assets: state.assets,
       expenses: state.expenses,
       events: state.events,

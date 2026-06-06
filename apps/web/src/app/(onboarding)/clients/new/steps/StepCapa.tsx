@@ -48,7 +48,7 @@ export function StepCapa({ onStart }: Props) {
 
   function confirmAndStart() {
     if (!extracted) return;
-    const state = transcriptToWizardState(extracted);
+    const state = transcriptToWizardState(extracted, transcript);
     toast.success(`Pré-preenchido a partir da transcrição · revise nos próximos passos`);
     onStart(state);
   }

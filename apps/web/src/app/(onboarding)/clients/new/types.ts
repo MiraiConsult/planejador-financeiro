@@ -89,6 +89,7 @@ export interface OnboardingPayload {
   custom_retorno_aa: number | null;
   custom_volatilidade_aa: number | null;
   perfil_subjetivo: PerfilSubjetivo;
+  transcricao?: string;
   assets: DraftAsset[];
   expenses: DraftExpense[];
   events: DraftEvent[];

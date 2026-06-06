@@ -90,6 +90,11 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
           </Button>
         </Link>
         <div className="flex items-center gap-2">
+          <Link href={`/clients/${id}/transcript`}>
+            <Button variant="outline" size="sm">
+              Refinar via transcrição
+            </Button>
+          </Link>
           <Link href={`/clients/${id}/compare`}>
             <Button variant="outline" size="sm">
               Comparar cenários

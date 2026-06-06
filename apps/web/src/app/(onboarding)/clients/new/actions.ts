@@ -35,6 +35,7 @@ export async function createClientFromOnboarding(payload: OnboardingPayload) {
       custom_retorno_aa: payload.perfil_carteira === 'custom' ? payload.custom_retorno_aa : null,
       custom_volatilidade_aa: payload.perfil_carteira === 'custom' ? payload.custom_volatilidade_aa : null,
       perfil_subjetivo: payload.perfil_subjetivo ?? {},
+      transcricao: payload.transcricao ?? null,
       pais_residencia: 'BR',
     })
     .select('id')
@@ -95,6 +96,7 @@ export async function saveOnboardingDraft(args: {
         custom_volatilidade_aa:
           payload.perfil_carteira === 'custom' ? payload.custom_volatilidade_aa : null,
         perfil_subjetivo: payload.perfil_subjetivo ?? {},
+      transcricao: payload.transcricao ?? null,
         pais_residencia: 'BR',
         onboarding_step: step,
       })
@@ -127,6 +129,7 @@ export async function saveOnboardingDraft(args: {
         custom_volatilidade_aa:
           payload.perfil_carteira === 'custom' ? payload.custom_volatilidade_aa : null,
         perfil_subjetivo: payload.perfil_subjetivo ?? {},
+      transcricao: payload.transcricao ?? null,
         onboarding_step: step,
       })
       .eq('id', client_id);
@@ -176,6 +179,7 @@ export async function loadOnboardingDraft(client_id: string): Promise<
     custom_volatilidade_aa:
       c.custom_volatilidade_aa != null ? Number(c.custom_volatilidade_aa) : null,
     perfil_subjetivo: (c.perfil_subjetivo as Record<string, string>) ?? {},
+    transcricao: c.transcricao ?? undefined,
     assets: (assets ?? []).map<DraftAsset>((a) => ({
       id: a.id,
       nome: a.nome,

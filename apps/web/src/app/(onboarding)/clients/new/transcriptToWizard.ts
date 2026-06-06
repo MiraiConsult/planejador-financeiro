@@ -19,7 +19,7 @@ function birthdayFromAge(idade: number): string {
   return `${birthYear}-01-01`;
 }
 
-export function transcriptToWizardState(extr: TranscriptExtraction): WizardState {
+export function transcriptToWizardState(extr: TranscriptExtraction, rawTranscript?: string): WizardState {
   const expectativa = extr.cliente.expectativa_vida_anos ?? 90;
   const aposentadoria = extr.cliente.idade_aposentadoria ?? null;
   const perfil = extr.cliente.perfil_carteira ?? 'moderado';
@@ -102,6 +102,7 @@ export function transcriptToWizardState(extr: TranscriptExtraction): WizardState
       referencia_dinheiro: extr.perfil_subjetivo.referencia_dinheiro ?? undefined,
       legado: extr.perfil_subjetivo.legado ?? undefined,
     },
+    ...(rawTranscript ? { transcricao: rawTranscript } : {}),
     assets: allAssets,
     expenses: despesas,
     events: eventos,
