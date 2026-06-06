@@ -71,6 +71,14 @@ export interface DraftLiability {
   idade_fim: number;
 }
 
+export interface PerfilSubjetivo {
+  visao_30_anos?: string;
+  medo_principal?: string;
+  significado_dinheiro?: string;
+  referencia_dinheiro?: string;
+  legado?: string;
+}
+
 export interface OnboardingPayload {
   nome_completo: string;
   data_nascimento: string; // ISO
@@ -80,6 +88,7 @@ export interface OnboardingPayload {
   perfil_carteira: PerfilCarteira;
   custom_retorno_aa: number | null;
   custom_volatilidade_aa: number | null;
+  perfil_subjetivo: PerfilSubjetivo;
   assets: DraftAsset[];
   expenses: DraftExpense[];
   events: DraftEvent[];

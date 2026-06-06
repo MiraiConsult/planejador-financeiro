@@ -30,6 +30,7 @@ import type {
   DraftExpense,
   DraftEvent,
   DraftLiability,
+  PerfilSubjetivo,
 } from './types';
 import { StepCapa } from './steps/StepCapa';
 import { StepDadosPessoais } from './steps/StepDadosPessoais';
@@ -48,6 +49,7 @@ export interface WizardState {
   perfil_carteira: 'conservador' | 'moderado' | 'arrojado' | 'custom';
   custom_retorno_aa: number | null;
   custom_volatilidade_aa: number | null;
+  perfil_subjetivo: PerfilSubjetivo;
   assets: DraftAsset[];
   expenses: DraftExpense[];
   events: DraftEvent[];
@@ -63,6 +65,7 @@ const emptyState: WizardState = {
   perfil_carteira: 'moderado',
   custom_retorno_aa: null,
   custom_volatilidade_aa: null,
+  perfil_subjetivo: {},
   assets: [],
   expenses: [],
   events: [],
@@ -119,6 +122,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
       perfil_carteira: state.perfil_carteira,
       custom_retorno_aa: state.custom_retorno_aa,
       custom_volatilidade_aa: state.custom_volatilidade_aa,
+      perfil_subjetivo: state.perfil_subjetivo,
       assets: state.assets,
       expenses: state.expenses,
       events: state.events,

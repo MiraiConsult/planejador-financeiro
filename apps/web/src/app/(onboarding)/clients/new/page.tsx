@@ -30,6 +30,7 @@ export default async function OnboardingPage({
     perfil_carteira: res.payload.perfil_carteira,
     custom_retorno_aa: res.payload.custom_retorno_aa,
     custom_volatilidade_aa: res.payload.custom_volatilidade_aa,
+    perfil_subjetivo: res.payload.perfil_subjetivo ?? {},
     assets: res.payload.assets,
     expenses: res.payload.expenses,
     events: res.payload.events,
