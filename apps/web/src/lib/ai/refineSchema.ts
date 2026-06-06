@@ -1,39 +1,33 @@
 import { z } from 'zod';
 
 /**
- * Schema do PATCH que a IA retorna ao refinar um cliente baseado em
- * trecho selecionado da transcrição + instrução do consultor.
+ * Schema do PATCH que a IA retorna ao refinar um cliente.
  *
- * Cada operação descreve UMA mudança: alterar campos do cliente,
- * adicionar/atualizar/remover item de uma lista (assets, expenses,
- * events, liabilities). Tudo opcional.
+ * NOTA: OpenAI strict mode exige que TODOS os campos sejam declarados
+ * (required) — campos não-aplicáveis viram null em vez de undefined.
+ * Por isso usamos .nullable() em vez de .optional().
  */
 
 const idMatcher = z.object({
-  /** Critério de identificação do item a alterar/remover.
-   *  Use o nome/descrição completo conforme aparece no contexto. */
   match_descricao: z.string().describe('Nome/descrição EXATA do item conforme está no estado atual'),
 });
 
-// ─── Cliente ───
 const clienteUpdates = z.object({
-  nome_completo: z.string().nullable().optional(),
-  data_nascimento: z.string().nullable().optional(),
-  expectativa_vida_anos: z.number().int().nullable().optional(),
-  idade_aposentadoria: z.number().int().nullable().optional(),
-  perfil_carteira: z.enum(['conservador', 'moderado', 'arrojado']).nullable().optional(),
+  nome_completo: z.string().nullable(),
+  data_nascimento: z.string().nullable(),
+  expectativa_vida_anos: z.number().int().nullable(),
+  idade_aposentadoria: z.number().int().nullable(),
+  perfil_carteira: z.enum(['conservador', 'moderado', 'arrojado']).nullable(),
 });
 
-// ─── Perfil subjetivo ───
 const perfilUpdates = z.object({
-  visao_30_anos: z.string().nullable().optional(),
-  medo_principal: z.string().nullable().optional(),
-  significado_dinheiro: z.string().nullable().optional(),
-  referencia_dinheiro: z.string().nullable().optional(),
-  legado: z.string().nullable().optional(),
+  visao_30_anos: z.string().nullable(),
+  medo_principal: z.string().nullable(),
+  significado_dinheiro: z.string().nullable(),
+  referencia_dinheiro: z.string().nullable(),
+  legado: z.string().nullable(),
 });
 
-// ─── Assets ───
 const assetAdd = z.object({
   tipo: z.enum(['financeiro_liquido', 'imovel', 'terreno', 'carro', 'heranca_recebida', 'salario', 'aluguel', 'outro']),
   natureza: z.enum(['estoque', 'fluxo']),
@@ -41,17 +35,17 @@ const assetAdd = z.object({
   valor: z.number(),
   idade_inicio: z.number().int(),
   idade_fim: z.number().int(),
-  crescimento_real_aa_pct: z.number().nullable().optional(),
+  crescimento_real_aa_pct: z.number().nullable(),
 });
-const assetUpdate = idMatcher.extend({
-  novo_nome: z.string().nullable().optional(),
-  novo_valor: z.number().nullable().optional(),
-  nova_idade_inicio: z.number().int().nullable().optional(),
-  nova_idade_fim: z.number().int().nullable().optional(),
-  novo_crescimento_real_aa_pct: z.number().nullable().optional(),
+const assetUpdate = z.object({
+  match_descricao: z.string(),
+  novo_nome: z.string().nullable(),
+  novo_valor: z.number().nullable(),
+  nova_idade_inicio: z.number().int().nullable(),
+  nova_idade_fim: z.number().int().nullable(),
+  novo_crescimento_real_aa_pct: z.number().nullable(),
 });
 
-// ─── Expenses ───
 const expenseAdd = z.object({
   categoria: z.enum([
     'moradia', 'alimentacao', 'transporte', 'saude', 'lazer',
@@ -63,50 +57,51 @@ const expenseAdd = z.object({
   idade_fim: z.number().int(),
   essencial: z.boolean(),
 });
-const expenseUpdate = idMatcher.extend({
-  nova_descricao: z.string().nullable().optional(),
-  novo_valor_mensal: z.number().nullable().optional(),
-  nova_idade_inicio: z.number().int().nullable().optional(),
-  nova_idade_fim: z.number().int().nullable().optional(),
-  novo_essencial: z.boolean().nullable().optional(),
+const expenseUpdate = z.object({
+  match_descricao: z.string(),
+  nova_descricao: z.string().nullable(),
+  novo_valor_mensal: z.number().nullable(),
+  nova_idade_inicio: z.number().int().nullable(),
+  nova_idade_fim: z.number().int().nullable(),
+  novo_essencial: z.boolean().nullable(),
 });
 
-// ─── Events ───
 const eventAdd = z.object({
   tipo: z.enum(['sonho', 'compra', 'heranca', 'viagem_pontual', 'imprevisto']),
   descricao: z.string(),
   valor: z.number().describe('COM SINAL. Negativo pra gasto, positivo pra entrada'),
   idade_inicio: z.number().int(),
-  idade_fim: z.number().int().nullable().optional(),
+  idade_fim: z.number().int().nullable(),
   padrao_recorrencia: z.enum(['unico', 'recorrente_anual', 'recorrente_espacado']),
-  intervalo_anos: z.number().int().nullable().optional(),
+  intervalo_anos: z.number().int().nullable(),
 });
-const eventUpdate = idMatcher.extend({
-  nova_descricao: z.string().nullable().optional(),
-  novo_valor: z.number().nullable().optional(),
-  nova_idade_inicio: z.number().int().nullable().optional(),
-  nova_idade_fim: z.number().int().nullable().optional(),
-  nova_recorrencia: z.enum(['unico', 'recorrente_anual', 'recorrente_espacado']).nullable().optional(),
-  novo_intervalo_anos: z.number().int().nullable().optional(),
+const eventUpdate = z.object({
+  match_descricao: z.string(),
+  nova_descricao: z.string().nullable(),
+  novo_valor: z.number().nullable(),
+  nova_idade_inicio: z.number().int().nullable(),
+  nova_idade_fim: z.number().int().nullable(),
+  nova_recorrencia: z.enum(['unico', 'recorrente_anual', 'recorrente_espacado']).nullable(),
+  novo_intervalo_anos: z.number().int().nullable(),
 });
 
-// ─── Liabilities ───
 const liabilityAdd = z.object({
   tipo: z.string(),
   nome: z.string(),
   saldo_atual: z.number(),
-  juros_aa_pct: z.number().nullable().optional(),
+  juros_aa_pct: z.number().nullable(),
   parcela_mensal: z.number(),
   idade_inicio: z.number().int(),
   idade_fim: z.number().int(),
 });
-const liabilityUpdate = idMatcher.extend({
-  novo_nome: z.string().nullable().optional(),
-  novo_saldo_atual: z.number().nullable().optional(),
-  novo_juros_aa_pct: z.number().nullable().optional(),
-  nova_parcela_mensal: z.number().nullable().optional(),
-  nova_idade_inicio: z.number().int().nullable().optional(),
-  nova_idade_fim: z.number().int().nullable().optional(),
+const liabilityUpdate = z.object({
+  match_descricao: z.string(),
+  novo_nome: z.string().nullable(),
+  novo_saldo_atual: z.number().nullable(),
+  novo_juros_aa_pct: z.number().nullable(),
+  nova_parcela_mensal: z.number().nullable(),
+  nova_idade_inicio: z.number().int().nullable(),
+  nova_idade_fim: z.number().int().nullable(),
 });
 
 export const refinementPatchSchema = z.object({
@@ -114,24 +109,24 @@ export const refinementPatchSchema = z.object({
     .string()
     .describe('Frase curta explicando o que será mudado (mostrada pro consultor)'),
 
-  cliente_updates: clienteUpdates.nullable().optional(),
-  perfil_updates: perfilUpdates.nullable().optional(),
+  cliente_updates: clienteUpdates.nullable(),
+  perfil_updates: perfilUpdates.nullable(),
 
-  assets_add: z.array(assetAdd).nullable().optional(),
-  assets_update: z.array(assetUpdate).nullable().optional(),
-  assets_remove: z.array(idMatcher).nullable().optional(),
+  assets_add: z.array(assetAdd),
+  assets_update: z.array(assetUpdate),
+  assets_remove: z.array(idMatcher),
 
-  expenses_add: z.array(expenseAdd).nullable().optional(),
-  expenses_update: z.array(expenseUpdate).nullable().optional(),
-  expenses_remove: z.array(idMatcher).nullable().optional(),
+  expenses_add: z.array(expenseAdd),
+  expenses_update: z.array(expenseUpdate),
+  expenses_remove: z.array(idMatcher),
 
-  events_add: z.array(eventAdd).nullable().optional(),
-  events_update: z.array(eventUpdate).nullable().optional(),
-  events_remove: z.array(idMatcher).nullable().optional(),
+  events_add: z.array(eventAdd),
+  events_update: z.array(eventUpdate),
+  events_remove: z.array(idMatcher),
 
-  liabilities_add: z.array(liabilityAdd).nullable().optional(),
-  liabilities_update: z.array(liabilityUpdate).nullable().optional(),
-  liabilities_remove: z.array(idMatcher).nullable().optional(),
+  liabilities_add: z.array(liabilityAdd),
+  liabilities_update: z.array(liabilityUpdate),
+  liabilities_remove: z.array(idMatcher),
 });
 
 export type RefinementPatch = z.infer<typeof refinementPatchSchema>;
