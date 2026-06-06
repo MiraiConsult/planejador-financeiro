@@ -238,8 +238,15 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
           </div>
         </header>
         <main className="flex-1 flex items-center justify-center px-6 py-12">
-          <div className="max-w-3xl w-full animate-fade-up">
-            <StepCapa onStart={() => setStep(1)} />
+          <div className="max-w-4xl w-full animate-fade-up">
+            <StepCapa
+              onStart={(prefilledState) => {
+                if (prefilledState) {
+                  setState(prefilledState);
+                }
+                setStep(1);
+              }}
+            />
           </div>
         </main>
       </div>
