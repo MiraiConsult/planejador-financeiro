@@ -90,6 +90,9 @@ export default async function ControleMensalPage({ params }: { params: Params })
           <ImportCard clientId={id} />
 
           <ControleMensalViews
+            rows={rows}
+            clientId={id}
+            sugestoes={sugestoes}
             overview={overview}
             pessoal={analytics.pessoal(rows)}
             mirai={analytics.mirai(rows)}

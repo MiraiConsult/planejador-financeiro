@@ -1,17 +1,20 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { brl, fmtData } from '@/lib/controle-mensal/format';
+import { brl } from '@/lib/controle-mensal/format';
 import type {
   OverviewData, PessoalData, MiraiData, ViagensData, ReceitasData, Lancamento,
 } from '@/lib/controle-mensal/analytics';
 import { Donut, Barras, LinhaMulti, MiniBars, cor } from './charts';
+import { LancamentosTable } from './LancamentosTable';
+import type { Sugestoes } from './LancamentoForm';
 
 const TABS = [
   { id: 'geral', label: 'Visão geral' },
+  { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'pessoal', label: 'Pessoal' },
   { id: 'mirai', label: 'Mirai Consult' },
   { id: 'viagens', label: 'Viagens' },
@@ -20,6 +23,9 @@ const TABS = [
 type TabId = (typeof TABS)[number]['id'];
 
 interface Props {
+  rows: Lancamento[];
+  clientId: string;
+  sugestoes: Sugestoes;
   overview: OverviewData;
   pessoal: PessoalData;
   mirai: MiraiData;
@@ -30,7 +36,9 @@ interface Props {
 const val = (n: number) =>
   n < 0 ? 'text-red-600' : n > 0 ? 'text-emerald-600' : 'text-slate-400';
 
-export function ControleMensalViews({ overview, pessoal, mirai, viagens, receitas }: Props) {
+export function ControleMensalViews({
+  rows, clientId, sugestoes, overview, pessoal, mirai, viagens, receitas,
+}: Props) {
   const [tab, setTab] = useState<TabId>('geral');
   return (
     <div className="space-y-4">
@@ -52,10 +60,13 @@ export function ControleMensalViews({ overview, pessoal, mirai, viagens, receita
       </div>
 
       {tab === 'geral' && <GeralView overview={overview} />}
-      {tab === 'pessoal' && <PessoalView pessoal={pessoal} />}
-      {tab === 'mirai' && <MiraiView mirai={mirai} />}
-      {tab === 'viagens' && <ViagensView viagens={viagens} />}
-      {tab === 'receitas' && <ReceitasView receitas={receitas} />}
+      {tab === 'lancamentos' && (
+        <LancamentosTable rows={rows} clientId={clientId} sugestoes={sugestoes} titulo="Todos os lançamentos" />
+      )}
+      {tab === 'pessoal' && <PessoalView pessoal={pessoal} clientId={clientId} sugestoes={sugestoes} />}
+      {tab === 'mirai' && <MiraiView mirai={mirai} clientId={clientId} sugestoes={sugestoes} />}
+      {tab === 'viagens' && <ViagensView viagens={viagens} clientId={clientId} sugestoes={sugestoes} />}
+      {tab === 'receitas' && <ReceitasView receitas={receitas} clientId={clientId} sugestoes={sugestoes} />}
     </div>
   );
 }
@@ -83,7 +94,7 @@ function GeralView({ overview }: { overview: OverviewData }) {
   );
 }
 
-function PessoalView({ pessoal }: { pessoal: PessoalData }) {
+function PessoalView({ pessoal, clientId, sugestoes }: { pessoal: PessoalData; clientId: string; sugestoes: Sugestoes }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -134,12 +145,12 @@ function PessoalView({ pessoal }: { pessoal: PessoalData }) {
         </CardContent>
       </Card>
 
-      <TabelaCard titulo="Lançamentos pessoais" rows={pessoal.lancamentos} />
+      <LancamentosTable rows={pessoal.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos pessoais" mostrarCentro={false} />
     </div>
   );
 }
 
-function MiraiView({ mirai }: { mirai: MiraiData }) {
+function MiraiView({ mirai, clientId, sugestoes }: { mirai: MiraiData; clientId: string; sugestoes: Sugestoes }) {
   const linhas: Array<{
     rot: string;
     k: Exclude<keyof MiraiData['demonstrativo'][number], 'label'>;
@@ -235,12 +246,12 @@ function MiraiView({ mirai }: { mirai: MiraiData }) {
         </Card>
       </div>
 
-      <TabelaCard titulo="Lançamentos Mirai" rows={mirai.lancamentos} />
+      <LancamentosTable rows={mirai.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos Mirai" mostrarCentro={false} />
     </div>
   );
 }
 
-function ViagensView({ viagens }: { viagens: ViagensData }) {
+function ViagensView({ viagens, clientId, sugestoes }: { viagens: ViagensData; clientId: string; sugestoes: Sugestoes }) {
   return (
     <div className="space-y-4">
       <Card>
@@ -279,12 +290,12 @@ function ViagensView({ viagens }: { viagens: ViagensData }) {
         ))}
       </div>
 
-      <TabelaCard titulo="Lançamentos de viagem" rows={viagens.lancamentos} />
+      <LancamentosTable rows={viagens.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos de viagem" mostrarCentro={false} />
     </div>
   );
 }
 
-function ReceitasView({ receitas }: { receitas: ReceitasData }) {
+function ReceitasView({ receitas, clientId, sugestoes }: { receitas: ReceitasData; clientId: string; sugestoes: Sugestoes }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -354,96 +365,7 @@ function ReceitasView({ receitas }: { receitas: ReceitasData }) {
         </CardContent>
       </Card>
 
-      <TabelaCard titulo="Lançamentos de receita" rows={receitas.lancamentos} />
+      <LancamentosTable rows={receitas.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos de receita" mostrarCentro={false} />
     </div>
-  );
-}
-
-function TabelaCard({ titulo, rows }: { titulo: string; rows: Lancamento[] }) {
-  const [q, setQ] = useState('');
-  const [mes, setMes] = useState('');
-  const meses = useMemo(() => [...new Set(rows.map((l) => l.mes))], [rows]);
-  const temViagem = rows.some((l) => l.viagem);
-  const temSistema = rows.some((l) => l.sistema);
-
-  const filtrados = useMemo(
-    () =>
-      rows.filter((l) => {
-        if (mes && l.mes !== mes) return false;
-        if (q) {
-          const blob = `${l.descricao} ${l.categoria ?? ''} ${l.subcategoria ?? ''} ${l.cliente_obs ?? ''} ${l.viagem ?? ''} ${l.sistema ?? ''}`.toLowerCase();
-          if (!blob.includes(q.toLowerCase())) return false;
-        }
-        return true;
-      }),
-    [rows, q, mes],
-  );
-  const soma = filtrados.reduce((a, l) => a + l.valor, 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <CardTitle>{titulo}</CardTitle>
-          <div className="flex gap-2">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar…"
-              className="h-8 px-3 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-            />
-            <select
-              value={mes}
-              onChange={(e) => setMes(e.target.value)}
-              className="h-8 px-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-            >
-              <option value="">Todos os meses</option>
-              {meses.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="max-h-[460px] overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/80 dark:bg-slate-800/60 sticky top-0">
-              <tr className="text-[10px] uppercase tracking-widest text-slate-500">
-                <th className="text-left px-4 py-2.5 font-semibold">Data</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Descrição</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Categoria</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Subcat.</th>
-                {temViagem && <th className="text-left px-4 py-2.5 font-semibold">Viagem</th>}
-                {temSistema && <th className="text-left px-4 py-2.5 font-semibold">Sistema</th>}
-                <th className="text-left px-4 py-2.5 font-semibold">Mês</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Origem</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Cliente/Obs</th>
-                <th className="text-right px-4 py-2.5 font-semibold">Valor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtrados.map((l, i) => (
-                <tr key={i} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                  <td className="px-4 py-2 whitespace-nowrap text-slate-500">{fmtData(l.data)}</td>
-                  <td className="px-4 py-2 text-slate-800 dark:text-slate-100">{l.descricao}</td>
-                  <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{l.categoria ?? ''}</td>
-                  <td className="px-4 py-2 text-slate-500">{l.subcategoria ?? ''}</td>
-                  {temViagem && <td className="px-4 py-2 text-slate-500">{l.viagem ?? ''}</td>}
-                  {temSistema && <td className="px-4 py-2 text-slate-500">{l.sistema ?? ''}</td>}
-                  <td className="px-4 py-2 text-slate-500">{l.mes}</td>
-                  <td className="px-4 py-2 text-slate-500">{l.origem ?? ''}</td>
-                  <td className="px-4 py-2 text-slate-500">{l.cliente_obs ?? ''}</td>
-                  <td className={`px-4 py-2 text-right tabular-nums font-medium ${val(l.valor)}`}>{brl(l.valor)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-xs text-slate-500 px-4 py-2 border-t border-slate-100 dark:border-slate-800">
-          {filtrados.length} lançamento(s) · soma: {brl(soma)}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
