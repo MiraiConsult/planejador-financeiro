@@ -13,11 +13,13 @@ import { LancamentosTable } from './LancamentosTable';
 import type { Sugestoes } from './LancamentoForm';
 import { GeralDashboard } from './GeralDashboard';
 import { ComparacoesView } from './ComparacoesView';
+import { AnaliseIAView } from './AnaliseIAView';
 import type { Indicadores } from '@/lib/controle-mensal/analises';
 
 const TABS = [
   { id: 'geral', label: 'Visão geral' },
   { id: 'comparacoes', label: 'Comparações' },
+  { id: 'analise', label: 'Análise IA' },
   { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'pessoal', label: 'Pessoal' },
   { id: 'mirai', label: 'Mirai Consult' },
@@ -65,6 +67,7 @@ export function ControleMensalViews({
 
       {tab === 'geral' && <GeralDashboard ind={indicadores} />}
       {tab === 'comparacoes' && <ComparacoesView rows={rows} />}
+      {tab === 'analise' && <AnaliseIAView clientId={clientId} temDados={rows.length > 0} />}
       {tab === 'lancamentos' && (
         <LancamentosTable rows={rows} clientId={clientId} sugestoes={sugestoes} titulo="Todos os lançamentos" />
       )}

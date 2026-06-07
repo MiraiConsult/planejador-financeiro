@@ -253,3 +253,53 @@ export function indicadores(rows: Lancamento[]): Indicadores {
     run_rate_anual: runRate,
   };
 }
+
+// ─────────────────── Contexto agregado pra IA ───────────────────
+// Resumo textual compacto (NÃO os lançamentos crus) pra alimentar o LLM.
+
+export function resumoParaIA(rows: Lancamento[]): string {
+  const ind = indicadores(rows);
+  const L: string[] = [];
+  const primeiro = ind.meses[0]?.label ?? '?';
+  const ultimo = ind.meses[ind.meses.length - 1]?.label ?? '?';
+
+  L.push(`PERÍODO: ${ind.n_meses} mês(es), de ${primeiro} a ${ultimo}.`);
+  L.push(
+    `TOTAIS: receita R$ ${ind.receita_total}; despesa de vida R$ ${ind.despesa_total}; ` +
+      `Mirai (PJ, à parte) R$ ${ind.mirai_total}; resultado R$ ${ind.resultado_total}; ` +
+      `taxa de poupança média ${ind.taxa_poupanca_media}%; run-rate anual R$ ${ind.run_rate_anual}.`,
+  );
+  L.push(`CUSTO mensal estimado: fixo R$ ${ind.custo_fixo_mensal} · variável R$ ${ind.custo_variavel_mensal}.`);
+
+  L.push('\nRESULTADO POR MÊS (receita / despesa / resultado / poupança%):');
+  for (const m of ind.meses) {
+    L.push(`  ${m.label}: ${m.receita} / ${m.despesa} / ${m.resultado} / ${m.taxa_poupanca}%`);
+  }
+
+  L.push('\nRUBRICAS QUE MAIS PESAM (Pareto):');
+  for (const p of ind.pareto.slice(0, 12)) {
+    L.push(`  ${p.nome}: R$ ${p.total} (${p.pct}% do total, acumulado ${p.pct_acum}%)`);
+  }
+
+  L.push('\nGASTO POR ORIGEM:');
+  for (const o of ind.por_origem) L.push(`  ${o.origem}: R$ ${o.total}`);
+
+  if (ind.movers.length) {
+    L.push('\nMAIORES VARIAÇÕES (último mês vs anterior):');
+    for (const mv of ind.movers) L.push(`  ${mv.nome}: ${mv.de} → ${mv.para} (${mv.delta > 0 ? '+' : ''}${mv.delta})`);
+  }
+
+  L.push('\nMAIORES GASTOS INDIVIDUAIS:');
+  for (const l of ind.maiores.slice(0, 8)) {
+    L.push(`  ${l.descricao} [${l.categoria ?? '—'}]: R$ ${Math.abs(l.valor)} em ${l.data}`);
+  }
+
+  const cmp = comparar(rows, 'mes', 'centro', 'despesas');
+  L.push('\nDESPESA POR CENTRO DE CUSTO E MÊS:');
+  L.push(`  centro | ${cmp.periodos.map((p) => p.label).join(' | ')}`);
+  for (const lin of cmp.linhas.slice(0, 10)) {
+    L.push(`  ${lin.nome} | ${lin.valores.join(' | ')}`);
+  }
+
+  return L.join('\n');
+}
