@@ -487,6 +487,7 @@ export function EditableSeriesChart({
             />
             <YAxis
               domain={[yMin, yMax]}
+              allowDataOverflow={yIsManual}
               tick={{ fontSize: 11, fill: '#64748b' }}
               tickLine={false}
               axisLine={false}
