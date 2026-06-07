@@ -4,6 +4,7 @@
 export const ALERTA_MARGEM_PCT = 15;
 
 export interface Lancamento {
+  id?: string;
   data: string;
   descricao: string;
   valor: number;

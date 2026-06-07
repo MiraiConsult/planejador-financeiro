@@ -1,8 +1,9 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { parseLancamentos } from '@/lib/controle-mensal/parse';
+import { parseLancamentos, derivarCampos, type RawLancamento } from '@/lib/controle-mensal/parse';
 
 export interface ImportResult {
   ok: boolean;
@@ -10,6 +11,82 @@ export interface ImportResult {
   ignorados?: number;
   total?: number;
   erro?: string;
+}
+
+export interface LancamentoResult {
+  ok: boolean;
+  id?: string;
+  erro?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function assertOwner(supabase: any, clientId: string): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 'Não autenticado.';
+  const { data: cli } = await supabase.from('clients').select('id').eq('id', clientId).single();
+  if (!cli) return 'Cliente não encontrado ou sem acesso.';
+  return null;
+}
+
+/** Cria um lançamento manual. Hash `manual:<uuid>` pra não colidir com a idempotência do CSV. */
+export async function criarLancamento(clientId: string, raw: RawLancamento): Promise<LancamentoResult> {
+  if (!raw.descricao?.trim()) return { ok: false, erro: 'Descrição é obrigatória.' };
+  if (!Number.isFinite(raw.valor)) return { ok: false, erro: 'Valor inválido.' };
+  const supabase = await createClient();
+  const err = await assertOwner(supabase, clientId);
+  if (err) return { ok: false, erro: err };
+
+  const rec = derivarCampos(raw);
+  const { data, error } = await supabase
+    .from('controle_mensal_lancamentos')
+    .insert({ ...rec, client_id: clientId, hash: `manual:${randomUUID()}` })
+    .select('id')
+    .single();
+  if (error) return { ok: false, erro: error.message };
+
+  revalidatePath(`/clients/${clientId}/controle-mensal`);
+  return { ok: true, id: data?.id as string | undefined };
+}
+
+/** Atualiza um lançamento existente (mantém o hash original). */
+export async function atualizarLancamento(
+  clientId: string,
+  id: string,
+  raw: RawLancamento,
+): Promise<LancamentoResult> {
+  if (!raw.descricao?.trim()) return { ok: false, erro: 'Descrição é obrigatória.' };
+  if (!Number.isFinite(raw.valor)) return { ok: false, erro: 'Valor inválido.' };
+  const supabase = await createClient();
+  const err = await assertOwner(supabase, clientId);
+  if (err) return { ok: false, erro: err };
+
+  const rec = derivarCampos(raw);
+  const { error } = await supabase
+    .from('controle_mensal_lancamentos')
+    .update(rec)
+    .eq('id', id)
+    .eq('client_id', clientId);
+  if (error) return { ok: false, erro: error.message };
+
+  revalidatePath(`/clients/${clientId}/controle-mensal`);
+  return { ok: true, id };
+}
+
+/** Exclui um lançamento. */
+export async function excluirLancamento(clientId: string, id: string): Promise<LancamentoResult> {
+  const supabase = await createClient();
+  const err = await assertOwner(supabase, clientId);
+  if (err) return { ok: false, erro: err };
+
+  const { error } = await supabase
+    .from('controle_mensal_lancamentos')
+    .delete()
+    .eq('id', id)
+    .eq('client_id', clientId);
+  if (error) return { ok: false, erro: error.message };
+
+  revalidatePath(`/clients/${clientId}/controle-mensal`);
+  return { ok: true, id };
 }
 
 /**

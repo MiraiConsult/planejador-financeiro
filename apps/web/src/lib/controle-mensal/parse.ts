@@ -101,6 +101,70 @@ export function parseData(v: string): string {
   return s.slice(0, 10);
 }
 
+/** Campos brutos de um lançamento (vindos do CSV ou do form manual). */
+export interface RawLancamento {
+  data: string;
+  descricao: string;
+  valor: number;
+  categoria: string;
+  subcategoria: string;
+  mes: string;
+  tipo: string;
+  origem: string;
+  cliente_obs: string;
+}
+
+/**
+ * Normaliza um lançamento bruto e deriva os campos calculados
+ * (competência, viagem, sistema, is_nexlex). Compartilhado entre o
+ * importador de CSV e o lançamento manual — fonte única da derivação.
+ * NÃO calcula o hash (estratégia difere: CSV = conteúdo; manual = uuid).
+ */
+export function derivarCampos(raw: RawLancamento): Omit<LancamentoInput, 'hash'> {
+  const data = parseData(raw.data);
+  const mes = raw.mes;
+  const mNum = rules.mesNum(mes);
+  const ano = rules.competenciaAno(data, mNum);
+  const tipo = String(raw.tipo).toLowerCase();
+  const categoria = raw.categoria;
+  const subcat = raw.subcategoria;
+  const desc = raw.descricao;
+
+  const viagem = tipo === 'viagem' ? rules.derivarViagem(subcat, desc) : null;
+  const sistema =
+    tipo === 'mirai' && categoria.toLowerCase().includes('saas')
+      ? rules.normalizarSistema(desc)
+      : null;
+  const is_nexlex = tipo === 'receita' && rules.ehNexlex(desc);
+
+  return {
+    data,
+    descricao: desc,
+    valor: raw.valor,
+    categoria,
+    subcategoria: subcat,
+    mes,
+    mes_num: mNum,
+    ano,
+    competencia: rules.competenciaOrd(ano, mNum),
+    tipo,
+    origem: raw.origem,
+    cliente_obs: raw.cliente_obs,
+    viagem,
+    sistema,
+    is_nexlex,
+  };
+}
+
+/** Hash de conteúdo (idempotência do CSV). `occ` separa linhas idênticas no mesmo arquivo. */
+function hashConteudo(rec: Omit<LancamentoInput, 'hash'>, occ: number): string {
+  const base = [
+    rec.data, rec.descricao, String(rec.valor), rec.categoria, rec.subcategoria,
+    rec.mes, rec.tipo, rec.origem, rec.cliente_obs,
+  ].join('|');
+  return createHash('sha1').update(`${base}|#${occ}`).digest('hex');
+}
+
 /** Lê o CSV inteiro, valida colunas e devolve os registros normalizados e prontos pra inserir. */
 export function parseLancamentos(text: string): LancamentoInput[] {
   const grid = parseCsv(text);
@@ -123,34 +187,24 @@ export function parseLancamentos(text: string): LancamentoInput[] {
   const registros: LancamentoInput[] = [];
   for (let r = 1; r < grid.length; r++) {
     const row = grid[r] ?? [];
-    const data = parseData(get(row, 'Data'));
-    const valor = parseValor(get(row, 'Valor'));
-    const mes = get(row, 'Mês');
-    const mNum = rules.mesNum(mes);
-    const ano = rules.competenciaAno(data, mNum);
-    const tipo = get(row, 'Tipo').toLowerCase();
-    const categoria = get(row, 'Categoria');
-    const subcat = get(row, 'Subcategoria');
-    const desc = get(row, 'Descrição');
-    const origem = get(row, 'Origem');
-    const clienteObs = get(row, 'Cliente/Obs');
-
-    const viagem = tipo === 'viagem' ? rules.derivarViagem(subcat, desc) : null;
-    const sistema = tipo === 'mirai' && categoria.toLowerCase().includes('saas')
-      ? rules.normalizarSistema(desc)
-      : null;
-    const isNexlex = tipo === 'receita' && rules.ehNexlex(desc);
-
-    const base = [data, desc, String(valor), categoria, subcat, mes, tipo, origem, clienteObs].join('|');
-    const occ = seen.get(base) ?? 0;
-    seen.set(base, occ + 1);
-    const hash = createHash('sha1').update(`${base}|#${occ}`).digest('hex');
-
-    registros.push({
-      data, descricao: desc, valor, categoria, subcategoria: subcat,
-      mes, mes_num: mNum, ano, competencia: rules.competenciaOrd(ano, mNum),
-      tipo, origem, cliente_obs: clienteObs, viagem, sistema, is_nexlex: isNexlex, hash,
+    const rec = derivarCampos({
+      data: get(row, 'Data'),
+      valor: parseValor(get(row, 'Valor')),
+      mes: get(row, 'Mês'),
+      tipo: get(row, 'Tipo'),
+      categoria: get(row, 'Categoria'),
+      subcategoria: get(row, 'Subcategoria'),
+      descricao: get(row, 'Descrição'),
+      origem: get(row, 'Origem'),
+      cliente_obs: get(row, 'Cliente/Obs'),
     });
+    const baseKey = [
+      rec.data, rec.descricao, String(rec.valor), rec.categoria, rec.subcategoria,
+      rec.mes, rec.tipo, rec.origem, rec.cliente_obs,
+    ].join('|');
+    const occ = seen.get(baseKey) ?? 0;
+    seen.set(baseKey, occ + 1);
+    registros.push({ ...rec, hash: hashConteudo(rec, occ) });
   }
   return registros;
 }

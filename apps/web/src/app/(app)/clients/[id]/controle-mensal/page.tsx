@@ -10,11 +10,18 @@ import type { Lancamento } from '@/lib/controle-mensal/analytics';
 import { brl } from '@/lib/controle-mensal/format';
 import { ImportCard } from './ImportCard';
 import { ControleMensalViews } from './ControleMensalViews';
+import { NovoLancamentoButton } from './NovoLancamentoButton';
 
 type Params = Promise<{ id: string }>;
 
 const COLS =
-  'data,descricao,valor,categoria,subcategoria,mes,mes_num,ano,competencia,tipo,origem,cliente_obs,viagem,sistema,is_nexlex';
+  'id,data,descricao,valor,categoria,subcategoria,mes,mes_num,ano,competencia,tipo,origem,cliente_obs,viagem,sistema,is_nexlex';
+
+function uniqOrdenado(vals: Array<string | null | undefined>): string[] {
+  return [...new Set(vals.map((v) => (v ?? '').trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'pt-BR'),
+  );
+}
 
 export default async function ControleMensalPage({ params }: { params: Params }) {
   const { id } = await params;
@@ -39,6 +46,12 @@ export default async function ControleMensalPage({ params }: { params: Params })
   const t = overview.por_tipo;
   const resultado = (t.receita ?? 0) + (t.pessoal ?? 0) + (t.viagem ?? 0);
 
+  const sugestoes = {
+    categorias: uniqOrdenado(rows.map((r) => r.categoria)),
+    subcategorias: uniqOrdenado(rows.map((r) => r.subcategoria)),
+    origens: uniqOrdenado(rows.map((r) => r.origem)),
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
@@ -48,6 +61,7 @@ export default async function ControleMensalPage({ params }: { params: Params })
             Voltar para o cliente
           </Button>
         </Link>
+        <NovoLancamentoButton clientId={id} sugestoes={sugestoes} />
       </div>
 
       <PageHeader
