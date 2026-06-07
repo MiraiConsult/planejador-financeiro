@@ -26,3 +26,7 @@ coverage/
 .vscode/
 *.swp
 *.tsbuildinfo
+
+# Sample data e docs one-off não vão pro repo
+/lancamentos_*.csv
+/CONTROLE_MENSAL_INTEGRACAO.md
