@@ -50,6 +50,28 @@ const brlCompact = (n: number) => {
 const brlFull = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
+const STEP_CANDIDATES = [
+  1, 10, 100, 500, 1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+];
+
+/**
+ * Escolhe um "passo de snap" útil dado o range em Y do gráfico. Em
+ * modo fino (Alt), divide a granularidade por 50 — assim mesmo num
+ * eixo de 0 a 60M o usuário consegue ajustar de 10k em 10k.
+ */
+function pickStep(yRange: number, fine: boolean): number {
+  const target = (yRange / 100) / (fine ? 50 : 1);
+  let chosen = STEP_CANDIDATES[0]!;
+  for (const c of STEP_CANDIDATES) {
+    if (c <= target) chosen = c;
+  }
+  return chosen;
+}
+
+function snap(v: number, step: number): number {
+  return Math.round(v / step) * step;
+}
+
 // Margens do LineChart (precisam bater com o que passamos abaixo)
 const M_TOP = 8;
 const M_RIGHT = 8;
@@ -72,8 +94,14 @@ export function EditableSeriesChart({
     return o;
   });
   const [draggingAge, setDraggingAge] = useState<number | null>(null);
+  const [dragValue, setDragValue] = useState<number | null>(null);
+  const [dragScreen, setDragScreen] = useState<{ x: number; y: number } | null>(null);
   const [painting, setPainting] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
+  const [altHeld, setAltHeld] = useState(false);
+  const altHeldRef = useRef(false);
+  const [editingAge, setEditingAge] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState('');
   const [, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -83,13 +111,21 @@ export function EditableSeriesChart({
     setLocalOverrides(o);
   }, [points]);
 
-  // Escuta Shift global pra alternar pointer-events do overlay
+  // Escuta Shift e Alt globais
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftHeld(true);
+      if (e.key === 'Alt') {
+        setAltHeld(true);
+        altHeldRef.current = true;
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftHeld(false);
+      if (e.key === 'Alt') {
+        setAltHeld(false);
+        altHeldRef.current = false;
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -266,28 +302,48 @@ export function EditableSeriesChart({
         /* noop */
       }
       setDraggingAge(payload.idade);
+      setDragValue(payload.valor);
+      setDragScreen({ x: e.clientX, y: e.clientY });
 
       const startY = e.clientY;
       const startValue: number = payload.valor;
       const rect = containerRef.current?.getBoundingClientRect();
       const plotHeight = (rect?.height ?? height) - 40;
       const valuePerPx = (yMax - yMin) / Math.max(1, plotHeight);
+      const range = yMax - yMin;
 
       let lastValue = startValue;
       const onMove = (ev: PointerEvent) => {
-        const dy = ev.clientY - startY;
+        const fine = altHeldRef.current;
+        // Em modo fino o cursor "anda" 10× mais devagar e o snap é
+        // 50× mais granular — dá pra ajustar de 100k em 100k mesmo com
+        // o eixo Y indo até dezenas de milhões.
+        const factor = fine ? 0.1 : 1;
+        const dy = (ev.clientY - startY) * factor;
         const v = startValue - dy * valuePerPx;
-        lastValue = Math.max(0, v);
+        const step = pickStep(range, fine);
+        lastValue = Math.max(0, snap(v, step));
         setLocalOverrides((prev) => ({ ...prev, [payload.idade]: Math.round(lastValue) }));
+        setDragValue(lastValue);
+        setDragScreen({ x: ev.clientX, y: ev.clientY });
       };
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         setDraggingAge(null);
+        setDragValue(null);
+        setDragScreen(null);
         commitSingleOverride(payload.idade, lastValue);
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+    }
+
+    function onDoubleClick(e: ReactPointerEvent<SVGCircleElement>) {
+      e.stopPropagation();
+      e.preventDefault();
+      setEditingAge(payload.idade);
+      setEditingValue(String(Math.round(payload.valor)));
     }
 
     return (
@@ -299,6 +355,7 @@ export function EditableSeriesChart({
           fill="transparent"
           style={{ cursor: shiftHeld ? 'crosshair' : 'ns-resize', touchAction: 'none' }}
           onPointerDown={onPointerDown}
+          onDoubleClick={onDoubleClick}
         />
         <circle
           cx={cx}
@@ -314,21 +371,33 @@ export function EditableSeriesChart({
   }
 
   const overrideCount = Object.keys(localOverrides).length;
+  const dragStep = pickStep(yMax - yMin, altHeld);
+
+  function commitEditing() {
+    if (editingAge === null) return;
+    const n = Number(editingValue.replace(/\./g, '').replace(',', '.'));
+    if (!Number.isFinite(n)) {
+      setEditingAge(null);
+      return;
+    }
+    commitSingleOverride(editingAge, n);
+    setEditingAge(null);
+  }
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           {label}
-          <span className="ml-2 text-slate-400">
-            arraste um ponto para ajustar um ano · <kbd className="px-1 py-0.5 rounded border border-slate-200 bg-slate-50 font-mono text-[10px]">Shift</kbd>+arraste horizontal para pintar um trecho
+          <span className="ml-2 text-slate-400 dark:text-slate-500">
+            arraste um ponto · <kbd className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-[10px]">Alt</kbd>=precisão fina · <kbd className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-[10px]">Shift</kbd>=pincel · duplo-clique=digitar
           </span>
         </p>
         {overrideCount > 0 && (
           <button
             type="button"
             onClick={handleReset}
-            className="text-[11px] text-slate-500 hover:text-slate-900 flex items-center gap-1"
+            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 flex items-center gap-1"
           >
             <RotateCcw size={11} />
             Resetar {overrideCount} ajuste{overrideCount > 1 ? 's' : ''}
@@ -418,6 +487,88 @@ export function EditableSeriesChart({
             modo pincel
           </div>
         )}
+
+        {altHeld && draggingAge === null && (
+          <div className="absolute top-2 right-2 px-2 py-1 rounded bg-brand-600/90 text-white text-[10px] font-medium pointer-events-none">
+            precisão fina · snap {brlCompact(dragStep)}
+          </div>
+        )}
+
+        {/* Badge ao vivo durante drag — flutua perto do cursor */}
+        {draggingAge !== null && dragValue !== null && dragScreen && containerRef.current && (
+          (() => {
+            const rect = containerRef.current.getBoundingClientRect();
+            const left = Math.max(8, Math.min(rect.width - 140, dragScreen.x - rect.left + 16));
+            const top = Math.max(8, dragScreen.y - rect.top - 36);
+            return (
+              <div
+                className="absolute pointer-events-none rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-soft-lg px-3 py-1.5"
+                style={{ left, top, minWidth: 130 }}
+              >
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                  idade {draggingAge}
+                </p>
+                <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                  {brlFull(dragValue)}
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  snap {brlCompact(dragStep)}{altHeld ? ' · Alt' : ''}
+                </p>
+              </div>
+            );
+          })()
+        )}
+
+        {/* Input inline pra digitar valor exato (duplo-clique no ponto) */}
+        {editingAge !== null && containerRef.current && (() => {
+          // Calcula a posição X do ponto baseado na idade
+          const rect = containerRef.current.getBoundingClientRect();
+          const plotW = rect.width - Y_AXIS_W - M_RIGHT;
+          const totalAges = ageMax - ageMin;
+          const idx = editingAge - ageMin;
+          const left = Y_AXIS_W + (idx / Math.max(1, totalAges)) * plotW - 80;
+          return (
+            <div
+              className="absolute z-10 rounded-lg border border-brand-300 dark:border-brand-700 bg-white dark:bg-slate-900 shadow-soft-lg px-3 py-2"
+              style={{ left: Math.max(8, Math.min(rect.width - 168, left)), top: 8, minWidth: 160 }}
+            >
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                idade {editingAge}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500">R$</span>
+                <input
+                  autoFocus
+                  type="text"
+                  inputMode="numeric"
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitEditing();
+                    if (e.key === 'Escape') setEditingAge(null);
+                  }}
+                  className="flex-1 min-w-0 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-slate-100 rounded px-2 py-1 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-500"
+                />
+              </div>
+              <div className="flex justify-end gap-1 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingAge(null)}
+                  className="text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 px-2 py-0.5"
+                >
+                  cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={commitEditing}
+                  className="text-[10px] font-medium text-brand-700 dark:text-brand-400 hover:text-brand-900 dark:hover:text-brand-200 px-2 py-0.5"
+                >
+                  aplicar
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
