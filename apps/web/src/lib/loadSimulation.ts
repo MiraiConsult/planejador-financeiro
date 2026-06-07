@@ -151,17 +151,20 @@ export async function loadSimulationInput(client_id: string): Promise<{
         custo_credito_aa: Number(a.custo_credito_aa),
       }
     : {
+        // Sistema opera em VALORES REAIS (moeda de hoje, sem inflação).
+        // Taxas abaixo são RETORNOS REAIS — descontados da inflação BR (~4%).
+        // Equivalentes nominais aprox.: 4%→8%, 6%→10%, 9%→13%.
         inflacao_anual_br: 0.04,
-        retorno_conservador: 0.08,
+        retorno_conservador: 0.04,
         volatilidade_conservador: 0.04,
-        retorno_moderado: 0.1,
+        retorno_moderado: 0.06,
         volatilidade_moderado: 0.08,
-        retorno_arrojado: 0.13,
+        retorno_arrojado: 0.09,
         volatilidade_arrojado: 0.15,
         valorizacao_imovel_uso: 0,
         taxa_desconto_npv: 0.06,
         imposto_renda_efetivo: 0.15,
-        custo_credito_aa: 0.15,
+        custo_credito_aa: 0.10,
       };
 
   const sc = scenariosRes.data;

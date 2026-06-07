@@ -165,10 +165,17 @@ export function simulate(input: SimulationInput): SimulationResult {
     let saldoPreRetorno = saldoInicial + fluxoLiquido - jurosDivida;
 
     // ─── Retorno: só a partir do ano 2 (t >= 1) e só sobre saldo positivo ───
+    // Regra do meio: as entradas/saídas do ano acontecem em média na metade
+    // do período, então rendem só metade do ano. Calcular sobre o saldo
+    // FINAL superestima retorno em ~5pp ao ano de fluxo. Convenção financeira
+    // correta (Excel: TIR/FV padrão).
+    // IMPORTANTE: o sistema opera em VALORES REAIS (moeda de hoje, sem
+    // inflação) — `retornoEfetivo` precisa ser REAL pra ser consistente.
+    const saldoMedio = Math.max(0, saldoInicial + (fluxoLiquido - jurosDivida) / 2);
     const retorno =
       t === 0
         ? 0
-        : Math.max(0, saldoPreRetorno) * retornoEfetivo * (1 - premissas.imposto_renda_efetivo);
+        : saldoMedio * retornoEfetivo * (1 - premissas.imposto_renda_efetivo);
 
     let saldoPosRetorno = saldoPreRetorno + retorno;
 
