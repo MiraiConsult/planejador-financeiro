@@ -4,6 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { RefinementPatch } from '@/lib/ai/refineSchema';
 
+export interface RefineChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  patch: RefinementPatch | null;
+  patch_applied: boolean;
+  created_at: string;
+}
+
 export async function saveTranscricao(args: { client_id: string; texto: string }) {
   const supabase = await createClient();
   const { error } = await supabase
@@ -14,6 +23,39 @@ export async function saveTranscricao(args: { client_id: string; texto: string }
   revalidatePath(`/clients/${args.client_id}`);
   revalidatePath(`/clients/${args.client_id}/transcript`);
   return { ok: true as const };
+}
+
+export async function loadChatHistory(
+  client_id: string,
+): Promise<RefineChatMessage[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('refinement_messages')
+    .select('id, role, content, patch, patch_applied, created_at')
+    .eq('client_id', client_id)
+    .order('created_at', { ascending: true });
+  return (data ?? []) as RefineChatMessage[];
+}
+
+export async function clearChatHistory(client_id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('refinement_messages')
+    .delete()
+    .eq('client_id', client_id);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath(`/clients/${client_id}/transcript`);
+  return { ok: true as const };
+}
+
+export async function markMessagePatchApplied(message_id: string, client_id: string) {
+  const supabase = await createClient();
+  await supabase
+    .from('refinement_messages')
+    .update({ patch_applied: true })
+    .eq('id', message_id)
+    .eq('client_id', client_id);
+  revalidatePath(`/clients/${client_id}/transcript`);
 }
 
 /**
