@@ -5,7 +5,7 @@ import { X, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { MESES } from '@/lib/controle-mensal/rules';
-import { parseValor } from '@/lib/controle-mensal/parse';
+import { parseValor } from '@/lib/controle-mensal/valores';
 import { criarLancamento, atualizarLancamento } from './actions';
 
 export interface Sugestoes {
