@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
 import * as analytics from '@/lib/controle-mensal/analytics';
 import type { Lancamento } from '@/lib/controle-mensal/analytics';
+import { indicadores } from '@/lib/controle-mensal/analises';
 import { brl } from '@/lib/controle-mensal/format';
 import { ImportCard } from './ImportCard';
 import { ControleMensalViews } from './ControleMensalViews';
@@ -93,7 +94,7 @@ export default async function ControleMensalPage({ params }: { params: Params })
             rows={rows}
             clientId={id}
             sugestoes={sugestoes}
-            overview={overview}
+            indicadores={indicadores(rows)}
             pessoal={analytics.pessoal(rows)}
             mirai={analytics.mirai(rows)}
             viagens={analytics.viagens(rows)}

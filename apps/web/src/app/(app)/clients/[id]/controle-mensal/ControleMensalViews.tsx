@@ -6,14 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { brl } from '@/lib/controle-mensal/format';
 import type {
-  OverviewData, PessoalData, MiraiData, ViagensData, ReceitasData, Lancamento,
+  PessoalData, MiraiData, ViagensData, ReceitasData, Lancamento,
 } from '@/lib/controle-mensal/analytics';
 import { Donut, Barras, LinhaMulti, MiniBars, cor } from './charts';
 import { LancamentosTable } from './LancamentosTable';
 import type { Sugestoes } from './LancamentoForm';
+import { GeralDashboard } from './GeralDashboard';
+import { ComparacoesView } from './ComparacoesView';
+import type { Indicadores } from '@/lib/controle-mensal/analises';
 
 const TABS = [
   { id: 'geral', label: 'Visão geral' },
+  { id: 'comparacoes', label: 'Comparações' },
   { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'pessoal', label: 'Pessoal' },
   { id: 'mirai', label: 'Mirai Consult' },
@@ -26,7 +30,7 @@ interface Props {
   rows: Lancamento[];
   clientId: string;
   sugestoes: Sugestoes;
-  overview: OverviewData;
+  indicadores: Indicadores;
   pessoal: PessoalData;
   mirai: MiraiData;
   viagens: ViagensData;
@@ -37,7 +41,7 @@ const val = (n: number) =>
   n < 0 ? 'text-red-600' : n > 0 ? 'text-emerald-600' : 'text-slate-400';
 
 export function ControleMensalViews({
-  rows, clientId, sugestoes, overview, pessoal, mirai, viagens, receitas,
+  rows, clientId, sugestoes, indicadores, pessoal, mirai, viagens, receitas,
 }: Props) {
   const [tab, setTab] = useState<TabId>('geral');
   return (
@@ -59,7 +63,8 @@ export function ControleMensalViews({
         ))}
       </div>
 
-      {tab === 'geral' && <GeralView overview={overview} />}
+      {tab === 'geral' && <GeralDashboard ind={indicadores} />}
+      {tab === 'comparacoes' && <ComparacoesView rows={rows} />}
       {tab === 'lancamentos' && (
         <LancamentosTable rows={rows} clientId={clientId} sugestoes={sugestoes} titulo="Todos os lançamentos" />
       )}
@@ -68,29 +73,6 @@ export function ControleMensalViews({
       {tab === 'viagens' && <ViagensView viagens={viagens} clientId={clientId} sugestoes={sugestoes} />}
       {tab === 'receitas' && <ReceitasView receitas={receitas} clientId={clientId} sugestoes={sugestoes} />}
     </div>
-  );
-}
-
-function GeralView({ overview }: { overview: OverviewData }) {
-  const labels = overview.mensal.map((m) => m.label);
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Comparativo mensal por tipo</CardTitle>
-        <CardDescription>Receita, gastos pessoais, viagens e Mirai por mês (valores absolutos)</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Barras
-          labels={labels}
-          series={[
-            { label: 'Receita', cor: '#059669', valores: overview.mensal.map((m) => Math.abs(m.receita)) },
-            { label: 'Pessoal', cor: '#2563eb', valores: overview.mensal.map((m) => Math.abs(m.pessoal)) },
-            { label: 'Viagem', cor: '#9333ea', valores: overview.mensal.map((m) => Math.abs(m.viagem)) },
-            { label: 'Mirai', cor: '#ca8a04', valores: overview.mensal.map((m) => Math.abs(m.mirai)) },
-          ]}
-        />
-      </CardContent>
-    </Card>
   );
 }
 
