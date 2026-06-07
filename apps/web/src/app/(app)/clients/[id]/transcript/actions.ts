@@ -169,6 +169,7 @@ export async function applyRefinementPatch(args: {
       idade_fim: add.idade_fim,
       indexado_inflacao: true,
       essencial: add.essencial,
+      crescimento_real_aa: add.crescimento_real_aa_pct != null ? add.crescimento_real_aa_pct / 100 : null,
     });
     if (error) return { ok: false, error: `expenses_add: ${error.message}` };
     aplicado++;
@@ -182,6 +183,8 @@ export async function applyRefinementPatch(args: {
     if (upd.nova_idade_inicio != null) u.idade_inicio = upd.nova_idade_inicio;
     if (upd.nova_idade_fim != null) u.idade_fim = upd.nova_idade_fim;
     if (upd.novo_essencial != null) u.essencial = upd.novo_essencial;
+    if (upd.novo_crescimento_real_aa_pct != null)
+      u.crescimento_real_aa = upd.novo_crescimento_real_aa_pct / 100;
     if (Object.keys(u).length === 0) continue;
     const { error } = await supabase.from('expenses').update(u).eq('id', id);
     if (error) return { ok: false, error: `expenses_update: ${error.message}` };

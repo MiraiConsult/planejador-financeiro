@@ -56,6 +56,7 @@ const expenseAdd = z.object({
   idade_inicio: z.number().int(),
   idade_fim: z.number().int(),
   essencial: z.boolean(),
+  crescimento_real_aa_pct: z.number().nullable().describe('Crescimento real anual em %, ex: 10 = +10% a.a. acima da inflação'),
 });
 const expenseUpdate = z.object({
   match_descricao: z.string(),
@@ -64,6 +65,7 @@ const expenseUpdate = z.object({
   nova_idade_inicio: z.number().int().nullable(),
   nova_idade_fim: z.number().int().nullable(),
   novo_essencial: z.boolean().nullable(),
+  novo_crescimento_real_aa_pct: z.number().nullable().describe('Crescimento real anual em %, ex: 10 = +10% a.a.'),
 });
 
 const eventAdd = z.object({

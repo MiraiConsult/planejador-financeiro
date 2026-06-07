@@ -98,13 +98,19 @@ export function ChatWorkspace({ clientId, initialTranscricao, initialMessages }:
     startTransition(async () => {
       const res = await applyRefinementPatch({ client_id: clientId, patch: msg.patch! });
       if (res.ok) {
-        toast.success(
-          `${res.aplicado} alteraç${res.aplicado === 1 ? 'ão' : 'ões'} aplicada${res.aplicado === 1 ? '' : 's'}`,
-        );
-        await markMessagePatchApplied(msg.id, clientId);
-        setMessages((m) =>
-          m.map((x) => (x.id === msg.id ? { ...x, patch_applied: true } : x)),
-        );
+        if (res.aplicado > 0) {
+          toast.success(
+            `${res.aplicado} alteraç${res.aplicado === 1 ? 'ão' : 'ões'} aplicada${res.aplicado === 1 ? '' : 's'}`,
+          );
+          await markMessagePatchApplied(msg.id, clientId);
+          setMessages((m) =>
+            m.map((x) => (x.id === msg.id ? { ...x, patch_applied: true } : x)),
+          );
+        } else {
+          toast.error(
+            'Nenhuma mudança aplicada — a IA não especificou um campo concreto. Tente ser mais específico (ex: "muda o valor pra X" ou "cresce 8% a.a.").',
+          );
+        }
       } else {
         toast.error(`Falha: ${res.error}`);
       }
