@@ -72,6 +72,24 @@ function snap(v: number, step: number): number {
   return Math.round(v / step) * step;
 }
 
+/**
+ * Aceita "1.5M", "500k", "1500000", "1.500.000", "1,5M" → número.
+ * Retorna null se não parsear.
+ */
+function parseBRL(input: string): number | null {
+  const s = input.trim().toLowerCase().replace(/r\$\s?/g, '');
+  if (!s) return null;
+  const mMatch = s.match(/^(-?[\d.,]+)\s*(m|k|mi|mil)?$/);
+  if (!mMatch) return null;
+  const rawNum = mMatch[1]!.replace(/\./g, '').replace(',', '.');
+  const n = Number(rawNum);
+  if (!Number.isFinite(n)) return null;
+  const suf = mMatch[2];
+  if (suf === 'm' || suf === 'mi') return n * 1_000_000;
+  if (suf === 'k' || suf === 'mil') return n * 1_000;
+  return n;
+}
+
 // Margens do LineChart (precisam bater com o que passamos abaixo)
 const M_TOP = 8;
 const M_RIGHT = 8;
@@ -102,6 +120,9 @@ export function EditableSeriesChart({
   const altHeldRef = useRef(false);
   const [editingAge, setEditingAge] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  // Limites manuais do eixo Y (vazio = auto)
+  const [yMinInput, setYMinInput] = useState('');
+  const [yMaxInput, setYMaxInput] = useState('');
   const [, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -149,18 +170,25 @@ export function EditableSeriesChart({
     [points, localOverrides],
   );
 
-  const { yMin, yMax, ageMin, ageMax } = useMemo(() => {
+  const { yMin, yMax, ageMin, ageMax, yIsManual } = useMemo(() => {
     const vals = data.map((d) => d.valor);
     const min = Math.min(0, ...vals);
     const max = Math.max(...vals);
     const headroom = (max - min) * 0.25 || max * 0.25 || 1000;
+    const autoMin = min - headroom;
+    const autoMax = max + headroom;
+
+    const manualMin = yMinInput === '' ? null : parseBRL(yMinInput);
+    const manualMax = yMaxInput === '' ? null : parseBRL(yMaxInput);
+
     return {
-      yMin: min - headroom,
-      yMax: max + headroom,
+      yMin: manualMin ?? autoMin,
+      yMax: manualMax ?? autoMax,
       ageMin: points[0]?.idade ?? 0,
       ageMax: points[points.length - 1]?.idade ?? 0,
+      yIsManual: manualMin !== null || manualMax !== null,
     };
-  }, [data, points]);
+  }, [data, points, yMinInput, yMaxInput]);
 
   function commitSingleOverride(idade: number, valor: number) {
     const base = points.find((p) => p.idade === idade)?.base ?? 0;
@@ -390,19 +418,53 @@ export function EditableSeriesChart({
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {label}
           <span className="ml-2 text-slate-400 dark:text-slate-500">
-            arraste um ponto · <kbd className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-[10px]">Alt</kbd>=precisão fina · <kbd className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-[10px]">Shift</kbd>=pincel · duplo-clique=digitar
+            arraste um ponto · <kbd className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-[10px]">Alt</kbd>=precisão · <kbd className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-[10px]">Shift</kbd>=pincel · duplo-clique=digitar
           </span>
         </p>
-        {overrideCount > 0 && (
-          <button
-            type="button"
-            onClick={handleReset}
-            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 flex items-center gap-1"
-          >
-            <RotateCcw size={11} />
-            Resetar {overrideCount} ajuste{overrideCount > 1 ? 's' : ''}
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="text-slate-400 dark:text-slate-500">eixo Y</span>
+            <input
+              type="text"
+              value={yMinInput}
+              onChange={(e) => setYMinInput(e.target.value)}
+              placeholder="auto"
+              className="w-16 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-slate-100 tabular-nums text-center focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              title="ex: 0 · 500k · 1.5M"
+            />
+            <span className="text-slate-300 dark:text-slate-600">–</span>
+            <input
+              type="text"
+              value={yMaxInput}
+              onChange={(e) => setYMaxInput(e.target.value)}
+              placeholder="auto"
+              className="w-16 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-slate-100 tabular-nums text-center focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              title="ex: 1M · 5M · 500k"
+            />
+            {yIsManual && (
+              <button
+                type="button"
+                onClick={() => {
+                  setYMinInput('');
+                  setYMaxInput('');
+                }}
+                className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
+              >
+                auto
+              </button>
+            )}
+          </div>
+          {overrideCount > 0 && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 flex items-center gap-1"
+            >
+              <RotateCcw size={11} />
+              Resetar {overrideCount} ajuste{overrideCount > 1 ? 's' : ''}
+            </button>
+          )}
+        </div>
       </div>
 
       <div
