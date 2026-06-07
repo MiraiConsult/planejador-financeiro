@@ -97,6 +97,11 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
               Refinar via transcrição
             </Button>
           </Link>
+          <Link href={`/clients/${id}/controle-mensal`}>
+            <Button variant="outline" size="sm">
+              Controle mensal
+            </Button>
+          </Link>
           <Link href={`/clients/${id}/compare`}>
             <Button variant="outline" size="sm">
               Comparar cenários
