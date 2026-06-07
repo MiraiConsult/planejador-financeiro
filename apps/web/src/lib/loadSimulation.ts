@@ -79,6 +79,14 @@ export async function loadSimulationInput(client_id: string): Promise<{
     indexado_inflacao: a.indexado_inflacao,
     taxa_retorno_aa: a.taxa_retorno_aa != null ? Number(a.taxa_retorno_aa) : undefined,
     valorizacao_aa: a.valorizacao_aa != null ? Number(a.valorizacao_aa) : undefined,
+    crescimento_real_aa:
+      a.crescimento_real_aa != null ? Number(a.crescimento_real_aa) : undefined,
+    padrao_recorrencia: a.padrao_recorrencia ?? undefined,
+    intervalo_anos: a.intervalo_anos ?? undefined,
+    aporte_mensal: a.aporte_mensal != null ? Number(a.aporte_mensal) : undefined,
+    idade_aporte_inicio: a.idade_aporte_inicio ?? undefined,
+    idade_aporte_fim: a.idade_aporte_fim ?? undefined,
+    overrides: (a.overrides as Record<string, number> | null) ?? undefined,
     prioridade_liquidacao: a.prioridade_liquidacao ?? undefined,
     notas: a.notas ?? undefined,
   }));
@@ -92,6 +100,11 @@ export async function loadSimulationInput(client_id: string): Promise<{
     idade_fim: e.idade_fim,
     indexado_inflacao: e.indexado_inflacao,
     essencial: e.essencial,
+    crescimento_real_aa:
+      e.crescimento_real_aa != null ? Number(e.crescimento_real_aa) : undefined,
+    padrao_recorrencia: e.padrao_recorrencia ?? undefined,
+    intervalo_anos: e.intervalo_anos ?? undefined,
+    overrides: (e.overrides as Record<string, number> | null) ?? undefined,
     notas: e.notas ?? undefined,
   }));
 
@@ -107,6 +120,7 @@ export async function loadSimulationInput(client_id: string): Promise<{
     indexado_inflacao: ev.indexado_inflacao,
     prioridade: ev.prioridade ?? undefined,
     ativo_referenciado: ev.ativo_referenciado ?? undefined,
+    overrides: (ev.overrides as Record<string, number> | null) ?? undefined,
   }));
 
   const liabilities: Liability[] = (liabilitiesRes.data ?? []).map((l) => ({

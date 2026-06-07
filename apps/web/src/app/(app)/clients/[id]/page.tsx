@@ -20,6 +20,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { PatrimonioChart } from '@/components/charts/PatrimonioChart';
 import { FluxoChart } from '@/components/charts/FluxoChart';
 import { IncomeExpenseChart } from '@/components/charts/IncomeExpenseChart';
+import { InvestimentosChart } from '@/components/charts/InvestimentosChart';
 import { EntityLists } from '@/components/EntityLists';
 
 const brl = (n: number) =>
@@ -284,6 +285,18 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
           </CardHeader>
           <CardContent className="pt-2">
             <IncomeExpenseChart rows={result.rows} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Investimentos</CardTitle>
+            <CardDescription>
+              Saldo financeiro líquido projetado · azul = principal acumulado, verde = rendimento sobre o capital
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <InvestimentosChart rows={result.rows} />
           </CardContent>
         </Card>
       </section>

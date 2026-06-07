@@ -233,38 +233,51 @@ export function IncomeExpenseChart({ rows }: { rows: RowSlim[] }) {
           />
           <ReferenceLine y={0} stroke="#94a3b8" />
           <Tooltip content={customTooltip} cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }} />
-          {mode === 'breakdown' ? (
-            <>
-              {assetKeys.map((a, i) => (
-                <Bar
-                  key={a.id}
-                  dataKey={`asset:${a.id}`}
-                  stackId="rec"
-                  fill={RECEITA_PALETTE[i % RECEITA_PALETTE.length]}
-                  name={a.label}
-                />
-              ))}
-              {categoryKeys.map((c, i) => (
-                <Bar
-                  key={c.id}
-                  dataKey={`cat:${c.id}`}
-                  stackId="desp"
-                  fill={DESPESA_PALETTE[i % DESPESA_PALETTE.length]}
-                  name={c.label}
-                />
-              ))}
-            </>
-          ) : (
-            <>
-              <Bar dataKey="__receitas_total" fill="#10b981" radius={[3, 3, 0, 0]} name="Receitas" />
-              <Bar dataKey="__despesas_total" fill="#ef4444" radius={[0, 0, 3, 3]} name="Despesas" />
-            </>
-          )}
           <Legend
             wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
             iconType="square"
             formatter={(value: string) => <span className="text-slate-600 dark:text-slate-400">{value}</span>}
           />
+          {mode === 'breakdown' &&
+            assetKeys.map((a, i) => (
+              <Bar
+                key={`asset-${a.id}`}
+                dataKey={`asset:${a.id}`}
+                stackId="rec"
+                fill={RECEITA_PALETTE[i % RECEITA_PALETTE.length]}
+                name={a.label}
+                isAnimationActive={false}
+              />
+            ))}
+          {mode === 'breakdown' &&
+            categoryKeys.map((c, i) => (
+              <Bar
+                key={`cat-${c.id}`}
+                dataKey={`cat:${c.id}`}
+                stackId="desp"
+                fill={DESPESA_PALETTE[i % DESPESA_PALETTE.length]}
+                name={c.label}
+                isAnimationActive={false}
+              />
+            ))}
+          {mode === 'comparison' && (
+            <Bar
+              dataKey="__receitas_total"
+              fill="#10b981"
+              radius={[3, 3, 0, 0]}
+              name="Receitas"
+              isAnimationActive={false}
+            />
+          )}
+          {mode === 'comparison' && (
+            <Bar
+              dataKey="__despesas_total"
+              fill="#ef4444"
+              radius={[0, 0, 3, 3]}
+              name="Despesas"
+              isAnimationActive={false}
+            />
+          )}
         </BarChart>
       </ResponsiveContainer>
     </div>
