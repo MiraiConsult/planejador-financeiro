@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, Wallet, TrendingDown, Plane, Building2, Scale } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { KpiCard } from '@/components/KpiCard';
 import { brl } from '@/lib/controle-mensal/format';
-import type {
-  PessoalData, MiraiData, ViagensData, ReceitasData, Lancamento,
-} from '@/lib/controle-mensal/analytics';
+import * as analytics from '@/lib/controle-mensal/analytics';
+import type { Lancamento, MiraiData } from '@/lib/controle-mensal/analytics';
+import { indicadores } from '@/lib/controle-mensal/analises';
 import { LinhaMulti, cor } from './charts';
 import { LancamentosTable } from './LancamentosTable';
 import type { Sugestoes } from './LancamentoForm';
@@ -14,7 +15,7 @@ import { GeralDashboard } from './GeralDashboard';
 import { ComparacoesView } from './ComparacoesView';
 import { AnaliseIAView } from './AnaliseIAView';
 import { CategoryBreakdown } from './CategoryBreakdown';
-import type { Indicadores } from '@/lib/controle-mensal/analises';
+import { PeriodPicker, resolvePeriod, filterByPeriod, type PeriodFilter } from './PeriodPicker';
 
 const TABS = [
   { id: 'gastos',   label: 'Gastos'   },
@@ -28,50 +29,100 @@ interface Props {
   rows: Lancamento[];
   clientId: string;
   sugestoes: Sugestoes;
-  indicadores: Indicadores;
-  pessoal: PessoalData;
-  mirai: MiraiData;
-  viagens: ViagensData;
-  receitas: ReceitasData;
 }
 
 const val = (n: number) =>
   n < 0 ? 'text-red-600' : n > 0 ? 'text-emerald-600' : 'text-slate-400';
 
-export function ControleMensalViews({
-  rows, clientId, sugestoes, indicadores, pessoal, mirai, viagens, receitas,
-}: Props) {
+export function ControleMensalViews({ rows, clientId, sugestoes }: Props) {
   const [tab, setTab] = useState<TabId>('gastos');
+  const [periodo, setPeriodo] = useState<PeriodFilter>({ preset: 'tudo', from: null, to: null });
+
+  const availableComps = useMemo(
+    () => rows.map((r) => r.competencia ?? 0).filter((c) => c > 0),
+    [rows],
+  );
+  const resolved = useMemo(() => resolvePeriod(periodo, availableComps), [periodo, availableComps]);
+  const rowsFiltrados = useMemo(() => filterByPeriod(rows, resolved), [rows, resolved]);
+
+  // Tudo recalculado client-side. Funções de analytics são puras e baratas.
+  const overview   = useMemo(() => analytics.overview(rowsFiltrados),   [rowsFiltrados]);
+  const ind        = useMemo(() => indicadores(rowsFiltrados),          [rowsFiltrados]);
+  const pessoal    = useMemo(() => analytics.pessoal(rowsFiltrados),    [rowsFiltrados]);
+  const miraiData  = useMemo(() => analytics.mirai(rowsFiltrados),      [rowsFiltrados]);
+  const viagens    = useMemo(() => analytics.viagens(rowsFiltrados),    [rowsFiltrados]);
+  const receitas   = useMemo(() => analytics.receitas(rowsFiltrados),   [rowsFiltrados]);
+
+  const t = overview.por_tipo;
+  const resultado = (t.receita ?? 0) + (t.pessoal ?? 0) + (t.viagem ?? 0);
+
   return (
     <div className="space-y-4">
-      <div className="inline-flex flex-wrap rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-sm">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`px-3.5 py-1.5 rounded-md transition-colors ${
-              tab === t.id
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm font-medium'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* ─── KPIs gerais (reagem ao filtro) ───────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard label="Receitas"           value={brl(t.receita ?? 0)} tone="positive" icon={Wallet} />
+        <KpiCard label="Gastos pessoais"    value={brl(t.pessoal ?? 0)} tone="negative" icon={TrendingDown} />
+        <KpiCard label="Viagens"            value={brl(t.viagem  ?? 0)} tone="negative" icon={Plane} />
+        <KpiCard label="Mirai (despesas)"   value={brl(t.mirai   ?? 0)} tone="negative" icon={Building2} />
+        <KpiCard
+          label="Resultado (s/ Mirai)"
+          value={brl(resultado)}
+          tone={resultado < 0 ? 'negative' : 'positive'}
+          icon={Scale}
+        />
       </div>
 
-      {tab === 'gastos' && (
-        <GastosView pessoal={pessoal} viagens={viagens} clientId={clientId} sugestoes={sugestoes} />
-      )}
-      {tab === 'receitas' && (
-        <ReceitasView receitas={receitas} clientId={clientId} sugestoes={sugestoes} />
-      )}
-      {tab === 'mirai' && (
-        <MiraiView mirai={mirai} clientId={clientId} sugestoes={sugestoes} />
-      )}
-      {tab === 'resumo' && (
-        <ResumoView indicadores={indicadores} rows={rows} clientId={clientId} />
+      {/* ─── Filtro de período + tabs ─────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex flex-wrap rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-sm">
+          {TABS.map((tt) => (
+            <button
+              key={tt.id}
+              type="button"
+              onClick={() => setTab(tt.id)}
+              className={`px-3.5 py-1.5 rounded-md transition-colors ${
+                tab === tt.id
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm font-medium'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {tt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          {rowsFiltrados.length !== rows.length && (
+            <span className="text-[11px] text-slate-500 tabular-nums">
+              {rowsFiltrados.length}/{rows.length} lançamentos no período
+            </span>
+          )}
+          <PeriodPicker value={periodo} onChange={setPeriodo} availableComps={availableComps} />
+        </div>
+      </div>
+
+      {rowsFiltrados.length === 0 ? (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-slate-500 py-12 text-center">
+              Nenhum lançamento no período selecionado. Ajuste o filtro acima.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {tab === 'gastos' && (
+            <GastosView pessoal={pessoal} viagens={viagens} clientId={clientId} sugestoes={sugestoes} />
+          )}
+          {tab === 'receitas' && (
+            <ReceitasView receitas={receitas} clientId={clientId} sugestoes={sugestoes} />
+          )}
+          {tab === 'mirai' && (
+            <MiraiView mirai={miraiData} clientId={clientId} sugestoes={sugestoes} />
+          )}
+          {tab === 'resumo' && (
+            <ResumoView indicadores={ind} rows={rowsFiltrados} clientId={clientId} />
+          )}
+        </>
       )}
     </div>
   );
@@ -89,7 +140,12 @@ type GastosSub = (typeof GASTOS_SUB)[number]['id'];
 
 function GastosView({
   pessoal, viagens, clientId, sugestoes,
-}: { pessoal: PessoalData; viagens: ViagensData; clientId: string; sugestoes: Sugestoes }) {
+}: {
+  pessoal: analytics.PessoalData;
+  viagens: analytics.ViagensData;
+  clientId: string;
+  sugestoes: Sugestoes;
+}) {
   const [sub, setSub] = useState<GastosSub>('pessoal');
   return (
     <div className="space-y-4">
@@ -143,8 +199,7 @@ function GastosView({
 
 function ReceitasView({
   receitas, clientId, sugestoes,
-}: { receitas: ReceitasData; clientId: string; sugestoes: Sugestoes }) {
-  // Histórico mês-a-mês por cliente continua útil — entra como footer.
+}: { receitas: analytics.ReceitasData; clientId: string; sugestoes: Sugestoes }) {
   const footer =
     receitas.por_cliente.length > 0 ? (
       <Card>
@@ -204,7 +259,7 @@ function ReceitasView({
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * MIRAI — breakdown + demonstrativo + alertas
+ * MIRAI
  * ────────────────────────────────────────────────────────────────────── */
 
 function MiraiView({
@@ -326,7 +381,7 @@ function MiraiView({
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * RESUMO — Geral + Comparações + Análise IA num só lugar
+ * RESUMO — Geral + Comparações + Análise IA
  * ────────────────────────────────────────────────────────────────────── */
 
 const RESUMO_SUB = [
@@ -337,8 +392,8 @@ const RESUMO_SUB = [
 type ResumoSub = (typeof RESUMO_SUB)[number]['id'];
 
 function ResumoView({
-  indicadores, rows, clientId,
-}: { indicadores: Indicadores; rows: Lancamento[]; clientId: string }) {
+  indicadores: ind, rows, clientId,
+}: { indicadores: ReturnType<typeof indicadores>; rows: Lancamento[]; clientId: string }) {
   const [sub, setSub] = useState<ResumoSub>('geral');
   return (
     <div className="space-y-4">
@@ -359,7 +414,7 @@ function ResumoView({
         ))}
       </div>
 
-      {sub === 'geral' && <GeralDashboard ind={indicadores} />}
+      {sub === 'geral' && <GeralDashboard ind={ind} />}
       {sub === 'comparacoes' && <ComparacoesView rows={rows} />}
       {sub === 'analise' && <AnaliseIAView clientId={clientId} temDados={rows.length > 0} />}
     </div>

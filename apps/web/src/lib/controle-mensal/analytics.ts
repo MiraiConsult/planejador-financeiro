@@ -89,15 +89,31 @@ export interface BreakdownGroup {
 export interface BreakdownData {
   total: number;
   grupos: BreakdownGroup[];
+  /** Labels dos meses (presentes nos rows usados). */
+  labels_mes: string[];
+  /** Série mensal por grupo — alinha com labels_mes (índices). */
+  serie_mensal: Record<string, number[]>;
 }
 
-export function buildBreakdown<T>(
+export function buildBreakdown<T extends { competencia: number | null; mes: string; ano: number | null }>(
   rows: T[],
   getGroup: (r: T) => string,
   getItem: (r: T) => string,
   getValue: (r: T) => number,
 ): BreakdownData {
+  // ─── meses ordenados a partir do próprio recorte ────────────────────
+  const mesesMap = new Map<number, MesInfo>();
+  for (const r of rows) {
+    const c = r.competencia ?? 0;
+    if (!mesesMap.has(c)) {
+      mesesMap.set(c, { competencia: c, mes: r.mes, ano: r.ano, label: r.ano ? `${r.mes}/${r.ano}` : r.mes });
+    }
+  }
+  const meses = [...mesesMap.values()].sort((a, b) => a.competencia - b.competencia);
+  const idxByComp = new Map(meses.map((m, i) => [m.competencia, i] as const));
+
   const groups = new Map<string, Map<string, { soma: number; n: number }>>();
+  const serieByGroup = new Map<string, number[]>();
   let total = 0;
   for (const r of rows) {
     const v = Math.abs(getValue(r));
@@ -110,6 +126,10 @@ export function buildBreakdown<T>(
     cur.soma += v;
     cur.n += 1;
     itens.set(i, cur);
+    if (!serieByGroup.has(g)) serieByGroup.set(g, new Array(meses.length).fill(0));
+    const idx = idxByComp.get(r.competencia ?? 0);
+    const arr = serieByGroup.get(g);
+    if (idx != null && arr) arr[idx] = (arr[idx] ?? 0) + v;
     total += v;
   }
   const denom = total || 1;
@@ -127,7 +147,17 @@ export function buildBreakdown<T>(
       };
     })
     .sort((a, b) => b.total - a.total);
-  return { total: round2(total), grupos };
+
+  const serie_mensal: Record<string, number[]> = {};
+  for (const [g, arr] of serieByGroup) {
+    serie_mensal[g] = arr.map(round2);
+  }
+  return {
+    total: round2(total),
+    grupos,
+    labels_mes: meses.map((m) => m.label),
+    serie_mensal,
+  };
 }
 
 const round2 = (v: number): number => {
