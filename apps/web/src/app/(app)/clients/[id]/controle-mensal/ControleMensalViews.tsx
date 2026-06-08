@@ -3,28 +3,24 @@
 import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { brl } from '@/lib/controle-mensal/format';
 import type {
   PessoalData, MiraiData, ViagensData, ReceitasData, Lancamento,
 } from '@/lib/controle-mensal/analytics';
-import { Donut, Barras, LinhaMulti, MiniBars, cor } from './charts';
+import { LinhaMulti, cor } from './charts';
 import { LancamentosTable } from './LancamentosTable';
 import type { Sugestoes } from './LancamentoForm';
 import { GeralDashboard } from './GeralDashboard';
 import { ComparacoesView } from './ComparacoesView';
 import { AnaliseIAView } from './AnaliseIAView';
+import { CategoryBreakdown } from './CategoryBreakdown';
 import type { Indicadores } from '@/lib/controle-mensal/analises';
 
 const TABS = [
-  { id: 'geral', label: 'Visão geral' },
-  { id: 'comparacoes', label: 'Comparações' },
-  { id: 'analise', label: 'Análise IA' },
-  { id: 'lancamentos', label: 'Lançamentos' },
-  { id: 'pessoal', label: 'Pessoal' },
-  { id: 'mirai', label: 'Mirai Consult' },
-  { id: 'viagens', label: 'Viagens' },
+  { id: 'gastos',   label: 'Gastos'   },
   { id: 'receitas', label: 'Receitas' },
+  { id: 'mirai',    label: 'Mirai'    },
+  { id: 'resumo',   label: 'Resumo'   },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
@@ -45,7 +41,7 @@ const val = (n: number) =>
 export function ControleMensalViews({
   rows, clientId, sugestoes, indicadores, pessoal, mirai, viagens, receitas,
 }: Props) {
-  const [tab, setTab] = useState<TabId>('geral');
+  const [tab, setTab] = useState<TabId>('gastos');
   return (
     <div className="space-y-4">
       <div className="inline-flex flex-wrap rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-sm">
@@ -65,77 +61,155 @@ export function ControleMensalViews({
         ))}
       </div>
 
-      {tab === 'geral' && <GeralDashboard ind={indicadores} />}
-      {tab === 'comparacoes' && <ComparacoesView rows={rows} />}
-      {tab === 'analise' && <AnaliseIAView clientId={clientId} temDados={rows.length > 0} />}
-      {tab === 'lancamentos' && (
-        <LancamentosTable rows={rows} clientId={clientId} sugestoes={sugestoes} titulo="Todos os lançamentos" />
+      {tab === 'gastos' && (
+        <GastosView pessoal={pessoal} viagens={viagens} clientId={clientId} sugestoes={sugestoes} />
       )}
-      {tab === 'pessoal' && <PessoalView pessoal={pessoal} clientId={clientId} sugestoes={sugestoes} />}
-      {tab === 'mirai' && <MiraiView mirai={mirai} clientId={clientId} sugestoes={sugestoes} />}
-      {tab === 'viagens' && <ViagensView viagens={viagens} clientId={clientId} sugestoes={sugestoes} />}
-      {tab === 'receitas' && <ReceitasView receitas={receitas} clientId={clientId} sugestoes={sugestoes} />}
+      {tab === 'receitas' && (
+        <ReceitasView receitas={receitas} clientId={clientId} sugestoes={sugestoes} />
+      )}
+      {tab === 'mirai' && (
+        <MiraiView mirai={mirai} clientId={clientId} sugestoes={sugestoes} />
+      )}
+      {tab === 'resumo' && (
+        <ResumoView indicadores={indicadores} rows={rows} clientId={clientId} />
+      )}
     </div>
   );
 }
 
-function PessoalView({ pessoal, clientId, sugestoes }: { pessoal: PessoalData; clientId: string; sugestoes: Sugestoes }) {
+/* ──────────────────────────────────────────────────────────────────────
+ * GASTOS — sub-toggle Pessoal / Viagens
+ * ────────────────────────────────────────────────────────────────────── */
+
+const GASTOS_SUB = [
+  { id: 'pessoal', label: 'Pessoal' },
+  { id: 'viagens', label: 'Viagens' },
+] as const;
+type GastosSub = (typeof GASTOS_SUB)[number]['id'];
+
+function GastosView({
+  pessoal, viagens, clientId, sugestoes,
+}: { pessoal: PessoalData; viagens: ViagensData; clientId: string; sugestoes: Sugestoes }) {
+  const [sub, setSub] = useState<GastosSub>('pessoal');
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Gastos por categoria</CardTitle>
-            <CardDescription>Sem Mirai e sem Viagens</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Donut
-              labels={pessoal.por_categoria.map((c) => c.categoria)}
-              valores={pessoal.por_categoria.map((c) => c.total)}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Receita × Gastos pessoais</CardTitle>
-            <CardDescription>Comparativo mês a mês</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Barras
-              labels={pessoal.comparativo.map((m) => m.label)}
-              series={[
-                { label: 'Receita', cor: '#059669', valores: pessoal.comparativo.map((m) => m.receita) },
-                { label: 'Gastos', cor: '#2563eb', valores: pessoal.comparativo.map((m) => m.gastos) },
-              ]}
-            />
-          </CardContent>
-        </Card>
+      <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-xs">
+        {GASTOS_SUB.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => setSub(o.id)}
+            className={`px-3 py-1.5 rounded-md transition-colors ${
+              sub === o.id
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm font-medium'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Categorias</CardTitle>
-          <CardDescription>Total e evolução mensal por categoria</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {pessoal.por_categoria.map((c, i) => (
-              <div key={c.categoria} className="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-3">
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{c.categoria}</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-50">{brl(c.total)}</p>
-                <MiniBars valores={pessoal.por_categoria_mensal[c.categoria] ?? []} color={cor(i)} />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <LancamentosTable rows={pessoal.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos pessoais" mostrarCentro={false} />
+      {sub === 'pessoal' ? (
+        <>
+          <CategoryBreakdown totalLabel="Total gastos pessoais" data={pessoal.breakdown} />
+          <LancamentosTable
+            rows={pessoal.lancamentos}
+            clientId={clientId}
+            sugestoes={sugestoes}
+            titulo="Lançamentos pessoais"
+            mostrarCentro={false}
+          />
+        </>
+      ) : (
+        <>
+          <CategoryBreakdown totalLabel="Total gastos viagens" data={viagens.breakdown} />
+          <LancamentosTable
+            rows={viagens.lancamentos}
+            clientId={clientId}
+            sugestoes={sugestoes}
+            titulo="Lançamentos de viagem"
+            mostrarCentro={false}
+          />
+        </>
+      )}
     </div>
   );
 }
 
-function MiraiView({ mirai, clientId, sugestoes }: { mirai: MiraiData; clientId: string; sugestoes: Sugestoes }) {
+/* ──────────────────────────────────────────────────────────────────────
+ * RECEITAS
+ * ────────────────────────────────────────────────────────────────────── */
+
+function ReceitasView({
+  receitas, clientId, sugestoes,
+}: { receitas: ReceitasData; clientId: string; sugestoes: Sugestoes }) {
+  // Histórico mês-a-mês por cliente continua útil — entra como footer.
+  const footer =
+    receitas.por_cliente.length > 0 ? (
+      <Card>
+        <CardHeader>
+          <CardTitle>Histórico por cliente — mês a mês</CardTitle>
+          <CardDescription>Receita reconhecida por competência</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm tabular-nums">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+                <th className="text-left py-2 pr-3 font-semibold">Cliente</th>
+                {receitas.labels_mes.map((l) => (
+                  <th key={l} className="text-right py-2 px-3 font-semibold">{l}</th>
+                ))}
+                <th className="text-right py-2 px-3 font-semibold">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {receitas.por_cliente.map((c) => {
+                const serie = receitas.cliente_mensal[c.cliente] ?? [];
+                return (
+                  <tr key={c.cliente}>
+                    <td className="py-1.5 pr-3 text-slate-700 dark:text-slate-200">{c.cliente}</td>
+                    {serie.map((v, i) => (
+                      <td key={i} className={`py-1.5 px-3 text-right ${v ? val(v) : 'text-slate-300'}`}>
+                        {v ? brl(v) : '·'}
+                      </td>
+                    ))}
+                    <td className={`py-1.5 px-3 text-right font-medium ${val(c.total)}`}>{brl(c.total)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    ) : null;
+
+  return (
+    <div className="space-y-4">
+      <CategoryBreakdown
+        totalLabel="Total receitas"
+        data={receitas.breakdown}
+        tone="positive"
+        footer={footer}
+      />
+      <LancamentosTable
+        rows={receitas.lancamentos}
+        clientId={clientId}
+        sugestoes={sugestoes}
+        titulo="Lançamentos de receita"
+        mostrarCentro={false}
+      />
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * MIRAI — breakdown + demonstrativo + alertas
+ * ────────────────────────────────────────────────────────────────────── */
+
+function MiraiView({
+  mirai, clientId, sugestoes,
+}: { mirai: MiraiData; clientId: string; sugestoes: Sugestoes }) {
   const linhas: Array<{
     rot: string;
     k: Exclude<keyof MiraiData['demonstrativo'][number], 'label'>;
@@ -149,14 +223,14 @@ function MiraiView({ mirai, clientId, sugestoes }: { mirai: MiraiData; clientId:
     { rot: '= Salário líquido', k: 'salario_liquido', destaque: true },
   ];
   const topSistemas = mirai.sistemas.slice(0, 7);
-  return (
+
+  const footer = (
     <div className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Demonstrativo mensal</CardTitle>
           <CardDescription>
-            Receita Nexlex (−) SaaS (−) Colaboradores (−) Outros = Salário líquido. A Receita Nexlex é
-            reconstruída a partir do salário líquido informado + despesas.
+            Receita Nexlex (−) SaaS (−) Colaboradores (−) Outros = Salário líquido.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -230,127 +304,64 @@ function MiraiView({ mirai, clientId, sugestoes }: { mirai: MiraiData; clientId:
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
 
-      <LancamentosTable rows={mirai.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos Mirai" mostrarCentro={false} />
+  return (
+    <div className="space-y-4">
+      <CategoryBreakdown
+        totalLabel="Total despesas Mirai"
+        data={mirai.breakdown}
+        footer={footer}
+      />
+      <LancamentosTable
+        rows={mirai.lancamentos}
+        clientId={clientId}
+        sugestoes={sugestoes}
+        titulo="Lançamentos Mirai"
+        mostrarCentro={false}
+      />
     </div>
   );
 }
 
-function ViagensView({ viagens, clientId, sugestoes }: { viagens: ViagensData; clientId: string; sugestoes: Sugestoes }) {
+/* ──────────────────────────────────────────────────────────────────────
+ * RESUMO — Geral + Comparações + Análise IA num só lugar
+ * ────────────────────────────────────────────────────────────────────── */
+
+const RESUMO_SUB = [
+  { id: 'geral',       label: 'Visão geral' },
+  { id: 'comparacoes', label: 'Comparações' },
+  { id: 'analise',     label: 'Análise IA'  },
+] as const;
+type ResumoSub = (typeof RESUMO_SUB)[number]['id'];
+
+function ResumoView({
+  indicadores, rows, clientId,
+}: { indicadores: Indicadores; rows: Lancamento[]; clientId: string }) {
+  const [sub, setSub] = useState<ResumoSub>('geral');
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Comparativo entre viagens</CardTitle>
-          <CardDescription>Total por viagem</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Barras
-            horizontal
-            labels={viagens.comparativo.map((v) => v.viagem)}
-            series={[{ label: 'Total', cor: '#9333ea', valores: viagens.comparativo.map((v) => v.total) }]}
-          />
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {viagens.por_viagem.map((t) => (
-          <Card key={t.viagem}>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t.viagem}</p>
-                <Badge variant="brand">{t.n}</Badge>
-              </div>
-              <p className="text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{brl(t.total)}</p>
-              <ul className="space-y-1 pt-1">
-                {t.subcategorias.map((s) => (
-                  <li key={s.subcategoria} className="flex justify-between text-xs border-t border-dashed border-slate-200/70 dark:border-slate-700/70 pt-1">
-                    <span className="text-slate-500">{s.subcategoria}</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-200">{brl(s.total)}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+      <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-xs">
+        {RESUMO_SUB.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => setSub(o.id)}
+            className={`px-3 py-1.5 rounded-md transition-colors ${
+              sub === o.id
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm font-medium'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            {o.label}
+          </button>
         ))}
       </div>
 
-      <LancamentosTable rows={viagens.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos de viagem" mostrarCentro={false} />
-    </div>
-  );
-}
-
-function ReceitasView({ receitas, clientId, sugestoes }: { receitas: ReceitasData; clientId: string; sugestoes: Sugestoes }) {
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Receitas por cliente</CardTitle>
-            <CardDescription>Participação no total</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Donut
-              labels={receitas.por_cliente.map((c) => c.cliente)}
-              valores={receitas.por_cliente.map((c) => c.total)}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Total acumulado por cliente</CardTitle>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm tabular-nums">
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {receitas.por_cliente.map((c) => (
-                  <tr key={c.cliente}>
-                    <td className="py-1.5 pr-3 text-slate-700 dark:text-slate-200">{c.cliente}</td>
-                    <td className={`py-1.5 text-right font-medium ${val(c.total)}`}>{brl(c.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico por cliente — mês a mês</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm tabular-nums">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-widest text-slate-500">
-                <th className="text-left py-2 pr-3 font-semibold">Cliente</th>
-                {receitas.labels_mes.map((l) => (
-                  <th key={l} className="text-right py-2 px-3 font-semibold">{l}</th>
-                ))}
-                <th className="text-right py-2 px-3 font-semibold">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {receitas.por_cliente.map((c) => {
-                const serie = receitas.cliente_mensal[c.cliente] ?? [];
-                return (
-                  <tr key={c.cliente}>
-                    <td className="py-1.5 pr-3 text-slate-700 dark:text-slate-200">{c.cliente}</td>
-                    {serie.map((v, i) => (
-                      <td key={i} className={`py-1.5 px-3 text-right ${v ? val(v) : 'text-slate-300'}`}>
-                        {v ? brl(v) : '·'}
-                      </td>
-                    ))}
-                    <td className={`py-1.5 px-3 text-right font-medium ${val(c.total)}`}>{brl(c.total)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-
-      <LancamentosTable rows={receitas.lancamentos} clientId={clientId} sugestoes={sugestoes} titulo="Lançamentos de receita" mostrarCentro={false} />
+      {sub === 'geral' && <GeralDashboard ind={indicadores} />}
+      {sub === 'comparacoes' && <ComparacoesView rows={rows} />}
+      {sub === 'analise' && <AnaliseIAView clientId={clientId} temDados={rows.length > 0} />}
     </div>
   );
 }

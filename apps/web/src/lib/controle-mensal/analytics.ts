@@ -41,6 +41,7 @@ export interface PessoalData {
   por_categoria_mensal: Record<string, number[]>;
   comparativo: ComparativoLinha[];
   lancamentos: Lancamento[];
+  breakdown: BreakdownData;
 }
 export interface DemonstrativoLinha {
   label: string; receita_nexlex: number; saas: number;
@@ -54,6 +55,7 @@ export interface MiraiData {
   sistemas_mensal: Record<string, number[]>;
   alertas: Alerta[];
   lancamentos: Lancamento[];
+  breakdown: BreakdownData;
 }
 export interface SubcatTotal { subcategoria: string; total: number; }
 export interface ViagemTotal { viagem: string; total: number; n: number; subcategorias: SubcatTotal[]; }
@@ -61,6 +63,7 @@ export interface ViagensData {
   por_viagem: ViagemTotal[];
   comparativo: Array<{ viagem: string; total: number }>;
   lancamentos: Lancamento[];
+  breakdown: BreakdownData;
 }
 export interface ClienteTotal { cliente: string; total: number; }
 export interface ReceitasData {
@@ -68,6 +71,63 @@ export interface ReceitasData {
   por_cliente: ClienteTotal[];
   cliente_mensal: Record<string, number[]>;
   lancamentos: Lancamento[];
+  breakdown: BreakdownData;
+}
+
+/* ─── Breakdown genérico (grupo → itens) ──────────────────────────────
+ * Estrutura genérica que alimenta a view <CategoryBreakdown>:
+ * grupo (ex. categoria de gasto) com lista de itens agregados
+ * (ex. lançamentos com a mesma descrição somados).
+ */
+export interface BreakdownItem { nome: string; valor: number; n: number; }
+export interface BreakdownGroup {
+  chave: string;
+  total: number;
+  pct: number;
+  itens: BreakdownItem[];
+}
+export interface BreakdownData {
+  total: number;
+  grupos: BreakdownGroup[];
+}
+
+export function buildBreakdown<T>(
+  rows: T[],
+  getGroup: (r: T) => string,
+  getItem: (r: T) => string,
+  getValue: (r: T) => number,
+): BreakdownData {
+  const groups = new Map<string, Map<string, { soma: number; n: number }>>();
+  let total = 0;
+  for (const r of rows) {
+    const v = Math.abs(getValue(r));
+    if (!v) continue;
+    const g = getGroup(r) || '—';
+    const i = getItem(r) || '—';
+    if (!groups.has(g)) groups.set(g, new Map());
+    const itens = groups.get(g)!;
+    const cur = itens.get(i) ?? { soma: 0, n: 0 };
+    cur.soma += v;
+    cur.n += 1;
+    itens.set(i, cur);
+    total += v;
+  }
+  const denom = total || 1;
+  const grupos: BreakdownGroup[] = [...groups.entries()]
+    .map(([chave, itens]) => {
+      const list: BreakdownItem[] = [...itens.entries()]
+        .map(([nome, { soma, n }]) => ({ nome, valor: round2(soma), n }))
+        .sort((a, b) => b.valor - a.valor);
+      const t = list.reduce((acc, it) => acc + it.valor, 0);
+      return {
+        chave,
+        total: round2(t),
+        pct: round2((t / denom) * 100),
+        itens: list,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+  return { total: round2(total), grupos };
 }
 
 const round2 = (v: number): number => {
@@ -142,6 +202,12 @@ export function pessoal(rows: Lancamento[]): PessoalData {
     por_categoria_mensal: porCategoriaMensal,
     comparativo,
     lancamentos: sortLanc(pes),
+    breakdown: buildBreakdown(
+      pes,
+      (l) => l.categoria ?? '—',
+      (l) => l.descricao || '—',
+      (l) => l.valor,
+    ),
   };
 }
 
@@ -197,6 +263,14 @@ export function mirai(rows: Lancamento[]): MiraiData {
     labels_mes: meses.map((m) => m.label),
     demonstrativo, sistemas, sistemas_mensal: sistemasMensal, alertas,
     lancamentos: sortLanc(mir),
+    breakdown: buildBreakdown(
+      mir,
+      // Agrupa por categoria (SaaS, Colaboradores, Outros). Item =
+      // sistema (quando houver) ou descrição livre.
+      (l) => l.categoria ?? '—',
+      (l) => l.sistema || l.descricao || '—',
+      (l) => l.valor,
+    ),
   };
 }
 
@@ -224,6 +298,12 @@ export function viagens(rows: Lancamento[]): ViagensData {
     por_viagem: porViagem,
     comparativo: porViagem.map((x) => ({ viagem: x.viagem, total: x.total })),
     lancamentos: sortLanc(via),
+    breakdown: buildBreakdown(
+      via,
+      (l) => l.viagem ?? 'Outros',
+      (l) => l.subcategoria || l.descricao || '—',
+      (l) => l.valor,
+    ),
   };
 }
 
@@ -247,5 +327,11 @@ export function receitas(rows: Lancamento[]): ReceitasData {
     por_cliente: porCliente,
     cliente_mensal: clienteMensal,
     lancamentos: sortLanc(rec),
+    breakdown: buildBreakdown(
+      rec,
+      (l) => l.cliente_obs || '—',
+      (l) => l.descricao || '—',
+      (l) => l.valor,
+    ),
   };
 }
