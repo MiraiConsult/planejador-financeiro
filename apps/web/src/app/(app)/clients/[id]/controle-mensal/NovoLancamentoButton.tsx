@@ -3,9 +3,16 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import type { Centro } from '@/lib/controle-mensal/centros';
 import { LancamentoForm, type Sugestoes } from './LancamentoForm';
 
-export function NovoLancamentoButton({ clientId, sugestoes }: { clientId: string; sugestoes: Sugestoes }) {
+export function NovoLancamentoButton({
+  clientId, sugestoes, centros,
+}: {
+  clientId: string;
+  sugestoes: Sugestoes;
+  centros: Centro[];
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -19,6 +26,7 @@ export function NovoLancamentoButton({ clientId, sugestoes }: { clientId: string
           initial={null}
           onClose={() => setOpen(false)}
           sugestoes={sugestoes}
+          centros={centros}
         />
       )}
     </>

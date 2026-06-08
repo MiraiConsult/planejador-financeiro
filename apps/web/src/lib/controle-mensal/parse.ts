@@ -18,6 +18,8 @@ export interface LancamentoInput {
   ano: number | null;
   competencia: number;
   tipo: string;
+  centro_id?: string | null;
+  eh_receita?: boolean;
   origem: string;
   cliente_obs: string;
   viagem: string | null;
@@ -91,6 +93,8 @@ export interface RawLancamento {
   tipo: string;
   origem: string;
   cliente_obs: string;
+  centro_id?: string | null;
+  eh_receita?: boolean;
 }
 
 /**
@@ -127,6 +131,8 @@ export function derivarCampos(raw: RawLancamento): Omit<LancamentoInput, 'hash'>
     ano,
     competencia: rules.competenciaOrd(ano, mNum),
     tipo,
+    centro_id: raw.centro_id ?? null,
+    eh_receita: raw.eh_receita ?? (raw.valor > 0 && tipo === 'receita'),
     origem: raw.origem,
     cliente_obs: raw.cliente_obs,
     viagem,

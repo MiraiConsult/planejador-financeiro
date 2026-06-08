@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { X, Plus, Pencil } from 'lucide-react';
+import * as Lucide from 'lucide-react';
+import { Tag } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { MESES } from '@/lib/controle-mensal/rules';
 import { parseValor } from '@/lib/controle-mensal/valores';
+import { type Centro, buildTree, flatten } from '@/lib/controle-mensal/centros';
 import { criarLancamento, atualizarLancamento } from './actions';
 
 export interface Sugestoes {
@@ -23,16 +26,11 @@ export interface LancamentoInicial {
   subcategoria: string | null;
   mes: string;
   tipo: string;
+  centro_id?: string | null;
+  eh_receita?: boolean | null;
   origem: string | null;
   cliente_obs: string | null;
 }
-
-const TIPOS = [
-  { value: 'receita', label: 'Receita' },
-  { value: 'pessoal', label: 'Pessoal' },
-  { value: 'mirai', label: 'Mirai' },
-  { value: 'viagem', label: 'Viagem' },
-] as const;
 
 function hoje(): string {
   return new Date().toISOString().slice(0, 10);
@@ -43,24 +41,38 @@ function mesDeData(iso: string): string {
   return MESES[m - 1] ?? MESES[0]!;
 }
 
+function Icone({ nome, size = 12 }: { nome: string; size?: number }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Cmp = (Lucide as any)[nome] ?? Tag;
+  return <Cmp size={size} />;
+}
+
 export function LancamentoForm({
   clientId,
   initial,
   onClose,
   sugestoes,
+  centros,
 }: {
   clientId: string;
   initial: LancamentoInicial | null;
   onClose: () => void;
   sugestoes: Sugestoes;
+  centros: Centro[];
 }) {
   const editando = !!initial;
+  const flat = useMemo(() => flatten(buildTree(centros.filter((c) => c.ativo))), [centros]);
+  // Default = primeiro centro raiz ativo
+  const defaultCentro = flat.find((c) => c.parent_id === null)?.id ?? flat[0]?.id ?? null;
+
   const [data, setData] = useState(initial?.data?.slice(0, 10) ?? hoje());
   const [mes, setMes] = useState(initial?.mes || mesDeData(initial?.data?.slice(0, 10) ?? hoje()));
   const [mesTocado, setMesTocado] = useState(false);
-  const [tipo, setTipo] = useState<string>(initial?.tipo ?? 'pessoal');
-  const [sinal, setSinal] = useState<'entrada' | 'saida'>(
-    initial ? (initial.valor >= 0 ? 'entrada' : 'saida') : 'saida',
+  const [centroId, setCentroId] = useState<string | null>(
+    initial?.centro_id ?? defaultCentro,
+  );
+  const [ehReceita, setEhReceita] = useState<boolean>(
+    initial?.eh_receita ?? (initial ? initial.valor >= 0 : false),
   );
   const [valor, setValor] = useState(initial ? String(Math.abs(initial.valor)) : '');
   const [descricao, setDescricao] = useState(initial?.descricao ?? '');
@@ -71,15 +83,9 @@ export function LancamentoForm({
   const [pending, start] = useTransition();
   const descRef = useRef<HTMLInputElement>(null);
 
-  // Ao trocar a data, ajusta o mês de competência (até o usuário mexer nele manualmente).
   useEffect(() => {
     if (!mesTocado) setMes(mesDeData(data));
   }, [data, mesTocado]);
-
-  // Default do sinal segue o tipo (receita = entrada), sem sobrescrever escolha do usuário ao editar.
-  useEffect(() => {
-    if (!editando) setSinal(tipo === 'receita' ? 'entrada' : 'saida');
-  }, [tipo, editando]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -98,14 +104,21 @@ export function LancamentoForm({
       toast.error('Informe um valor.');
       return;
     }
+    if (!centroId && flat.length > 0) {
+      toast.error('Escolha um centro.');
+      return;
+    }
     const raw = {
       data,
       descricao: descricao.trim(),
-      valor: sinal === 'entrada' ? abs : -abs,
+      valor: ehReceita ? abs : -abs,
       categoria: categoria.trim(),
       subcategoria: subcategoria.trim(),
       mes,
-      tipo,
+      // tipo derivado pra manter compatibilidade com banco legado
+      tipo: ehReceita ? 'receita' : (deriveTipoLegado(centroId, flat) ?? 'pessoal'),
+      centro_id: centroId,
+      eh_receita: ehReceita,
       origem: origem.trim(),
       cliente_obs: clienteObs.trim(),
     };
@@ -141,27 +154,28 @@ export function LancamentoForm({
         </header>
 
         <div className="p-5 space-y-4">
-          {/* tipo (área) */}
-          <Campo label="Tipo (centro de custo de topo)">
-            <div className="grid grid-cols-4 gap-1.5">
-              {TIPOS.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setTipo(t.value)}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    tipo === t.value
-                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+          {/* Centro */}
+          <Campo label="Centro">
+            {flat.length === 0 ? (
+              <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 dark:bg-amber-950/30 rounded-md">
+                Nenhum centro configurado ainda. Vá em <strong>Centros</strong> e crie pelo menos um.
+              </p>
+            ) : (
+              <select
+                value={centroId ?? ''}
+                onChange={(e) => setCentroId(e.target.value || null)}
+                className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                {flat.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {'— '.repeat(c.depth)}{c.nome}
+                  </option>
+                ))}
+              </select>
+            )}
           </Campo>
 
-          {/* valor + sinal */}
+          {/* valor + entrada/saída */}
           <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
             <Campo label="Valor">
               <div className="relative">
@@ -179,17 +193,17 @@ export function LancamentoForm({
             <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs h-9">
               <button
                 type="button"
-                onClick={() => setSinal('entrada')}
-                className={`px-3 rounded-md ${sinal === 'entrada' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-medium' : 'text-slate-500'}`}
+                onClick={() => setEhReceita(true)}
+                className={`px-3 rounded-md ${ehReceita ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-medium' : 'text-slate-500'}`}
               >
-                + Entra
+                + Receita
               </button>
               <button
                 type="button"
-                onClick={() => setSinal('saida')}
-                className={`px-3 rounded-md ${sinal === 'saida' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-medium' : 'text-slate-500'}`}
+                onClick={() => setEhReceita(false)}
+                className={`px-3 rounded-md ${!ehReceita ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-medium' : 'text-slate-500'}`}
               >
-                − Sai
+                − Despesa
               </button>
             </div>
           </div>
@@ -206,7 +220,7 @@ export function LancamentoForm({
           </Campo>
 
           <div className="grid grid-cols-2 gap-3">
-            <Campo label="Centro de custo (categoria)">
+            <Campo label="Categoria">
               <input
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
@@ -285,6 +299,22 @@ export function LancamentoForm({
       </div>
     </div>
   );
+}
+
+/** Deriva o `tipo` legado a partir do centro escolhido (compat com banco). */
+function deriveTipoLegado(centroId: string | null, todos: { id: string; nome: string; parent_id: string | null }[]): string {
+  if (!centroId) return 'pessoal';
+  // Sobe até a raiz e usa o nome dela
+  let cur = todos.find((c) => c.id === centroId);
+  while (cur && cur.parent_id) {
+    const pai = todos.find((c) => c.id === cur!.parent_id);
+    if (!pai) break;
+    cur = pai;
+  }
+  const nome = (cur?.nome ?? '').toLowerCase();
+  if (nome.includes('mirai')) return 'mirai';
+  if (nome.includes('viagem') || nome.includes('viage')) return 'viagem';
+  return 'pessoal';
 }
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {

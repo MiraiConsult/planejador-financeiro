@@ -14,7 +14,12 @@ export interface Lancamento {
   mes_num: number | null;
   ano: number | null;
   competencia: number | null;
+  /** Legado (pessoal | viagem | mirai | receita). Continua preenchido pra compatibilidade. */
   tipo: string;
+  /** Novo: vínculo com a tabela controle_mensal_centros. Null durante migração. */
+  centro_id: string | null;
+  /** Novo: substitui o teste `tipo === 'receita'` no agrupamento. */
+  eh_receita: boolean;
   origem: string | null;
   cliente_obs: string | null;
   viagem: string | null;
@@ -197,6 +202,83 @@ const somaAbs = (rows: Lancamento[], pred: (l: Lancamento) => boolean): number =
 
 function sortLanc(rows: Lancamento[]): Lancamento[] {
   return [...rows].sort((a, b) => comp(a) - comp(b) || a.data.localeCompare(b.data));
+}
+
+// ─── Visão por centro (substitui pessoal/mirai/viagens quando há centro_id) ──
+
+export interface CentroAggregate {
+  totalReceitas: number;
+  totalDespesas: number;
+  liquido: number;
+  // Breakdown só das despesas (categoria → descrição) — o que vai no donut/cards
+  despesas: BreakdownData;
+  // Breakdown das receitas (categoria → descrição/cliente_obs)
+  receitas: BreakdownData;
+  lancamentosReceitas: Lancamento[];
+  lancamentosDespesas: Lancamento[];
+  // Série mensal pro demonstrativo (receitas / despesas / líquido)
+  serieMensal: {
+    labels: string[];
+    receitas: number[];
+    despesas: number[];
+    liquido: number[];
+  };
+}
+
+/**
+ * Agrega lançamentos de um conjunto de centros (centro + descendentes).
+ * Separa receitas (eh_receita=true) de despesas e devolve breakdowns
+ * prontos pra UI.
+ */
+export function agregarPorCentro(rows: Lancamento[], centroIds: string[]): CentroAggregate {
+  const ids = new Set(centroIds);
+  const sub = rows.filter((l) => l.centro_id && ids.has(l.centro_id));
+  const receitas = sub.filter((l) => l.eh_receita);
+  const despesas = sub.filter((l) => !l.eh_receita);
+  const meses = mesesOrdenados(sub);
+  const idxByComp = new Map(meses.map((m, i) => [m.competencia, i] as const));
+
+  const labels = meses.map((m) => m.label);
+  const recArr = new Array(labels.length).fill(0);
+  const despArr = new Array(labels.length).fill(0);
+  for (const l of receitas) {
+    const i = idxByComp.get(l.competencia ?? 0);
+    if (i != null) recArr[i] += Math.abs(l.valor);
+  }
+  for (const l of despesas) {
+    const i = idxByComp.get(l.competencia ?? 0);
+    if (i != null) despArr[i] += Math.abs(l.valor);
+  }
+  const liqArr = recArr.map((r, i) => round2(r - (despArr[i] ?? 0)));
+
+  return {
+    totalReceitas: round2(receitas.reduce((s, l) => s + Math.abs(l.valor), 0)),
+    totalDespesas: round2(despesas.reduce((s, l) => s + Math.abs(l.valor), 0)),
+    liquido: round2(
+      receitas.reduce((s, l) => s + Math.abs(l.valor), 0) -
+      despesas.reduce((s, l) => s + Math.abs(l.valor), 0),
+    ),
+    despesas: buildBreakdown(
+      despesas,
+      (l) => l.categoria ?? '—',
+      (l) => l.descricao || '—',
+      (l) => l.valor,
+    ),
+    receitas: buildBreakdown(
+      receitas,
+      (l) => l.cliente_obs || l.categoria || 'Receitas',
+      (l) => l.descricao || '—',
+      (l) => l.valor,
+    ),
+    lancamentosReceitas: sortLanc(receitas),
+    lancamentosDespesas: sortLanc(despesas),
+    serieMensal: {
+      labels,
+      receitas: recArr.map(round2),
+      despesas: despArr.map(round2),
+      liquido: liqArr,
+    },
+  };
 }
 
 export function mesesOrdenados(rows: Lancamento[]): MesInfo[] {

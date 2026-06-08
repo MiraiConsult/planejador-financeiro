@@ -25,12 +25,14 @@ export function LancamentosTable({
   rows,
   clientId,
   sugestoes,
+  centros: centrosCfg = [],
   titulo = 'Lançamentos',
   mostrarCentro = true,
 }: {
   rows: Lancamento[];
   clientId: string;
   sugestoes: Sugestoes;
+  centros?: import('@/lib/controle-mensal/centros').Centro[];
   titulo?: string;
   mostrarCentro?: boolean;
 }) {
@@ -301,10 +303,13 @@ export function LancamentosTable({
             subcategoria: editing.subcategoria,
             mes: editing.mes,
             tipo: editing.tipo,
+            centro_id: editing.centro_id,
+            eh_receita: editing.eh_receita,
             origem: editing.origem,
             cliente_obs: editing.cliente_obs,
           }}
           sugestoes={sugestoes}
+          centros={centrosCfg}
           onClose={() => setEditing(null)}
         />
       )}
