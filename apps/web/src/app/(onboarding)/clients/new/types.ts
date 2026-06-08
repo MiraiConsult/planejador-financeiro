@@ -21,20 +21,28 @@ export interface DraftAsset {
   crescimento_real_aa?: number | null;
 }
 
+/**
+ * Categorias padrão (literais conhecidos). Aceitamos string livre para o
+ * consultor cadastrar "centros" próprios (ex.: "Carro novo", "Casa de praia").
+ * O Supabase já armazena como text livre desde a migration 0012.
+ */
+export type ExpenseCategoria =
+  | 'moradia'
+  | 'alimentacao'
+  | 'transporte'
+  | 'saude'
+  | 'lazer'
+  | 'servicos_dom'
+  | 'filhos'
+  | 'estudos'
+  | 'viagens'
+  | 'cuidado_familia'
+  | 'outro'
+  | (string & {});
+
 export interface DraftExpense {
   id: string;
-  categoria:
-    | 'moradia'
-    | 'alimentacao'
-    | 'transporte'
-    | 'saude'
-    | 'lazer'
-    | 'servicos_dom'
-    | 'filhos'
-    | 'estudos'
-    | 'viagens'
-    | 'cuidado_familia'
-    | 'outro';
+  categoria: ExpenseCategoria;
   descricao: string;
   valor_mensal: number;
   idade_inicio: number;

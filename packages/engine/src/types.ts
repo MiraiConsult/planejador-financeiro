@@ -15,6 +15,12 @@ export type AssetTipo =
 
 export type AssetNatureza = 'estoque' | 'fluxo';
 
+/**
+ * Categorias padrão (literais conhecidos). Aceitamos string livre para
+ * permitir "centros" cadastrados pelo consultor (ex.: "Carro novo", "Casa
+ * de praia"). O engine não usa a categoria pra lógica — só agrupa em
+ * `despesas_por_categoria`. Banco já é text livre desde a migration 0012.
+ */
 export type ExpenseCategoria =
   | 'moradia'
   | 'alimentacao'
@@ -26,7 +32,8 @@ export type ExpenseCategoria =
   | 'estudos'
   | 'viagens'
   | 'cuidado_familia'
-  | 'outro';
+  | 'outro'
+  | (string & {});
 
 export type EventTipo =
   | 'sonho'
