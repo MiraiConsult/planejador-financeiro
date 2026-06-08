@@ -253,45 +253,51 @@ export async function garantirCentros(clientId: string): Promise<OkErr> {
     id: string; tipo: string; centro_id: string | null; valor: number; eh_receita: boolean | null;
   }>;
 
-  // 1. Criar centros que ainda não existem (para tipos pessoal/viagem/mirai)
+  // 1. Criar centros que ainda não existem.
+  // Estratégia: pra cada tipo distinto, garante um centro (usa
+  // TIPO_LEGADO_DEFAULTS se conhecido; senão cria genérico capitalizando o nome).
   const nomesExistentes = new Set((existentes ?? []).map((c) => (c.nome as string).toLowerCase()));
-  const tiposNovos = new Set<string>();
+  const tiposNovos: Array<{ tipo: string; nome: string; def: { nome: string; tipo_visual: 'pessoa'|'empresa'|'projeto'|'grupo'|'outro'; cor: string; icone: string; tem_demonstrativo?: boolean } }> = [];
+  const tiposVistos = new Set<string>();
   for (const l of lancamentos) {
     const t = (l.tipo ?? '').toLowerCase();
-    if (t === 'receita' || !t) continue;
-    if (!TIPO_LEGADO_DEFAULTS[t]) continue;
-    if (!nomesExistentes.has(TIPO_LEGADO_DEFAULTS[t]!.nome.toLowerCase())) {
-      tiposNovos.add(t);
+    if (t === 'receita' || !t || tiposVistos.has(t)) continue;
+    tiposVistos.add(t);
+    const def = TIPO_LEGADO_DEFAULTS[t]
+      ?? { nome: capitalize(t), tipo_visual: 'outro' as const, cor: '#475569', icone: 'Tag' };
+    if (!nomesExistentes.has(def.nome.toLowerCase())) {
+      tiposNovos.push({ tipo: t, nome: def.nome, def });
     }
   }
 
   const tipoParaCentroId = new Map<string, string>();
   for (const c of existentes ?? []) {
-    // Bate por nome com os defaults
-    const tipo = Object.entries(TIPO_LEGADO_DEFAULTS).find(
+    // Bate por nome com os defaults conhecidos
+    const tipoConhecido = Object.entries(TIPO_LEGADO_DEFAULTS).find(
       ([, def]) => def.nome.toLowerCase() === (c.nome as string).toLowerCase(),
     )?.[0];
-    if (tipo) tipoParaCentroId.set(tipo, c.id as string);
+    if (tipoConhecido) tipoParaCentroId.set(tipoConhecido, c.id as string);
+    // Também mapeia pelo nome do centro normalizado (cobre tipos custom)
+    tipoParaCentroId.set((c.nome as string).toLowerCase(), c.id as string);
   }
 
   let ordemInicial = (existentes ?? []).length;
-  for (const t of tiposNovos) {
-    const def = TIPO_LEGADO_DEFAULTS[t]!;
+  for (const novo of tiposNovos) {
     const { data } = await supabase
       .from('controle_mensal_centros')
       .insert({
         client_id: clientId,
         parent_id: null,
-        nome: def.nome,
-        tipo_visual: def.tipo_visual,
-        tem_demonstrativo: def.tem_demonstrativo ?? false,
-        cor: def.cor,
-        icone: def.icone,
+        nome: novo.def.nome,
+        tipo_visual: novo.def.tipo_visual,
+        tem_demonstrativo: novo.def.tem_demonstrativo ?? false,
+        cor: novo.def.cor,
+        icone: novo.def.icone,
         ordem: ordemInicial++,
       })
       .select('id')
       .single();
-    if (data?.id) tipoParaCentroId.set(t, data.id as string);
+    if (data?.id) tipoParaCentroId.set(novo.tipo, data.id as string);
   }
 
   // 2. Atualizar centro_id + eh_receita nos lançamentos que ainda não têm
@@ -334,4 +340,9 @@ export async function garantirCentros(clientId: string): Promise<OkErr> {
 
   revalidar(clientId);
   return { ok: true };
+}
+
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }

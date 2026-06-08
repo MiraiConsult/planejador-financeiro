@@ -8,6 +8,7 @@ import type { Lancamento } from '@/lib/controle-mensal/analytics';
 import { ImportCard } from './ImportCard';
 import { ControleMensalViews } from './ControleMensalViews';
 import { NovoLancamentoButton } from './NovoLancamentoButton';
+import { WizardCentros } from './WizardCentros';
 import { listarCentros, garantirCentros } from './centros/actions';
 
 type Params = Promise<{ id: string }>;
@@ -93,7 +94,10 @@ export default async function ControleMensalPage({ params }: { params: Params })
       />
 
       {rows.length === 0 ? (
-        <ImportCard clientId={id} vazio />
+        <>
+          {centros.length === 0 && <WizardCentros clientId={id} />}
+          <ImportCard clientId={id} vazio />
+        </>
       ) : (
         <>
           <ImportCard clientId={id} />

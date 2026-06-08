@@ -132,6 +132,11 @@ export async function importarLancamentos(clientId: string, formData: FormData):
       .from('controle_mensal_lancamentos')
       .upsert(novos, { onConflict: 'client_id,hash', ignoreDuplicates: true });
     if (error) return { ok: false, erro: error.message };
+
+    // Logo após o insert, garante que cada lançamento tenha centro_id
+    // (cria centros default pros tipos que apareceram no CSV).
+    const { garantirCentros } = await import('./centros/actions');
+    await garantirCentros(clientId);
   }
 
   revalidatePath(`/clients/${clientId}/controle-mensal`);
