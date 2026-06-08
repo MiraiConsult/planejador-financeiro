@@ -93,6 +93,8 @@ export interface BreakdownData {
   labels_mes: string[];
   /** Série mensal por grupo — alinha com labels_mes (índices). */
   serie_mensal: Record<string, number[]>;
+  /** Série mensal por item, dentro de cada grupo. grupo → item → série. */
+  serie_mensal_item: Record<string, Record<string, number[]>>;
 }
 
 export function buildBreakdown<T extends { competencia: number | null; mes: string; ano: number | null }>(
@@ -114,6 +116,7 @@ export function buildBreakdown<T extends { competencia: number | null; mes: stri
 
   const groups = new Map<string, Map<string, { soma: number; n: number }>>();
   const serieByGroup = new Map<string, number[]>();
+  const serieByItem = new Map<string, Map<string, number[]>>();
   let total = 0;
   for (const r of rows) {
     const v = Math.abs(getValue(r));
@@ -126,10 +129,17 @@ export function buildBreakdown<T extends { competencia: number | null; mes: stri
     cur.soma += v;
     cur.n += 1;
     itens.set(i, cur);
-    if (!serieByGroup.has(g)) serieByGroup.set(g, new Array(meses.length).fill(0));
     const idx = idxByComp.get(r.competencia ?? 0);
-    const arr = serieByGroup.get(g);
-    if (idx != null && arr) arr[idx] = (arr[idx] ?? 0) + v;
+    if (!serieByGroup.has(g)) serieByGroup.set(g, new Array(meses.length).fill(0));
+    if (!serieByItem.has(g)) serieByItem.set(g, new Map());
+    const itensSerie = serieByItem.get(g)!;
+    if (!itensSerie.has(i)) itensSerie.set(i, new Array(meses.length).fill(0));
+    const grupoArr = serieByGroup.get(g);
+    const itemArr = itensSerie.get(i);
+    if (idx != null) {
+      if (grupoArr) grupoArr[idx] = (grupoArr[idx] ?? 0) + v;
+      if (itemArr) itemArr[idx] = (itemArr[idx] ?? 0) + v;
+    }
     total += v;
   }
   const denom = total || 1;
@@ -152,11 +162,19 @@ export function buildBreakdown<T extends { competencia: number | null; mes: stri
   for (const [g, arr] of serieByGroup) {
     serie_mensal[g] = arr.map(round2);
   }
+  const serie_mensal_item: Record<string, Record<string, number[]>> = {};
+  for (const [g, itens] of serieByItem) {
+    serie_mensal_item[g] = {};
+    for (const [nome, arr] of itens) {
+      serie_mensal_item[g][nome] = arr.map(round2);
+    }
+  }
   return {
     total: round2(total),
     grupos,
     labels_mes: meses.map((m) => m.label),
     serie_mensal,
+    serie_mensal_item,
   };
 }
 

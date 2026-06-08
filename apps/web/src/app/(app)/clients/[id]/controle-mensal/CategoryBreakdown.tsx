@@ -1,13 +1,17 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { BarChart3, List } from 'lucide-react';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer,
+  Bar, Line, ComposedChart,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+} from 'recharts';
+import { BarChart3, List, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
-import { brl } from '@/lib/controle-mensal/format';
+import { brl, brlShort } from '@/lib/controle-mensal/format';
 import type { BreakdownData, BreakdownGroup } from '@/lib/controle-mensal/analytics';
-import { cor, Barras, LinhaMulti } from './charts';
+import { cor } from './charts';
 
 interface KpiTile { label: string; value: string; tone?: 'positive' | 'negative' | 'default'; color?: string; }
 
@@ -228,7 +232,7 @@ export function CategoryBreakdown({
             cor={cor(modal.idx)}
             labelsMes={data.labels_mes}
             serieMensal={data.serie_mensal[grupoModal.chave] ?? []}
-            todasSeries={data.serie_mensal}
+            serieItem={data.serie_mensal_item[grupoModal.chave] ?? {}}
           />
         </Dialog>
       )}
@@ -357,15 +361,15 @@ function ComparacaoCategoria({
   cor: corHex,
   labelsMes,
   serieMensal,
-  todasSeries,
+  serieItem,
 }: {
   grupo: BreakdownGroup;
   cor: string;
   labelsMes: string[];
   serieMensal: number[];
-  todasSeries: Record<string, number[]>;
+  serieItem: Record<string, number[]>;
 }) {
-  // ── KPIs do recorte da categoria ────────────────────────────────────
+  // ── Estatísticas mensais do total da categoria ──────────────────────
   const dadosNz = serieMensal.filter((v) => v > 0);
   const media = dadosNz.length ? dadosNz.reduce((a, v) => a + v, 0) / dadosNz.length : 0;
   const maior = serieMensal.length ? Math.max(...serieMensal) : 0;
@@ -373,28 +377,42 @@ function ComparacaoCategoria({
   const idxMaior = serieMensal.indexOf(maior);
   const idxMenor = dadosNz.length ? serieMensal.indexOf(menor) : -1;
 
-  // ── Top 6 rubricas pra evolução mensal ─────────────────────────────
-  // Como não temos série mensal por *rubrica* (só por grupo), o gráfico
-  // de evolução mostra a categoria inteira × a média de todas as outras
-  // categorias no mesmo período, pra dar contexto comparativo.
-  const outrasMedias = useMemo(() => {
-    const out = new Array(labelsMes.length).fill(0);
-    const conts = new Array(labelsMes.length).fill(0);
-    for (const [g, arr] of Object.entries(todasSeries)) {
-      if (g === grupo.chave) continue;
-      for (let i = 0; i < labelsMes.length; i++) {
-        if ((arr[i] ?? 0) > 0) {
-          out[i] += arr[i] ?? 0;
-          conts[i] += 1;
-        }
-      }
-    }
-    return out.map((v, i) => (conts[i] > 0 ? v / conts[i] : 0));
-  }, [labelsMes.length, todasSeries, grupo.chave]);
+  // Tendência: último mês não-zero vs primeiro mês não-zero.
+  const primeiroIdx = serieMensal.findIndex((v) => v > 0);
+  const ultimoIdx = (() => {
+    for (let i = serieMensal.length - 1; i >= 0; i--) if ((serieMensal[i] ?? 0) > 0) return i;
+    return -1;
+  })();
+  const primeiro = primeiroIdx >= 0 ? (serieMensal[primeiroIdx] ?? 0) : 0;
+  const ultimo = ultimoIdx >= 0 ? (serieMensal[ultimoIdx] ?? 0) : 0;
+  const deltaPct = primeiro > 0 && primeiroIdx !== ultimoIdx
+    ? ((ultimo / primeiro) - 1) * 100
+    : null;
+
+  // ── Linha + barras: total mensal ────────────────────────────────────
+  const chartData = labelsMes.map((label, i) => ({
+    label,
+    valor: serieMensal[i] ?? 0,
+    media,
+  }));
+
+  // ── Top 8 rubricas pra heatmap mensal ───────────────────────────────
+  const topItens = grupo.itens.slice(0, 8);
+  const maxCelula = Math.max(
+    ...topItens.flatMap((it) => serieItem[it.nome] ?? [0]),
+    1,
+  );
+
+  const fmtMes = (s: string): string => {
+    // "Janeiro/2026" → "Jan/26" pra caber na tabela
+    const [m = '', a = ''] = s.split('/');
+    return `${m.slice(0, 3)}/${a.slice(-2)}`;
+  };
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="space-y-6">
+      {/* ─── KPIs ──────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <Kpi label="Total" value={brl(grupo.total)} />
         <Kpi label="Média mensal" value={brl(media)} />
         <Kpi
@@ -409,36 +427,126 @@ function ComparacaoCategoria({
           sub={idxMenor >= 0 ? labelsMes[idxMenor] : undefined}
           tone="positive"
         />
+        <KpiTendencia delta={deltaPct} />
       </div>
 
+      {/* ─── Evolução mensal: barras + linha de média ───────────── */}
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
           Evolução mensal
         </p>
-        <LinhaMulti
-          labels={labelsMes}
-          series={[
-            { label: grupo.chave, cor: corHex, valores: serieMensal },
-            { label: 'Média das demais categorias', cor: '#94a3b8', valores: outrasMedias },
-          ]}
-        />
+        <ResponsiveContainer width="100%" height={240}>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+            <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={brlShort} width={56} axisLine={false} tickLine={false} />
+            <Tooltip
+              formatter={(value: number, name) => [brl(value), name === 'valor' ? grupo.chave : 'Média mensal']}
+              cursor={{ fill: 'rgba(59,130,246,0.05)' }}
+            />
+            <Bar dataKey="valor" fill={corHex} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            <Line type="monotone" dataKey="media" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
 
+      {/* ─── Ranking de rubricas (CSS puro — evita bug de layout) ── */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
-          Composição por rubrica
-        </p>
-        <Barras
-          horizontal
-          labels={grupo.itens.slice(0, 12).map((i) => i.nome)}
-          series={[{ label: 'Total', cor: corHex, valores: grupo.itens.slice(0, 12).map((i) => i.valor) }]}
-        />
-        {grupo.itens.length > 12 && (
-          <p className="text-[11px] text-slate-500 mt-1">
-            Mostrando top 12 de {grupo.itens.length} rubricas.
+        <div className="flex items-baseline justify-between mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            Ranking de rubricas
           </p>
-        )}
+          <p className="text-[11px] text-slate-400">
+            {grupo.itens.length > 12 ? `top 12 de ${grupo.itens.length}` : `${grupo.itens.length} rubricas`}
+          </p>
+        </div>
+        <ul className="space-y-1.5">
+          {grupo.itens.slice(0, 12).map((it) => {
+            const pct = (it.valor / grupo.total) * 100;
+            return (
+              <li key={it.nome} className="flex items-center gap-3">
+                <span className="w-44 shrink-0 text-xs text-slate-700 dark:text-slate-200 truncate" title={it.nome}>
+                  {it.nome}
+                </span>
+                <div className="flex-1 h-5 rounded bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
+                  <div className="h-full rounded transition-all" style={{ width: `${pct}%`, backgroundColor: corHex, opacity: 0.85 }} />
+                  {it.n > 1 && (
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-white/90 font-medium">
+                      {it.n}x
+                    </span>
+                  )}
+                </div>
+                <span className="w-24 text-right text-xs tabular-nums font-medium text-slate-800 dark:text-slate-100">
+                  {brl(it.valor)}
+                </span>
+                <span className="w-12 text-right text-[11px] tabular-nums text-slate-400">
+                  {pct.toFixed(1)}%
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </div>
+
+      {/* ─── Heatmap mensal por rubrica (top 8) ─────────────────────── */}
+      {labelsMes.length > 1 && topItens.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
+            Mês a mês por rubrica
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+            <table className="w-full text-xs tabular-nums">
+              <thead className="bg-slate-50 dark:bg-slate-800/60">
+                <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                  <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-50 dark:bg-slate-800/60">Rubrica</th>
+                  {labelsMes.map((m) => (
+                    <th key={m} className="text-right px-2 py-2 font-semibold whitespace-nowrap">{fmtMes(m)}</th>
+                  ))}
+                  <th className="text-right px-3 py-2 font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {topItens.map((it) => {
+                  const serie = serieItem[it.nome] ?? [];
+                  return (
+                    <tr key={it.nome}>
+                      <td className="px-3 py-1.5 text-slate-700 dark:text-slate-200 max-w-[200px] truncate sticky left-0 bg-white dark:bg-slate-900" title={it.nome}>
+                        {it.nome}
+                      </td>
+                      {labelsMes.map((_, i) => {
+                        const v = serie[i] ?? 0;
+                        const intensidade = maxCelula > 0 ? v / maxCelula : 0;
+                        return (
+                          <td key={i} className="px-1 py-1.5 text-right">
+                            <span
+                              className="inline-block px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100"
+                              style={{
+                                backgroundColor: v > 0 ? `${corHex}${Math.round(intensidade * 0.55 * 255).toString(16).padStart(2, '0')}` : undefined,
+                              }}
+                            >
+                              {v > 0 ? brlShort(v) : <span className="text-slate-300">·</span>}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-1.5 text-right font-semibold text-slate-900 dark:text-slate-50">{brl(it.valor)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-slate-200 dark:border-slate-700 font-semibold bg-slate-50/60 dark:bg-slate-800/40">
+                <tr>
+                  <td className="px-3 py-2 text-slate-700 dark:text-slate-200 sticky left-0 bg-slate-50/60 dark:bg-slate-800/40">Total {grupo.chave}</td>
+                  {serieMensal.map((v, i) => (
+                    <td key={i} className="px-1 py-2 text-right text-slate-800 dark:text-slate-100">{brlShort(v)}</td>
+                  ))}
+                  <td className="px-3 py-2 text-right text-slate-900 dark:text-slate-50">{brl(grupo.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -455,6 +563,32 @@ function Kpi({ label, value, sub, tone }: { label: string; value: string; sub?: 
         {value}
       </p>
       {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function KpiTendencia({ delta }: { delta: number | null }) {
+  if (delta == null) {
+    return (
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 px-3 py-2">
+        <p className="text-[10px] uppercase tracking-wider text-slate-500">Tendência</p>
+        <p className="text-base font-bold tabular-nums text-slate-400">—</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">sem comparação</p>
+      </div>
+    );
+  }
+  const subiu = delta > 1;
+  const desceu = delta < -1;
+  const Icon = subiu ? TrendingUp : desceu ? TrendingDown : Minus;
+  const tone = subiu ? 'text-red-600' : desceu ? 'text-emerald-600' : 'text-slate-500';
+  return (
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wider text-slate-500">Tendência</p>
+      <p className={`text-base font-bold tabular-nums flex items-center gap-1 ${tone}`}>
+        <Icon size={14} />
+        {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
+      </p>
+      <p className="text-[10px] text-slate-400 mt-0.5">do 1º ao último mês</p>
     </div>
   );
 }
