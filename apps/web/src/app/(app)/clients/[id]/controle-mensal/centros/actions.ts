@@ -318,7 +318,9 @@ export async function garantirCentros(clientId: string): Promise<OkErr> {
 
   const pendentes = completos.filter((l) => l.centro_id == null || l.eh_receita == null);
   if (pendentes.length > 0) {
-    // Faz em batch — update many one-by-one é ineficiente mas é runtime único
+    // Agrupa lançamentos por (centro_id, eh_receita) destino e faz 1 UPDATE
+    // por grupo com WHERE id IN (...) — evita 340 round-trips sequenciais.
+    const grupos = new Map<string, { centroId: string | null; ehReceita: boolean; ids: string[] }>();
     for (const l of pendentes) {
       const tipo = (l.tipo ?? '').toLowerCase();
       let centroId: string | null = l.centro_id;
@@ -330,15 +332,22 @@ export async function garantirCentros(clientId: string): Promise<OkErr> {
         ehReceita = false;
         centroId = centroId ?? (tipoParaCentroId.get(tipo) ?? null);
       }
+      const k = `${centroId ?? 'null'}|${ehReceita ? 1 : 0}`;
+      if (!grupos.has(k)) grupos.set(k, { centroId, ehReceita, ids: [] });
+      grupos.get(k)!.ids.push(l.id);
+    }
+    for (const g of grupos.values()) {
       await supabase
         .from('controle_mensal_lancamentos')
-        .update({ centro_id: centroId, eh_receita: ehReceita })
-        .eq('id', l.id)
+        .update({ centro_id: g.centroId, eh_receita: g.ehReceita })
+        .in('id', g.ids)
         .eq('client_id', clientId);
     }
   }
 
-  revalidar(clientId);
+  // NÃO chama revalidar() aqui: garantirCentros é chamada de dentro do
+  // page.tsx (durante render). revalidatePath na mesma rota durante render
+  // dispara loop de execução. Quem chama faz re-query manual depois.
   return { ok: true };
 }
 
