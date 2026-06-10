@@ -16,6 +16,7 @@ import {
   FileText,
   ChevronRight,
   User,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -27,6 +28,7 @@ import {
   type RefineChatMessage,
 } from './actions';
 import type { RefinementPatch } from '@/lib/ai/refineSchema';
+import { RoteiroReuniao } from './RoteiroReuniao';
 
 interface Props {
   clientId: string;
@@ -41,6 +43,7 @@ export function ChatWorkspace({ clientId, initialTranscricao, initialMessages }:
   const [transcricao, setTranscricao] = useState(initialTranscricao);
   const [savedTranscricao, setSavedTranscricao] = useState(initialTranscricao);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [showRoteiro, setShowRoteiro] = useState(false);
   const [editingTranscript, setEditingTranscript] = useState(initialTranscricao.length === 0);
   const [, startTransition] = useTransition();
 
@@ -144,9 +147,9 @@ export function ChatWorkspace({ clientId, initialTranscricao, initialMessages }:
   }
 
   return (
-    <div className="grid lg:grid-cols-[1fr_auto] gap-6">
+    <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* ─── CENTRO: chat ─── */}
-      <div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 min-h-[75vh] max-h-[80vh]">
+      <div className="flex-1 min-w-0 self-stretch flex flex-col rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 min-h-[75vh] max-h-[80vh]">
         <header className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center">
@@ -162,6 +165,22 @@ export function ChatWorkspace({ clientId, initialTranscricao, initialMessages }:
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRoteiro((v) => !v)}
+              className={`text-[11px] px-2.5 py-1.5 rounded-md border transition-colors flex items-center gap-1 ${
+                showRoteiro
+                  ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <ClipboardList size={11} />
+              Roteiro
+              <ChevronRight
+                size={11}
+                className={`transition-transform ${showRoteiro ? 'rotate-90' : ''}`}
+              />
+            </button>
             <button
               type="button"
               onClick={() => setShowTranscript((v) => !v)}
@@ -238,9 +257,19 @@ export function ChatWorkspace({ clientId, initialTranscricao, initialMessages }:
         </footer>
       </div>
 
+      {/* ─── DIREITA: roteiro da reunião (colapsável) ─── */}
+      {showRoteiro && (
+        <aside className="w-full lg:w-[400px] shrink-0 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            Roteiro da reunião
+          </p>
+          <RoteiroReuniao />
+        </aside>
+      )}
+
       {/* ─── DIREITA: transcrição (colapsável) ─── */}
       {showTranscript && (
-        <aside className="w-[400px] space-y-3">
+        <aside className="w-full lg:w-[400px] shrink-0 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
               Transcrição da reunião
