@@ -121,3 +121,49 @@ export async function deleteClient(formData: FormData) {
   await supabase.from('clients').delete().eq('id', id);
   revalidatePath('/clients');
 }
+
+/** Ativa o produto Controle Mensal para um cliente existente. */
+export async function ativarControleMensal(formData: FormData): Promise<void> {
+  const id = String(formData.get('id') ?? '');
+  if (!id) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  await supabase
+    .from('clients')
+    .update({ tem_controle_mensal: true, onboarding_step_cm: 1 })
+    .eq('id', id);
+  revalidatePath('/clients');
+  revalidatePath(`/clients/${id}`);
+  redirect(`/clients/${id}/onboarding-cm`);
+}
+
+/** Ativa o produto Balanço Patrimonial para um cliente existente. */
+export async function ativarBalancoPatrimonial(formData: FormData): Promise<void> {
+  const id = String(formData.get('id') ?? '');
+  if (!id) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  await supabase
+    .from('clients')
+    .update({ tem_balanco_patrimonial: true, onboarding_step: 1 })
+    .eq('id', id);
+  // garante assumptions/scenarios pra evitar quebra na simulação
+  const { data: hasAssumptions } = await supabase
+    .from('assumptions')
+    .select('client_id')
+    .eq('client_id', id)
+    .maybeSingle();
+  if (!hasAssumptions) {
+    await supabase.from('assumptions').insert({ consultant_id: user.id, client_id: id });
+    await supabase.from('scenarios').insert([
+      { client_id: id, nome: 'Base', tipo: 'base', is_default: true },
+      { client_id: id, nome: 'Otimista', tipo: 'otimista', is_default: false },
+      { client_id: id, nome: 'Pessimista', tipo: 'pessimista', is_default: false },
+    ]);
+  }
+  revalidatePath('/clients');
+  revalidatePath(`/clients/${id}`);
+  redirect(`/clients/new?id=${id}`);
+}

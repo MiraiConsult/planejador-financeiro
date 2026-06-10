@@ -33,6 +33,7 @@ interface Props {
   initialStep: number; // 1..4
   initialCentrosCount: number;
   initialCategorias: DraftCategoria[];
+  bpFinalizado: boolean;
 }
 
 export function WizardCM({
@@ -41,6 +42,7 @@ export function WizardCM({
   initialStep,
   initialCentrosCount,
   initialCategorias,
+  bpFinalizado,
 }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
@@ -187,6 +189,8 @@ export function WizardCM({
           )}
           {step === 2 && (
             <StepCategorias
+              clientId={clientId}
+              bpFinalizado={bpFinalizado}
               categorias={state.categorias}
               onChange={(cats) => setStateRaw((s) => ({ ...s, categorias: cats }))}
               onPrev={() => updateStep(1)}

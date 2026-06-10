@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import {
   ArrowLeft,
+  ArrowRight,
+  CalendarRange,
   Calendar,
   CircleDollarSign,
   TrendingUp,
@@ -14,6 +16,7 @@ import {
 } from 'lucide-react';
 import { simulate } from '@planejador/engine';
 import { loadSimulationInput } from '@/lib/loadSimulation';
+import { ativarControleMensal } from '../actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -95,6 +98,44 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
   if (!loaded) notFound();
 
   const { client, input } = loaded;
+
+  // Resumo do Controle Mensal (se contratado). Mês corrente.
+  let cmSummary: {
+    pendente: boolean;
+    step: number | null;
+    receitaMes: number;
+    gastoMes: number;
+    lancMes: number;
+    mesAtualLabel: string;
+  } | null = null;
+  if (meta.tem_controle_mensal) {
+    const hoje = new Date();
+    const competenciaAtual = hoje.getFullYear() * 100 + (hoje.getMonth() + 1);
+    const meses = [
+      'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+      'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
+    ];
+    const { data: lancsMes } = await supabase
+      .from('controle_mensal_lancamentos')
+      .select('valor, eh_receita')
+      .eq('client_id', id)
+      .eq('competencia', competenciaAtual);
+    const rows = (lancsMes ?? []) as Array<{ valor: number; eh_receita: boolean | null }>;
+    const receitaMes = rows
+      .filter((r) => r.eh_receita === true || (r.eh_receita == null && Number(r.valor) > 0))
+      .reduce((s, r) => s + Math.abs(Number(r.valor)), 0);
+    const gastoMes = rows
+      .filter((r) => r.eh_receita === false || (r.eh_receita == null && Number(r.valor) < 0))
+      .reduce((s, r) => s + Math.abs(Number(r.valor)), 0);
+    cmSummary = {
+      pendente: meta.onboarding_step_cm != null,
+      step: meta.onboarding_step_cm,
+      receitaMes,
+      gastoMes,
+      lancMes: rows.length,
+      mesAtualLabel: `${meses[hoje.getMonth()]} ${hoje.getFullYear()}`,
+    };
+  }
   const result = simulate(input);
   const perfil = perfilLabel[client.perfil_carteira] ?? perfilLabel.moderado!;
   const palette = avatarPalettes[hashIdx(client.id, avatarPalettes.length)];
@@ -202,6 +243,95 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
           </div>
         </div>
       </div>
+
+      {/* Card pra ativar Controle Mensal (cliente só-BP) */}
+      {!meta.tem_controle_mensal && (
+        <form action={ativarControleMensal}>
+          <input type="hidden" name="id" value={id} />
+          <button
+            type="submit"
+            className="w-full text-left rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors p-5 flex items-center gap-4 group"
+          >
+            <div className="h-11 w-11 rounded-2xl bg-slate-100 group-hover:bg-emerald-500 group-hover:text-white text-slate-500 flex items-center justify-center shrink-0 transition-colors">
+              <CalendarRange size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-900 group-hover:text-emerald-900">
+                Ativar Controle Mensal
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Acompanhar lançamentos reais mês a mês (categorias, centros, importação de extratos)
+              </p>
+            </div>
+            <ArrowRight size={16} className="text-slate-400 group-hover:text-emerald-600 shrink-0" />
+          </button>
+        </form>
+      )}
+
+      {/* Card do Controle Mensal */}
+      {cmSummary && (
+        <Link
+          href={cmSummary.pendente ? `/clients/${id}/onboarding-cm` : `/clients/${id}/controle-mensal`}
+          className={`block rounded-3xl border-2 p-6 transition-all hover:-translate-y-0.5 shadow-soft hover:shadow-soft-lg ${
+            cmSummary.pendente
+              ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300'
+              : 'border-emerald-200/70 bg-gradient-to-br from-emerald-50/30 to-white hover:border-emerald-300'
+          }`}
+        >
+          <div className="flex items-start gap-4">
+            <div
+              className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                cmSummary.pendente
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-emerald-500 text-white'
+              }`}
+            >
+              <CalendarRange size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700">
+                  Controle Mensal
+                </p>
+                {cmSummary.pendente && (
+                  <Badge variant="warning">Onboarding pendente · passo {cmSummary.step}/4</Badge>
+                )}
+              </div>
+              {cmSummary.pendente ? (
+                <>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    Termine o onboarding pra começar a lançar
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Faltam alguns passos — centros, categorias e primeiros lançamentos.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {cmSummary.mesAtualLabel}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm tabular-nums">
+                    <span className="text-emerald-700 font-semibold">
+                      +{brlCompact(cmSummary.receitaMes)}
+                    </span>
+                    <span className="text-red-600 font-semibold">
+                      −{brlCompact(cmSummary.gastoMes)}
+                    </span>
+                    <span className="text-slate-900 font-bold">
+                      Saldo {brlCompact(cmSummary.receitaMes - cmSummary.gastoMes)}
+                    </span>
+                    <span className="text-slate-500">
+                      · {cmSummary.lancMes} lançamento{cmSummary.lancMes === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+            <ArrowRight size={18} className="text-slate-400 shrink-0 mt-1" />
+          </div>
+        </Link>
+      )}
 
       {/* KPIs principais */}
       <section className="space-y-3">

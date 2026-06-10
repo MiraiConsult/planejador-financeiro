@@ -15,7 +15,7 @@ export default async function OnboardingCMPage({ params }: { params: Params }) {
 
   const { data: client } = await supabase
     .from('clients')
-    .select('id, nome_completo, tem_controle_mensal, onboarding_step_cm')
+    .select('id, nome_completo, tem_controle_mensal, tem_balanco_patrimonial, onboarding_step, onboarding_step_cm')
     .eq('id', id)
     .maybeSingle();
   if (!client) notFound();
@@ -29,6 +29,8 @@ export default async function OnboardingCMPage({ params }: { params: Params }) {
   if (client.onboarding_step_cm == null) {
     redirect(`/clients/${id}/controle-mensal`);
   }
+
+  const bpFinalizado = client.tem_balanco_patrimonial && client.onboarding_step == null;
 
   // Carrega o que já foi configurado pra pré-preencher o wizard
   const [{ count: centrosCount }, { data: catRows }] = await Promise.all([
@@ -62,6 +64,7 @@ export default async function OnboardingCMPage({ params }: { params: Params }) {
       initialStep={client.onboarding_step_cm ?? 1}
       initialCentrosCount={centrosCount ?? 0}
       initialCategorias={initialCategorias}
+      bpFinalizado={bpFinalizado}
     />
   );
 }

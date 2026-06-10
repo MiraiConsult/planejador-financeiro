@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Plus, Trash2, Sparkles, Tag as TagIcon } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Download,
+  Plus,
+  Trash2,
+  Sparkles,
+  Tag as TagIcon,
+} from 'lucide-react';
 import * as Lucide from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { toast } from '@/components/ui/Toast';
 import { CATEGORIAS_DEFAULT, type DraftCategoria } from '../types';
+import { sugerirCategoriasDoBP } from '../actions';
 
 function nextTempId(): string {
   return `cat-${Math.random().toString(36).slice(2, 9)}`;
@@ -17,14 +27,56 @@ function Icone({ nome, size = 14 }: { nome: string; size?: number }) {
 }
 
 interface Props {
+  clientId: string;
+  bpFinalizado: boolean;
   categorias: DraftCategoria[];
   onChange: (cats: DraftCategoria[]) => void;
   onPrev: () => void;
   onNext: () => void;
 }
 
-export function StepCategorias({ categorias, onChange, onPrev, onNext }: Props) {
+export function StepCategorias({
+  clientId,
+  bpFinalizado,
+  categorias,
+  onChange,
+  onPrev,
+  onNext,
+}: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importando, startImport] = useTransition();
+
+  function importarDoBP() {
+    startImport(async () => {
+      const res = await sugerirCategoriasDoBP(clientId);
+      if (!res.ok) {
+        toast.error(res.error ?? 'Falha ao importar do balanço');
+        return;
+      }
+      const sugeridas = res.categorias ?? [];
+      if (sugeridas.length === 0) {
+        toast.error('Nenhuma despesa cadastrada no balanço para importar');
+        return;
+      }
+      const existentes = new Set(categorias.map((c) => c.nome.toLowerCase().trim()));
+      const novas = sugeridas
+        .filter((s) => !existentes.has(s.nome.toLowerCase().trim()))
+        .map<DraftCategoria>((s) => ({
+          tempId: nextTempId(),
+          nome: s.nome,
+          tipo: s.tipo,
+          cor: s.cor,
+          icone: s.icone,
+          parentTempId: null,
+        }));
+      if (novas.length === 0) {
+        toast.success('Categorias do balanço já estão no wizard');
+        return;
+      }
+      onChange([...categorias, ...novas]);
+      toast.success(`${novas.length} categoria(s) importada(s) do balanço`);
+    });
+  }
 
   function adicionar(parent?: DraftCategoria) {
     const nova: DraftCategoria = {
@@ -84,13 +136,19 @@ export function StepCategorias({ categorias, onChange, onPrev, onNext }: Props) 
       {categorias.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-8 text-center space-y-3">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Nenhuma categoria ainda. Comece com 8 categorias padrão ou crie do zero.
+            Nenhuma categoria ainda. Comece com 8 categorias padrão{bpFinalizado ? ', importe das despesas do balanço' : ''} ou crie do zero.
           </p>
-          <div className="flex justify-center gap-2">
+          <div className="flex justify-center flex-wrap gap-2">
             <Button variant="primary" size="sm" onClick={aplicarDefaults}>
               <Sparkles size={13} />
               Usar pacote padrão (8 categorias)
             </Button>
+            {bpFinalizado && (
+              <Button variant="outline" size="sm" onClick={importarDoBP} disabled={importando}>
+                <Download size={13} />
+                {importando ? 'Importando…' : 'Importar das despesas do balanço'}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => adicionar()}>
               <Plus size={13} />
               Criar do zero
@@ -133,10 +191,18 @@ export function StepCategorias({ categorias, onChange, onPrev, onNext }: Props) 
               </div>
             );
           })}
-          <Button variant="ghost" size="sm" onClick={() => adicionar()}>
-            <Plus size={13} />
-            Adicionar categoria
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" size="sm" onClick={() => adicionar()}>
+              <Plus size={13} />
+              Adicionar categoria
+            </Button>
+            {bpFinalizado && (
+              <Button variant="ghost" size="sm" onClick={importarDoBP} disabled={importando}>
+                <Download size={13} />
+                {importando ? 'Importando…' : 'Importar das despesas do balanço'}
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

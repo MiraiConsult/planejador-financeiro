@@ -194,6 +194,54 @@ export async function redirectAfterFinish(client_id: string): Promise<never> {
   redirect(`/clients/${client_id}/controle-mensal`);
 }
 
+// ─── Cruzamento BP → CM: sugere categorias derivadas das despesas do plano ──
+
+const HINT_PALETA: Array<{ termos: string[]; cor: string; icone: string }> = [
+  { termos: ['aliment', 'mercad', 'feira', 'restaurant', 'comida'], cor: '#10b981', icone: 'Utensils' },
+  { termos: ['morad', 'aluguel', 'condom', 'casa', 'iptu'], cor: '#0ea5e9', icone: 'Home' },
+  { termos: ['saúd', 'saude', 'plano', 'médic', 'medic', 'farmac'], cor: '#ef4444', icone: 'Heart' },
+  { termos: ['transp', 'combust', 'uber', 'taxi', 'gasolina', 'estacion'], cor: '#f59e0b', icone: 'Car' },
+  { termos: ['educ', 'escola', 'cursos', 'faculd', 'mensalid'], cor: '#8b5cf6', icone: 'GraduationCap' },
+  { termos: ['lazer', 'viagem', 'cinema', 'streaming', 'netflix'], cor: '#ec4899', icone: 'Smile' },
+  { termos: ['vest', 'roupa', 'beleza', 'estética'], cor: '#d946ef', icone: 'Shirt' },
+  { termos: ['filho', 'crianç', 'criança', 'depend'], cor: '#fb7185', icone: 'Baby' },
+  { termos: ['imposto', 'tribut', 'taxa', 'tarifa'], cor: '#475569', icone: 'Landmark' },
+];
+
+function paletaPara(nome: string): { cor: string; icone: string } {
+  const n = nome.toLowerCase();
+  for (const hint of HINT_PALETA) {
+    if (hint.termos.some((t) => n.includes(t))) return { cor: hint.cor, icone: hint.icone };
+  }
+  return { cor: '#64748b', icone: 'Tag' };
+}
+
+export async function sugerirCategoriasDoBP(client_id: string): Promise<{
+  ok: boolean;
+  error?: string;
+  categorias?: { nome: string; tipo: 'gasto'; cor: string; icone: string }[];
+}> {
+  const guard = await ensureOwner(client_id);
+  if ('error' in guard) return { ok: false, error: guard.error };
+  const { data } = await guard.supabase
+    .from('expenses')
+    .select('categoria')
+    .eq('client_id', client_id)
+    .is('deleted_at', null);
+
+  const nomes = new Set<string>();
+  for (const r of data ?? []) {
+    const cat = (r.categoria as string | null)?.trim();
+    if (cat) nomes.add(cat);
+  }
+
+  const categorias = [...nomes]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    .map((nome) => ({ nome, tipo: 'gasto' as const, ...paletaPara(nome) }));
+
+  return { ok: true, categorias };
+}
+
 // ─── Importação CSV ───────────────────────────────────────────────────
 
 interface ParsedRow {
