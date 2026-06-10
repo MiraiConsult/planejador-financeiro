@@ -207,7 +207,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
           return;
         }
         toast.success('Cliente criado com sucesso');
-        router.push(`/clients/${finRes.client_id}`);
+        router.push(finRes.next_url);
         return;
       }
       const res = await finalizeOnboarding({
@@ -220,7 +220,7 @@ export function Wizard({ initialClientId = null, initialState = null, initialSte
         return;
       }
       toast.success('Cliente criado com sucesso');
-      router.push(`/clients/${res.client_id}`);
+      router.push(res.next_url);
     });
   }
 

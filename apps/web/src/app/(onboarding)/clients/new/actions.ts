@@ -233,7 +233,7 @@ export async function loadOnboardingDraft(client_id: string): Promise<
 export async function finalizeOnboarding(args: {
   client_id: string;
   payload: OnboardingPayload;
-}): Promise<{ ok: true; client_id: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; client_id: string; next_url: string } | { ok: false; error: string }> {
   const supabase = await createClient();
   await getUserId();
   const saveRes = await saveOnboardingDraft({
@@ -247,9 +247,22 @@ export async function finalizeOnboarding(args: {
     .update({ onboarding_step: null })
     .eq('id', args.client_id);
   if (error) return { ok: false, error: error.message };
+
+  // Se o cliente também contratou Controle Mensal e ainda não fez o onboarding
+  // dele, encaminha pra lá. Senão, vai pro detalhe.
+  const { data: c } = await supabase
+    .from('clients')
+    .select('tem_controle_mensal, onboarding_step_cm')
+    .eq('id', args.client_id)
+    .maybeSingle();
+  const next_url =
+    c?.tem_controle_mensal && c.onboarding_step_cm != null
+      ? `/clients/${args.client_id}/onboarding-cm`
+      : `/clients/${args.client_id}`;
+
   revalidatePath('/clients');
   revalidatePath(`/clients/${args.client_id}`);
-  return { ok: true, client_id: args.client_id };
+  return { ok: true, client_id: args.client_id, next_url };
 }
 
 export async function listDraftClients(): Promise<

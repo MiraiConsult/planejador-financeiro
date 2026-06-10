@@ -45,6 +45,7 @@ export async function seedMarcelo() {
       idade_reducao_trabalho: marceloClient.idade_reducao_trabalho,
       perfil_carteira: marceloClient.perfil_carteira,
       pais_residencia: 'BR',
+      tem_balanco_patrimonial: true,
     })
     .select('id')
     .single();
