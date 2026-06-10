@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 import {
   ArrowLeft,
   Calendar,
@@ -64,6 +65,32 @@ type Params = Promise<{ id: string }>;
 
 export default async function ClientDetailPage({ params }: { params: Params }) {
   const { id } = await params;
+
+  // Roteia baseado nos produtos contratados e estado de onboarding.
+  const supabase = await createClient();
+  const { data: meta } = await supabase
+    .from('clients')
+    .select('id, tem_balanco_patrimonial, tem_controle_mensal, onboarding_step, onboarding_step_cm')
+    .eq('id', id)
+    .maybeSingle();
+  if (!meta) notFound();
+
+  // Onboarding pendente: manda pro respectivo wizard
+  if (meta.tem_balanco_patrimonial && meta.onboarding_step != null) {
+    redirect(`/clients/new?id=${id}`);
+  }
+  if (
+    !meta.tem_balanco_patrimonial &&
+    meta.tem_controle_mensal &&
+    meta.onboarding_step_cm != null
+  ) {
+    redirect(`/clients/${id}/onboarding-cm`);
+  }
+  // Cliente só-CM finalizado: vai direto pro controle mensal
+  if (!meta.tem_balanco_patrimonial && meta.tem_controle_mensal) {
+    redirect(`/clients/${id}/controle-mensal`);
+  }
+
   const loaded = await loadSimulationInput(id);
   if (!loaded) notFound();
 

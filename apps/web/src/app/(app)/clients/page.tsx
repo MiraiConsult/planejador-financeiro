@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Plus, Sparkles, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, CalendarRange, Plus, Sparkles, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { simulate } from '@planejador/engine';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
@@ -59,15 +59,22 @@ export default async function ClientsPage() {
   const supabase = await createClient();
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, nome_completo, data_nascimento, perfil_carteira, expectativa_vida_anos, created_at, onboarding_step, updated_at')
+    .select('id, nome_completo, data_nascimento, perfil_carteira, expectativa_vida_anos, created_at, onboarding_step, onboarding_step_cm, tem_balanco_patrimonial, tem_controle_mensal, updated_at')
     .order('created_at', { ascending: false });
 
-  const drafts = (clients ?? []).filter((c) => c.onboarding_step != null);
-  const finalClients = (clients ?? []).filter((c) => c.onboarding_step == null);
+  const isDraft = (c: { onboarding_step: number | null; onboarding_step_cm: number | null; tem_balanco_patrimonial: boolean; tem_controle_mensal: boolean }) =>
+    (c.tem_balanco_patrimonial && c.onboarding_step != null) ||
+    (c.tem_controle_mensal && c.onboarding_step_cm != null);
 
-  // roda simulação leve só nos finalizados (drafts não têm dados consistentes)
+  const drafts = (clients ?? []).filter(isDraft);
+  const finalClients = (clients ?? []).filter((c) => !isDraft(c));
+
+  // roda simulação leve só pra quem tem balanço finalizado
   const enriched = await Promise.all(
     finalClients.map(async (c) => {
+      if (!c.tem_balanco_patrimonial) {
+        return { client: c, summary: null, spark: [] as number[] };
+      }
       const sim = await loadSimulationInput(c.id);
       if (!sim) return { client: c, summary: null, spark: [] as number[] };
       const result = simulate(sim.input);
@@ -107,7 +114,7 @@ export default async function ClientsPage() {
                 </SubmitButton>
               </form>
             )}
-            <Link href="/clients/new">
+            <Link href="/clients/escolher-produtos">
               <Button variant="primary" size="md">
                 <Plus size={15} strokeWidth={2.5} />
                 Novo cliente
@@ -123,27 +130,46 @@ export default async function ClientsPage() {
           <div className="flex items-center gap-2 text-amber-900">
             <Sparkles size={14} />
             <p className="text-sm font-semibold">
-              {drafts.length} cliente{drafts.length > 1 ? 's' : ''} em rascunho · continue de onde parou
+              {drafts.length} cliente{drafts.length > 1 ? 's' : ''} com onboarding pendente
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {drafts.map((d) => (
-              <Link
-                key={d.id}
-                href={`/clients/new?id=${d.id}`}
-                className="rounded-lg border border-amber-200 bg-white p-3 flex items-center justify-between hover:border-amber-400 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">
-                    {d.nome_completo || 'Sem nome'}
-                  </p>
-                  <p className="text-[11px] text-amber-700">
-                    Passo {d.onboarding_step} de 6
-                  </p>
-                </div>
-                <ArrowRight size={14} className="text-amber-600 shrink-0" />
-              </Link>
-            ))}
+            {drafts.flatMap((d) => {
+              const items: { key: string; href: string; produto: string; passo: string }[] = [];
+              if (d.tem_balanco_patrimonial && d.onboarding_step != null) {
+                items.push({
+                  key: `${d.id}-bp`,
+                  href: `/clients/new?id=${d.id}`,
+                  produto: 'Balanço Patrimonial',
+                  passo: `Passo ${d.onboarding_step} de 6`,
+                });
+              }
+              if (d.tem_controle_mensal && d.onboarding_step_cm != null) {
+                items.push({
+                  key: `${d.id}-cm`,
+                  href: `/clients/${d.id}/onboarding-cm`,
+                  produto: 'Controle Mensal',
+                  passo: `Passo ${d.onboarding_step_cm} de 4`,
+                });
+              }
+              return items.map((it) => (
+                <Link
+                  key={it.key}
+                  href={it.href}
+                  className="rounded-lg border border-amber-200 bg-white p-3 flex items-center justify-between hover:border-amber-400 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {d.nome_completo || 'Sem nome'}
+                    </p>
+                    <p className="text-[11px] text-amber-700">
+                      {it.produto} · {it.passo}
+                    </p>
+                  </div>
+                  <ArrowRight size={14} className="text-amber-600 shrink-0" />
+                </Link>
+              ));
+            })}
           </div>
         </div>
       )}
@@ -186,13 +212,16 @@ export default async function ClientsPage() {
               .toUpperCase();
             const goodOutcome = summary && summary.patrimonio_final > 0;
             const TrendIcon = goodOutcome ? TrendingUp : TrendingDown;
+            const hrefPrimario = c.tem_balanco_patrimonial
+              ? `/clients/${c.id}`
+              : `/clients/${c.id}/controle-mensal`;
 
             return (
               <article
                 key={c.id}
                 className="group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-soft transition-all hover:shadow-soft-lg hover:-translate-y-0.5"
               >
-                <Link href={`/clients/${c.id}`} className="block">
+                <Link href={hrefPrimario} className="block">
                   <div className="p-5 space-y-4">
                     <div className="flex items-start gap-3">
                       <div
@@ -208,7 +237,25 @@ export default async function ClientsPage() {
                           {age} anos · horizonte {horizonte}a
                         </p>
                       </div>
-                      <Badge variant={perfil.variant}>{perfil.label}</Badge>
+                      {c.tem_balanco_patrimonial && (
+                        <Badge variant={perfil.variant}>{perfil.label}</Badge>
+                      )}
+                    </div>
+
+                    {/* Produtos contratados */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.tem_balanco_patrimonial && (
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-brand-50 text-brand-700 ring-1 ring-brand-200">
+                          <Wallet size={9} />
+                          Balanço
+                        </span>
+                      )}
+                      {c.tem_controle_mensal && (
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                          <CalendarRange size={9} />
+                          Controle Mensal
+                        </span>
+                      )}
                     </div>
 
                     {summary && (
@@ -252,7 +299,7 @@ export default async function ClientsPage() {
                     <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                       <span className="text-xs font-medium text-brand-600 flex items-center gap-1.5">
                         <TrendIcon size={12} strokeWidth={2.5} />
-                        Abrir simulação
+                        {c.tem_balanco_patrimonial ? 'Abrir simulação' : 'Abrir controle mensal'}
                       </span>
                       <ArrowRight
                         size={14}
