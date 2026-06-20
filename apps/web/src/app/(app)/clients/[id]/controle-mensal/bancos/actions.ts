@@ -3,11 +3,20 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
-export interface BankConnectionInput {
-  external_item_id: string;
-  institution_name: string;
-  account_type?: 'checking' | 'savings' | 'credit_card' | 'investment' | 'loan' | 'other';
-  initial_lookback_days?: number;
+export interface DiscoveredAccount {
+  external_account_id: string;
+  external_item_id: string | null;
+  bank: string | null;
+  type_raw: string;
+  subtype: string;
+  subtype_label: string;
+  account_type: string;
+  account_name: string;
+  account_number: string;
+  balance: string;
+  currency: string;
+  owner: string | null;
+  display_name: string;
 }
 
 async function checkOwner(client_id: string) {
@@ -19,32 +28,104 @@ async function checkOwner(client_id: string) {
   return { ok: true as const, supabase, user_id: user.id };
 }
 
-export async function adicionarConexao(args: {
+async function callEdgeFunction<T>(supabase: Awaited<ReturnType<typeof createClient>>, fn: string, body: object): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) return { ok: false, error: 'SUPABASE_URL não configurada' };
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { ok: false, error: 'Sessão expirada' };
+  const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({ error: 'Resposta inválida' }));
+  if (!res.ok) return { ok: false, error: json.error ?? `HTTP ${res.status}` };
+  return { ok: true, data: json as T };
+}
+
+/**
+ * Lista as contas disponíveis no Banco MCP (todas as conexões do tenant).
+ * Marca quais já estão conectadas a esse cliente.
+ */
+export async function descobrirContasDisponiveis(args: {
   client_id: string;
-  input: BankConnectionInput;
-}): Promise<{ ok: boolean; error?: string; id?: string }> {
+  item?: string;
+}): Promise<{
+  ok: boolean;
+  error?: string;
+  accounts?: (DiscoveredAccount & { ja_conectada: boolean; bank_connection_id?: string })[];
+  connections_count?: number;
+}> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;
-  const { external_item_id, institution_name, account_type, initial_lookback_days } = args.input;
-  if (!external_item_id.trim()) return { ok: false, error: 'Informe o item_id' };
-  if (!institution_name.trim()) return { ok: false, error: 'Informe o nome do banco' };
 
-  const { data, error } = await g.supabase
+  const res = await callEdgeFunction<{
+    ok: boolean;
+    total: number;
+    connections: number;
+    accounts: DiscoveredAccount[];
+  }>(g.supabase, 'list-bank-accounts', args.item ? { item: args.item } : {});
+
+  if (!res.ok) return { ok: false, error: res.error };
+
+  // Quais accounts já estão na tabela bank_connections desse cliente?
+  const { data: existentes } = await g.supabase
     .from('bank_connections')
-    .insert({
-      client_id: args.client_id,
-      provider: 'banco_mcp',
-      external_item_id: external_item_id.trim(),
-      institution_name: institution_name.trim(),
-      account_type: account_type ?? 'checking',
-      initial_lookback_days: initial_lookback_days ?? 90,
-    })
-    .select('id')
-    .single();
+    .select('id, external_account_id')
+    .eq('client_id', args.client_id);
+  const mapaExistentes = new Map<string, string>(
+    (existentes ?? []).map((e) => [e.external_account_id, e.id]),
+  );
+
+  return {
+    ok: true,
+    connections_count: res.data.connections,
+    accounts: res.data.accounts.map((a) => ({
+      ...a,
+      ja_conectada: mapaExistentes.has(a.external_account_id),
+      bank_connection_id: mapaExistentes.get(a.external_account_id),
+    })),
+  };
+}
+
+/**
+ * Cria várias bank_connections a partir das accounts descobertas no MCP.
+ */
+export async function adicionarContas(args: {
+  client_id: string;
+  accounts: DiscoveredAccount[];
+  initial_lookback_days?: number;
+}): Promise<{ ok: boolean; error?: string; inseridos?: number }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  if (args.accounts.length === 0) return { ok: true, inseridos: 0 };
+
+  const rows = args.accounts.map((a) => ({
+    client_id: args.client_id,
+    provider: 'banco_mcp',
+    external_account_id: a.external_account_id,
+    external_item_id: a.external_item_id,
+    institution_name: a.bank ?? a.account_name,
+    account_type: a.account_type,
+    account_subtype: a.subtype,
+    account_number: a.account_number,
+    account_owner: a.owner,
+    currency: a.currency,
+    last_balance: parseFloat(a.balance) || null,
+    last_balance_at: new Date().toISOString(),
+    initial_lookback_days: args.initial_lookback_days ?? 90,
+  }));
+
+  const { error, count } = await g.supabase
+    .from('bank_connections')
+    .upsert(rows, { onConflict: 'provider,external_account_id', ignoreDuplicates: true, count: 'exact' });
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/clients/${args.client_id}/controle-mensal/bancos`);
-  return { ok: true, id: data.id };
+  return { ok: true, inseridos: count ?? rows.length };
 }
 
 export async function removerConexao(args: { client_id: string; id: string }): Promise<{ ok: boolean; error?: string }> {
@@ -77,43 +158,28 @@ export async function pausarConexao(args: {
   return { ok: true };
 }
 
-/**
- * Dispara sync manual da Edge Function. Pode ser de uma conexão única
- * (bank_connection_id) ou de todas do cliente.
- */
 export async function sincronizarAgora(args: {
   client_id: string;
   bank_connection_id?: string;
-}): Promise<{ ok: boolean; error?: string; results?: Array<{ connection_id: string; fetched: number; inserted: number; status: string; error?: string }> }> {
+}): Promise<{
+  ok: boolean;
+  error?: string;
+  results?: Array<{ connection_id: string; institution_name: string | null; fetched: number; inserted: number; status: string; error?: string }>;
+}> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return { ok: false, error: 'SUPABASE_URL não configurada' };
-
-  // Pega o access token do user logado pra passar pra edge function
-  const { data: { session } } = await g.supabase.auth.getSession();
-  if (!session) return { ok: false, error: 'Sessão expirada' };
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/sync-bank-transactions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  const res = await callEdgeFunction<{ ok: boolean; results: Array<{ connection_id: string; institution_name: string | null; fetched: number; inserted: number; status: string; error?: string }> }>(
+    g.supabase,
+    'sync-bank-transactions',
+    {
       client_id: args.client_id,
       bank_connection_id: args.bank_connection_id,
       triggered_by: 'manual',
-    }),
-  });
-
-  const json = await res.json().catch(() => ({ error: 'Resposta inválida' }));
-  if (!res.ok) {
-    return { ok: false, error: json.error ?? `HTTP ${res.status}` };
-  }
+    },
+  );
+  if (!res.ok) return { ok: false, error: res.error };
 
   revalidatePath(`/clients/${args.client_id}/controle-mensal/bancos`);
   revalidatePath(`/clients/${args.client_id}/controle-mensal`);
-  return { ok: true, results: json.results };
+  return { ok: true, results: res.data.results };
 }

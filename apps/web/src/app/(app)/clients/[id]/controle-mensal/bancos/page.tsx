@@ -25,7 +25,7 @@ export default async function BancosPage({ params }: { params: Params }) {
   const [{ data: conexoes }, { data: logs }] = await Promise.all([
     supabase
       .from('bank_connections')
-      .select('id, external_item_id, institution_name, account_type, status, last_sync_at, last_sync_error')
+      .select('id, external_account_id, external_item_id, institution_name, account_type, account_subtype, account_number, status, last_sync_at, last_sync_error, last_balance')
       .eq('client_id', id)
       .order('created_at', { ascending: true }),
     supabase

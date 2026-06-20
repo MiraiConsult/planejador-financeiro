@@ -1,19 +1,18 @@
 // Edge Function: sync-bank-transactions
 //
-// Sincroniza transações dos bancos conectados via Banco MCP / Pluggy
+// Sincroniza transações de contas bancárias conectadas via Banco MCP (Pluggy)
 // preenchendo controle_mensal_lancamentos.
 //
+// Provedor: https://api.mcp.ai
+//   POST /api/openfinance/transactions/list  { account_id, from, to, page, page_size }
+//
 // Triggers:
-// - Agendada via pg_cron 1x/dia (sem body — processa todas conexões ativas)
-// - Manual via UI: POST com { client_id? } ou { bank_connection_id? } pra escopo único
+// - Agendado (pg_cron) sem body → processa todas as conexões ativas
+// - Manual via UI: POST com { client_id? } ou { bank_connection_id? } pra escopo
 //
-// Env vars necessárias:
-// - BANCO_MCP_API_KEY  : chave secreta do provedor (sk_live_...)
-// - BANCO_MCP_BASE_URL : URL base da API REST (default: https://api.mcp.ai)
-//
-// Auth: requer service_role token no header Authorization (chamada via pg_cron
-// passa pelo wrapper Supabase que injeta o token). Pra trigger manual da UI,
-// a server action chama com o anon/auth do user e a função valida.
+// Env vars:
+// - BANCO_MCP_API_KEY  : sk_live_...
+// - BANCO_MCP_BASE_URL : default https://api.mcp.ai
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
@@ -21,27 +20,30 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 interface BankConnection {
   id: string;
   client_id: string;
-  provider: string;
-  external_item_id: string;
-  institution_name: string | null;
-  account_type: string | null;
+  external_account_id: string;
+  account_type: string | null;     // 'checking' | 'savings' | 'credit_card' | ...
+  institution_name: string | null; // 'Itaú' | 'Inter' | ...
   status: string;
   last_sync_at: string | null;
   initial_lookback_days: number;
 }
 
 interface MCPTransaction {
-  // Formato HIPOTÉTICO baseado em padrões Pluggy/Open Finance.
-  // Vai precisar de ajuste quando você me passar 1 sample real do JSON.
   id: string;
-  date: string; // ISO yyyy-mm-dd
+  date: string;             // ISO timestamp "2026-06-12T02:59:00.000Z"
   description: string;
-  amount: number; // negativo = débito, positivo = crédito
+  amount: string;           // string! ex "-625.94"
+  currencyCode: string;
+  type: 'DEBIT' | 'CREDIT';
+  status: 'POSTED' | 'PENDING';
   category?: string | null;
-  type?: 'DEBIT' | 'CREDIT' | string;
+  categoryId?: string | null;
+  operationType?: string | null;
+  merchant?: string | null;
   paymentData?: {
-    payer?: string;
-    receiver?: string;
+    paymentMethod?: string | null;
+    payer?: string | null;
+    receiver?: string | null;
   } | null;
   creditCardMetadata?: {
     installmentNumber?: number;
@@ -50,20 +52,30 @@ interface MCPTransaction {
   } | null;
 }
 
-interface MCPTransactionsResponse {
-  // Padrão paginado Pluggy
-  results: MCPTransaction[];
-  total: number;
-  page: number;
-  totalPages: number;
+interface MCPListResponse {
+  // O wrapper {ok, result} pode ou não existir; tratamos os 2.
+  ok?: boolean;
+  result?: {
+    total: number;
+    page: number;
+    totalPages: number;
+    results: MCPTransaction[];
+  };
+  total?: number;
+  page?: number;
+  totalPages?: number;
+  results?: MCPTransaction[];
+  error?: string;
+  warning?: string;
 }
 
 const MESES_PT = [
   'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
 ];
+const CATEGORY_ID_PAGAMENTO_FATURA = '05100000';
 
-function competenciaFromDate(iso: string): { mes: string; mes_num: number; ano: number; competencia: number } {
+function competenciaFromDate(iso: string): { mes: string; mes_num: number; ano: number; competencia: number; data: string } {
   const d = new Date(iso);
   const ano = d.getUTCFullYear();
   const mes_num = d.getUTCMonth() + 1;
@@ -72,59 +84,105 @@ function competenciaFromDate(iso: string): { mes: string; mes_num: number; ano: 
     mes_num,
     ano,
     competencia: ano * 100 + mes_num,
+    data: iso.slice(0, 10),
   };
 }
 
-function isPagamentoFatura(tx: MCPTransaction): boolean {
-  const desc = (tx.description || '').toLowerCase();
-  return /pagamento\s+(de\s+)?fatura|pagto\s+fatura|pagto\s+cart[ãa]o/.test(desc);
+/**
+ * Normaliza valor + flag de receita conforme tipo de conta e tipo da transação.
+ *
+ * BANK (conta corrente/poupança):
+ *   amount já vem com sinal natural: + entrada, - saída.
+ *
+ * CREDIT (cartão de crédito):
+ *   amount POSITIVO + type=DEBIT  = compra → gasto (valor negativo)
+ *   amount NEGATIVO + type=CREDIT = pagamento/estorno recebido → eh_pagamento_fatura
+ */
+function normalizarValor(
+  amountStr: string,
+  type: 'DEBIT' | 'CREDIT',
+  isCreditCard: boolean,
+  categoryId: string | null | undefined,
+): { valor: number; eh_receita: boolean; eh_pagamento_fatura: boolean } {
+  const raw = parseFloat(amountStr);
+  if (isCreditCard) {
+    if (type === 'DEBIT') {
+      // Compra no cartão — gasto. amount geralmente positivo
+      return { valor: -Math.abs(raw), eh_receita: false, eh_pagamento_fatura: false };
+    }
+    // type === 'CREDIT' no cartão = pagamento/estorno
+    return { valor: Math.abs(raw), eh_receita: false, eh_pagamento_fatura: true };
+  }
+  // BANK: respeita sinal natural
+  const eh_receita = raw > 0;
+  // Pagamento de fatura em conta corrente: categoryId estável
+  const eh_pgto = !eh_receita && categoryId === CATEGORY_ID_PAGAMENTO_FATURA;
+  return { valor: raw, eh_receita, eh_pagamento_fatura: eh_pgto };
 }
 
-function hashTx(connectionId: string, tx: MCPTransaction): string {
-  const raw = `${connectionId}|${tx.date}|${tx.description.trim().toLowerCase()}|${tx.amount.toFixed(2)}`;
+function hashTx(connId: string, tx: MCPTransaction): string {
+  const raw = `${connId}|${tx.id}`;
   let h = 0;
   for (let i = 0; i < raw.length; i++) h = ((h << 5) - h + raw.charCodeAt(i)) | 0;
   return `mcp-${h >>> 0}`;
 }
 
-async function fetchTransactions(
+async function fetchTransactionsPage(
   apiKey: string,
   baseUrl: string,
-  itemId: string,
+  accountId: string,
+  fromIso: string,
+  page: number,
+): Promise<{ results: MCPTransaction[]; totalPages: number }> {
+  const res = await fetch(`${baseUrl}/api/openfinance/transactions/list`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      account_id: accountId,
+      from: fromIso,
+      page,
+      page_size: 500,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`MCP API ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as MCPListResponse;
+  if (json.error) throw new Error(json.error);
+  const result = json.result ?? json; // suporta wrapper {ok,result} ou response direto
+  const results = result.results ?? [];
+  const totalPages = result.totalPages ?? 1;
+  return { results, totalPages };
+}
+
+async function fetchAllTransactions(
+  apiKey: string,
+  baseUrl: string,
+  accountId: string,
   fromIso: string,
 ): Promise<MCPTransaction[]> {
-  // PLACEHOLDER — substitua o caminho/parâmetros quando confirmar o spec.
-  // Padrão Pluggy: GET /transactions?itemId=...&from=...&pageSize=500
   const all: MCPTransaction[] = [];
   let page = 1;
   while (true) {
-    const url = new URL(`${baseUrl}/transactions`);
-    url.searchParams.set('itemId', itemId);
-    url.searchParams.set('from', fromIso);
-    url.searchParams.set('pageSize', '500');
-    url.searchParams.set('page', String(page));
-
-    const res = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'application/json',
-      },
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`MCP API ${res.status}: ${body.slice(0, 300)}`);
-    }
-    const json = (await res.json()) as MCPTransactionsResponse;
-    all.push(...(json.results ?? []));
-    if (page >= (json.totalPages ?? 1)) break;
+    const { results, totalPages } = await fetchTransactionsPage(apiKey, baseUrl, accountId, fromIso, page);
+    all.push(...results);
+    if (page >= totalPages || results.length === 0) break;
     page += 1;
-    if (page > 50) break; // proteção contra loop infinito
+    if (page > 50) break; // proteção
   }
   return all;
 }
 
 interface SyncResult {
   connection_id: string;
+  account_id: string;
+  institution_name: string | null;
   fetched: number;
   inserted: number;
   skipped: number;
@@ -139,7 +197,6 @@ async function syncOneConnection(
   conn: BankConnection,
   triggeredBy: string,
 ): Promise<SyncResult> {
-  // Cria log
   const { data: logRow } = await supabase
     .from('bank_sync_log')
     .insert({
@@ -151,14 +208,18 @@ async function syncOneConnection(
     .single();
   const logId = logRow?.id as string;
 
-  // Janela: a partir de last_sync_at, ou lookback inicial
-  const fromIso = conn.last_sync_at
-    ? new Date(new Date(conn.last_sync_at).getTime() - 1000 * 60 * 60 * 24 * 3).toISOString() // overlap de 3 dias pra pegar reconciliações
-    : new Date(Date.now() - conn.initial_lookback_days * 24 * 60 * 60 * 1000).toISOString();
+  // Overlap de 3 dias pra pegar transações que mudaram de PENDING pra POSTED
+  const lookbackMs = conn.initial_lookback_days * 24 * 60 * 60 * 1000;
+  const fromMs = conn.last_sync_at
+    ? new Date(conn.last_sync_at).getTime() - 3 * 24 * 60 * 60 * 1000
+    : Date.now() - lookbackMs;
+  const fromIso = new Date(fromMs).toISOString().slice(0, 10);
+
+  const isCreditCard = (conn.account_type ?? '').toLowerCase() === 'credit_card';
 
   let txs: MCPTransaction[] = [];
   try {
-    txs = await fetchTransactions(apiKey, baseUrl, conn.external_item_id, fromIso.slice(0, 10));
+    txs = await fetchAllTransactions(apiKey, baseUrl, conn.external_account_id, fromIso);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await supabase.from('bank_sync_log').update({
@@ -170,32 +231,40 @@ async function syncOneConnection(
       status: 'error',
       last_sync_error: msg,
     }).eq('id', conn.id);
-    return { connection_id: conn.id, fetched: 0, inserted: 0, skipped: 0, status: 'error', error: msg };
+    return {
+      connection_id: conn.id, account_id: conn.external_account_id, institution_name: conn.institution_name,
+      fetched: 0, inserted: 0, skipped: 0, status: 'error', error: msg,
+    };
   }
 
-  // Mapeia e faz upsert
   const rows = txs.map((tx) => {
     const comp = competenciaFromDate(tx.date);
-    const ehReceita = tx.amount > 0;
-    const ehPgto = isPagamentoFatura(tx);
+    const { valor, eh_receita, eh_pagamento_fatura } = normalizarValor(
+      tx.amount, tx.type, isCreditCard, tx.categoryId,
+    );
     return {
       client_id: conn.client_id,
       bank_connection_id: conn.id,
       external_id: tx.id,
       origem_externa: conn.institution_name,
-      data: tx.date.slice(0, 10),
-      descricao: tx.description.slice(0, 500),
-      valor: tx.amount,
+      data: comp.data,
+      descricao: (tx.description || '').slice(0, 500),
+      valor,
       categoria: tx.category ?? null,
+      categoria_externa_id: tx.categoryId ?? null,
       subcategoria: null,
       mes: comp.mes,
       mes_num: comp.mes_num,
       ano: comp.ano,
       competencia: comp.competencia,
-      tipo: ehReceita ? 'receita' : 'pessoal',
-      eh_receita: ehReceita,
-      eh_pagamento_fatura: ehPgto,
-      centro_id: null, // será preenchido pelo backfill ou manualmente
+      tipo: eh_receita ? 'receita' : 'pessoal',
+      eh_receita,
+      eh_pagamento_fatura,
+      status_transacao: (tx.status ?? 'POSTED').toLowerCase(),
+      merchant: tx.merchant ?? null,
+      payment_method: tx.paymentData?.paymentMethod ?? null,
+      counterparty: tx.paymentData?.payer ?? tx.paymentData?.receiver ?? null,
+      centro_id: null,
       hash: hashTx(conn.id, tx),
     };
   });
@@ -204,13 +273,11 @@ async function syncOneConnection(
   let skipped = 0;
 
   if (rows.length > 0) {
-    // Upsert com onConflict no índice único (bank_connection_id, external_id)
-    const { data: insertedRows, error } = await supabase
+    // onConflict no índice único (bank_connection_id, external_id):
+    // se já existe, atualiza (importante pra PENDING → POSTED + valor/data corrigidos)
+    const { data: ups, error } = await supabase
       .from('controle_mensal_lancamentos')
-      .upsert(rows, {
-        onConflict: 'bank_connection_id,external_id',
-        ignoreDuplicates: true,
-      })
+      .upsert(rows, { onConflict: 'bank_connection_id,external_id' })
       .select('id');
     if (error) {
       await supabase.from('bank_sync_log').update({
@@ -219,9 +286,12 @@ async function syncOneConnection(
         transactions_fetched: txs.length,
         error_message: error.message,
       }).eq('id', logId);
-      return { connection_id: conn.id, fetched: txs.length, inserted: 0, skipped: txs.length, status: 'error', error: error.message };
+      return {
+        connection_id: conn.id, account_id: conn.external_account_id, institution_name: conn.institution_name,
+        fetched: txs.length, inserted: 0, skipped: txs.length, status: 'error', error: error.message,
+      };
     }
-    inserted = insertedRows?.length ?? 0;
+    inserted = ups?.length ?? 0;
     skipped = rows.length - inserted;
   }
 
@@ -241,6 +311,8 @@ async function syncOneConnection(
 
   return {
     connection_id: conn.id,
+    account_id: conn.external_account_id,
+    institution_name: conn.institution_name,
     fetched: txs.length,
     inserted,
     skipped,
@@ -256,8 +328,7 @@ Deno.serve(async (req: Request) => {
 
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'BANCO_MCP_API_KEY não configurada' }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' },
+      status: 500, headers: { 'content-type': 'application/json' },
     });
   }
 
@@ -265,21 +336,15 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Parse body opcional pra escopo
   let body: { client_id?: string; bank_connection_id?: string; triggered_by?: string } = {};
   if (req.body && req.headers.get('content-type')?.includes('json')) {
-    try {
-      body = await req.json();
-    } catch {
-      // ignora body inválido
-    }
+    try { body = await req.json(); } catch { /* ignore */ }
   }
   const triggeredBy = body.triggered_by ?? 'cron';
 
-  // Seleciona conexões a sincronizar
   let q = supabase
     .from('bank_connections')
-    .select('id, client_id, provider, external_item_id, institution_name, account_type, status, last_sync_at, initial_lookback_days')
+    .select('id, client_id, external_account_id, account_type, institution_name, status, last_sync_at, initial_lookback_days')
     .eq('status', 'active');
   if (body.bank_connection_id) q = q.eq('id', body.bank_connection_id);
   else if (body.client_id) q = q.eq('client_id', body.client_id);
@@ -287,8 +352,7 @@ Deno.serve(async (req: Request) => {
   const { data: connections, error: cErr } = await q;
   if (cErr) {
     return new Response(JSON.stringify({ error: cErr.message }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' },
+      status: 500, headers: { 'content-type': 'application/json' },
     });
   }
 
@@ -302,7 +366,5 @@ Deno.serve(async (req: Request) => {
     ok: true,
     connections_processed: results.length,
     results,
-  }), {
-    headers: { 'content-type': 'application/json' },
-  });
+  }), { headers: { 'content-type': 'application/json' } });
 });
