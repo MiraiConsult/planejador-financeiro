@@ -217,6 +217,17 @@ async function syncOneConnection(
 
   const isCreditCard = (conn.account_type ?? '').toLowerCase() === 'credit_card';
 
+  // Mapa prefixo (2 díg do categoryId) → categoria_id local pra categorização automática
+  const { data: cats } = await supabase
+    .from('controle_mensal_categorias')
+    .select('id, external_match_prefix')
+    .eq('client_id', conn.client_id)
+    .not('external_match_prefix', 'is', null);
+  const prefixToCat = new Map<string, string>();
+  for (const c of cats ?? []) {
+    if (c.external_match_prefix) prefixToCat.set(c.external_match_prefix as string, c.id as string);
+  }
+
   let txs: MCPTransaction[] = [];
   try {
     txs = await fetchAllTransactions(apiKey, baseUrl, conn.external_account_id, fromIso);
@@ -242,6 +253,9 @@ async function syncOneConnection(
     const { valor, eh_receita, eh_pagamento_fatura } = normalizarValor(
       tx.amount, tx.type, isCreditCard, tx.categoryId,
     );
+    // Categorização automática por prefixo do categoryId (fallback '99' = Outros)
+    const prefix = (tx.categoryId ?? '').slice(0, 2);
+    const categoria_id = prefixToCat.get(prefix) ?? prefixToCat.get('99') ?? null;
     return {
       client_id: conn.client_id,
       bank_connection_id: conn.id,
@@ -252,6 +266,7 @@ async function syncOneConnection(
       valor,
       categoria: tx.category ?? null,
       categoria_externa_id: tx.categoryId ?? null,
+      categoria_id,
       subcategoria: null,
       mes: comp.mes,
       mes_num: comp.mes_num,
@@ -265,6 +280,7 @@ async function syncOneConnection(
       payment_method: tx.paymentData?.paymentMethod ?? null,
       counterparty: tx.paymentData?.payer ?? tx.paymentData?.receiver ?? null,
       centro_id: null,
+      revisado: false, // entra na fila de revisão — consultor valida antes de contar
       hash: hashTx(conn.id, tx),
     };
   });
@@ -273,26 +289,61 @@ async function syncOneConnection(
   let skipped = 0;
 
   if (rows.length > 0) {
-    // onConflict no índice único (bank_connection_id, external_id):
-    // se já existe, atualiza (importante pra PENDING → POSTED + valor/data corrigidos)
-    const { data: ups, error } = await supabase
-      .from('controle_mensal_lancamentos')
-      .upsert(rows, { onConflict: 'bank_connection_id,external_id' })
-      .select('id');
-    if (error) {
-      await supabase.from('bank_sync_log').update({
-        finished_at: new Date().toISOString(),
-        status: 'partial',
-        transactions_fetched: txs.length,
-        error_message: error.message,
-      }).eq('id', logId);
-      return {
-        connection_id: conn.id, account_id: conn.external_account_id, institution_name: conn.institution_name,
-        fetched: txs.length, inserted: 0, skipped: txs.length, status: 'error', error: error.message,
-      };
+    // Descobre quais external_ids já existem pra não sobrescrever o que o
+    // consultor já revisou (categoria_id / centro_id / revisado).
+    const externalIds = rows.map((r) => r.external_id);
+    const existentesSet = new Set<string>();
+    // chunk no .in() pra evitar URL gigante
+    for (let i = 0; i < externalIds.length; i += 300) {
+      const chunk = externalIds.slice(i, i + 300);
+      const { data: ex } = await supabase
+        .from('controle_mensal_lancamentos')
+        .select('external_id')
+        .eq('bank_connection_id', conn.id)
+        .in('external_id', chunk);
+      for (const e of ex ?? []) existentesSet.add(e.external_id as string);
     }
-    inserted = ups?.length ?? 0;
-    skipped = rows.length - inserted;
+
+    const novos = rows.filter((r) => !existentesSet.has(r.external_id));
+    const existentes = rows.filter((r) => existentesSet.has(r.external_id));
+
+    // Insere os novos (entram revisado=false com categoria sugerida)
+    if (novos.length > 0) {
+      const { data: ins, error } = await supabase
+        .from('controle_mensal_lancamentos')
+        .insert(novos)
+        .select('id');
+      if (error) {
+        await supabase.from('bank_sync_log').update({
+          finished_at: new Date().toISOString(),
+          status: 'partial',
+          transactions_fetched: txs.length,
+          error_message: error.message,
+        }).eq('id', logId);
+        return {
+          connection_id: conn.id, account_id: conn.external_account_id, institution_name: conn.institution_name,
+          fetched: txs.length, inserted: 0, skipped: txs.length, status: 'error', error: error.message,
+        };
+      }
+      inserted = ins?.length ?? 0;
+    }
+
+    // Atualiza só campos do provedor nos já existentes (preserva revisão/categoria/centro)
+    for (const r of existentes) {
+      await supabase
+        .from('controle_mensal_lancamentos')
+        .update({
+          valor: r.valor,
+          data: r.data,
+          descricao: r.descricao,
+          status_transacao: r.status_transacao,
+          eh_pagamento_fatura: r.eh_pagamento_fatura,
+          mes: r.mes, mes_num: r.mes_num, ano: r.ano, competencia: r.competencia,
+        })
+        .eq('bank_connection_id', conn.id)
+        .eq('external_id', r.external_id);
+    }
+    skipped = existentes.length;
   }
 
   await supabase.from('bank_connections').update({

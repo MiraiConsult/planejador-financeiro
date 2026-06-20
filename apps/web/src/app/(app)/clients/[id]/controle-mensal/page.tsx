@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Building2, SlidersHorizontal, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, ClipboardCheck, SlidersHorizontal, Wallet } from 'lucide-react';
 import { simulate } from '@planejador/engine';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
@@ -89,12 +89,20 @@ export default async function ControleMensalPage({ params }: { params: Params })
     }
   }
 
-  // Re-query depois do backfill (se rodou)
+  // Re-query depois do backfill (só REVISADOS alimentam as views/números).
   const { data: rowsRaw2 } = await supabase
     .from('controle_mensal_lancamentos')
     .select(COLS)
-    .eq('client_id', id);
+    .eq('client_id', id)
+    .eq('revisado', true);
   const rows = (rowsRaw2 ?? []) as unknown as Lancamento[];
+
+  // Conta lançamentos aguardando revisão (importados de banco, ainda não validados)
+  const { count: pendentesRevisao } = await supabase
+    .from('controle_mensal_lancamentos')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', id)
+    .eq('revisado', false);
 
   const centros = await listarCentros(id);
 
@@ -135,6 +143,29 @@ export default async function ControleMensalPage({ params }: { params: Params })
         title={`Realizado — ${client.nome_completo}`}
         description="Lançamentos reais (receitas e gastos) importados mês a mês. Fonte: planilha de Lançamentos. O tipo Mirai nunca entra nos gastos pessoais; viagens ficam à parte."
       />
+
+      {(pendentesRevisao ?? 0) > 0 && (
+        <Link
+          href={`/clients/${id}/controle-mensal/revisao`}
+          className="block rounded-2xl border-2 border-amber-300 bg-amber-50/60 hover:bg-amber-50 transition-colors p-5 flex items-center gap-4 group"
+        >
+          <div className="h-11 w-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+            <ClipboardCheck size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">
+              {pendentesRevisao} lançamento{pendentesRevisao === 1 ? '' : 's'} aguardando revisão
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Importados dos bancos. Confira a categorização e aprove pra entrarem nos números.
+            </p>
+          </div>
+          <span className="text-sm font-medium text-amber-700 flex items-center gap-1 shrink-0">
+            Revisar agora
+            <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+          </span>
+        </Link>
+      )}
 
       {!client.tem_balanco_patrimonial && (
         <form action={ativarBalancoPatrimonial}>

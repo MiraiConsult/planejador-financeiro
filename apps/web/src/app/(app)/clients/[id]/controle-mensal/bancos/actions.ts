@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { TAXONOMIA_MACRO } from '@/lib/controle-mensal/taxonomia';
 
 export interface DiscoveredAccount {
   external_account_id: string;
@@ -158,6 +159,44 @@ export async function pausarConexao(args: {
   return { ok: true };
 }
 
+/**
+ * Garante que o cliente tenha a taxonomia macro de categorias (idempotente).
+ * Cada categoria carrega o external_match_prefix pra mapeamento automático
+ * no sync. Só cria as que faltam (casa por prefixo).
+ */
+export async function semearCategoriasPadrao(client_id: string): Promise<{ ok: boolean; error?: string; criadas?: number }> {
+  const g = await checkOwner(client_id);
+  if (!g.ok) return g;
+
+  const { data: existentes } = await g.supabase
+    .from('controle_mensal_categorias')
+    .select('external_match_prefix')
+    .eq('client_id', client_id)
+    .not('external_match_prefix', 'is', null);
+  const jaTem = new Set((existentes ?? []).map((c) => c.external_match_prefix));
+
+  const faltantes = TAXONOMIA_MACRO.filter((c) => !jaTem.has(c.prefix));
+  if (faltantes.length === 0) return { ok: true, criadas: 0 };
+
+  const rows = faltantes.map((c, i) => ({
+    client_id,
+    nome: c.nome,
+    tipo: c.tipo,
+    cor: c.cor,
+    icone: c.icone,
+    external_match_prefix: c.prefix,
+    ordem: 100 + i, // depois das categorias manuais do consultor
+  }));
+
+  const { error, count } = await g.supabase
+    .from('controle_mensal_categorias')
+    .insert(rows, { count: 'exact' });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/clients/${client_id}/controle-mensal`);
+  return { ok: true, criadas: count ?? rows.length };
+}
+
 export async function sincronizarAgora(args: {
   client_id: string;
   bank_connection_id?: string;
@@ -168,6 +207,10 @@ export async function sincronizarAgora(args: {
 }> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;
+
+  // Garante taxonomia de categorias antes de sincronizar (mapeamento automático)
+  await semearCategoriasPadrao(args.client_id);
+
   const res = await callEdgeFunction<{ ok: boolean; results: Array<{ connection_id: string; institution_name: string | null; fetched: number; inserted: number; status: string; error?: string }> }>(
     g.supabase,
     'sync-bank-transactions',
