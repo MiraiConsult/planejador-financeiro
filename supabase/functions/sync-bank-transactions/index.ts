@@ -281,6 +281,13 @@ async function syncOneConnection(
     if (c.external_match_prefix) prefixToCat.set(c.external_match_prefix as string, c.id as string);
   }
 
+  // Mapa external_id → nome PT da rubrica (subcategoria detalhada)
+  const { data: refs } = await supabase
+    .from('cm_provider_categories')
+    .select('external_id, nome_pt');
+  const extIdToRubrica = new Map<string, string>();
+  for (const r of refs ?? []) extIdToRubrica.set(r.external_id as string, r.nome_pt as string);
+
   let txs: MCPTransaction[] = [];
   try {
     txs = await fetchAllTransactions(apiKey, baseUrl, conn.external_account_id, fromIso);
@@ -309,6 +316,7 @@ async function syncOneConnection(
     // Categorização automática por prefixo do categoryId (fallback '99' = Outros)
     const prefix = (tx.categoryId ?? '').slice(0, 2);
     const categoria_id = prefixToCat.get(prefix) ?? prefixToCat.get('99') ?? null;
+    const rubrica = tx.categoryId ? extIdToRubrica.get(tx.categoryId) ?? null : null;
     return {
       client_id: conn.client_id,
       bank_connection_id: conn.id,
@@ -320,7 +328,7 @@ async function syncOneConnection(
       categoria: tx.category ?? null,
       categoria_externa_id: tx.categoryId ?? null,
       categoria_id,
-      subcategoria: null,
+      subcategoria: rubrica,
       mes: comp.mes,
       mes_num: comp.mes_num,
       ano: comp.ano,

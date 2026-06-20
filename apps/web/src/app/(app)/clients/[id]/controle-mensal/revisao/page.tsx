@@ -25,7 +25,7 @@ export default async function RevisaoPage({ params }: { params: Params }) {
   const [{ data: rows }, { data: cats }, { data: centros }] = await Promise.all([
     supabase
       .from('controle_mensal_lancamentos')
-      .select('id, data, descricao, valor, categoria, categoria_id, centro_id, eh_receita, eh_pagamento_fatura, status_transacao, origem_externa, merchant')
+      .select('id, data, descricao, valor, categoria, categoria_id, subcategoria, centro_id, eh_receita, eh_pagamento_fatura, status_transacao, origem_externa, merchant')
       .eq('client_id', id)
       .eq('revisado', false)
       .order('data', { ascending: false })

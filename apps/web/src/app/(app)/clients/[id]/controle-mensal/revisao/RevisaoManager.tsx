@@ -26,6 +26,7 @@ export interface RevisaoRow {
   valor: number;
   categoria: string | null;        // texto cru do provedor
   categoria_id: string | null;     // categoria local sugerida
+  subcategoria: string | null;     // rubrica (detalhe traduzido)
   centro_id: string | null;
   eh_receita: boolean | null;
   eh_pagamento_fatura: boolean;
@@ -210,10 +211,11 @@ export function RevisaoManager({
           <thead className="bg-slate-50">
             <tr>
               <th className="w-8 px-2 py-2"></th>
-              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Data</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Dia</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Banco</th>
               <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Descrição</th>
-              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Categoria sugerida</th>
-              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Centro</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Categoria</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Rubrica</th>
               <th className="text-right px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Valor</th>
               <th className="w-16 px-2 py-2"></th>
             </tr>
@@ -230,7 +232,10 @@ export function RevisaoManager({
                   <td className="px-2 py-1.5 text-slate-600 tabular-nums whitespace-nowrap">
                     {fmtData(r.data)}
                   </td>
-                  <td className="px-2 py-1.5 max-w-[260px]">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    <span className="text-xs text-slate-600">{r.origem_externa ?? '—'}</span>
+                  </td>
+                  <td className="px-2 py-1.5 max-w-[240px]">
                     <div className="flex items-center gap-1.5">
                       {r.eh_pagamento_fatura ? (
                         <CreditCard size={12} className="text-slate-400 shrink-0" />
@@ -243,22 +248,22 @@ export function RevisaoManager({
                         {r.descricao}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
-                      {r.origem_externa && <span>{r.origem_externa}</span>}
-                      {r.categoria && <span>· {r.categoria}</span>}
-                      {r.status_transacao === 'pending' && (
-                        <span className="text-amber-600 font-medium">· pendente na fatura</span>
-                      )}
-                      {r.eh_pagamento_fatura && (
-                        <span className="text-slate-400 font-medium">· pgto fatura (não conta)</span>
-                      )}
-                    </div>
+                    {(r.status_transacao === 'pending' || r.eh_pagamento_fatura) && (
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                        {r.status_transacao === 'pending' && (
+                          <span className="text-amber-600 font-medium">pendente na fatura</span>
+                        )}
+                        {r.eh_pagamento_fatura && (
+                          <span className="text-slate-400 font-medium">pgto fatura (não conta)</span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-2 py-1.5">
                     <select
                       value={r.categoria_id ?? ''}
                       onChange={(e) => mudarCategoria(r.id, e.target.value || null)}
-                      className="text-xs rounded-md border border-slate-200 bg-white px-2 py-1 max-w-[160px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+                      className="text-xs rounded-md border border-slate-200 bg-white px-2 py-1 max-w-[150px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
                       style={cat ? { borderLeftColor: cat.cor, borderLeftWidth: 3 } : undefined}
                     >
                       <option value="">— sem categoria —</option>
@@ -268,16 +273,7 @@ export function RevisaoManager({
                     </select>
                   </td>
                   <td className="px-2 py-1.5">
-                    <select
-                      value={r.centro_id ?? ''}
-                      onChange={(e) => mudarCentro(r.id, e.target.value || null)}
-                      className="text-xs rounded-md border border-slate-200 bg-white px-2 py-1 max-w-[130px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
-                    >
-                      <option value="">—</option>
-                      {centros.map((c) => (
-                        <option key={c.id} value={c.id}>{c.nome}</option>
-                      ))}
-                    </select>
+                    <span className="text-xs text-slate-600">{r.subcategoria ?? '—'}</span>
                   </td>
                   <td className={`px-2 py-1.5 text-right tabular-nums font-medium whitespace-nowrap ${
                     r.eh_pagamento_fatura ? 'text-slate-400' : r.eh_receita ? 'text-emerald-700' : 'text-red-600'
