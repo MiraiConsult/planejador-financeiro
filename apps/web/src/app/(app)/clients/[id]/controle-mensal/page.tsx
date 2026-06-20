@@ -128,10 +128,10 @@ export default async function ControleMensalPage({ params }: { params: Params })
               Bancos
             </Button>
           </Link>
-          <Link href={`/clients/${id}/controle-mensal/centros`}>
+          <Link href={`/clients/${id}/controle-mensal/dados-cadastrais`}>
             <Button variant="ghost" size="sm">
               <SlidersHorizontal size={14} />
-              Centros
+              Dados Cadastrais
             </Button>
           </Link>
           <NovoLancamentoButton clientId={id} sugestoes={sugestoes} centros={centros} />

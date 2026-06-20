@@ -112,7 +112,7 @@ export function WizardCentros({ clientId }: { clientId: string }) {
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-800">
           <Link
-            href={`/clients/${clientId}/controle-mensal/centros`}
+            href={`/clients/${clientId}/controle-mensal/dados-cadastrais?tab=centros`}
             className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 inline-flex items-center gap-1"
           >
             Prefiro criar do zero
