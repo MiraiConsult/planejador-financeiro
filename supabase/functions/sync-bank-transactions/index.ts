@@ -102,27 +102,76 @@ const TAXONOMIA: Array<{ prefix: string; nome: string; tipo: string; cor: string
   { prefix: '99', nome: 'Outros', tipo: 'ambos', cor: '#a8a29e', icone: 'Tag' },
 ];
 
-/** Garante que o cliente tenha as categorias macro (idempotente por prefixo). */
-async function ensureCategorias(supabase: SupabaseClient, clientId: string): Promise<void> {
-  const { data: existentes } = await supabase
+const MACRO_ROOT_IDS = new Set([
+  '01000000','02000000','03000000','04000000','05000000','06000000','07000000','08000000',
+  '09000000','10000000','11000000','12000000','13000000','14000000','15000000','16000000',
+  '17000000','18000000','19000000','20000000','21000000','99999999',
+]);
+
+/**
+ * Garante categorias macro (por prefixo) E rubricas (filhas, por external_match_id).
+ * Idempotente. Retorna os mapas pra mapeamento no sync.
+ */
+async function ensureCategorias(supabase: SupabaseClient, clientId: string): Promise<{
+  prefixToMacro: Map<string, string>;
+  extIdToRubrica: Map<string, string>;
+}> {
+  // 1. Macros
+  const { data: existMacros } = await supabase
     .from('controle_mensal_categorias')
-    .select('external_match_prefix')
+    .select('id, external_match_prefix')
     .eq('client_id', clientId)
+    .is('parent_id', null)
     .not('external_match_prefix', 'is', null);
-  const jaTem = new Set((existentes ?? []).map((c) => c.external_match_prefix as string));
-  const faltam = TAXONOMIA.filter((t) => !jaTem.has(t.prefix));
-  if (faltam.length === 0) return;
-  await supabase.from('controle_mensal_categorias').insert(
-    faltam.map((t, i) => ({
-      client_id: clientId,
-      nome: t.nome,
-      tipo: t.tipo,
-      cor: t.cor,
-      icone: t.icone,
-      external_match_prefix: t.prefix,
-      ordem: 100 + i,
-    })),
+  const prefixToMacro = new Map<string, string>();
+  for (const c of existMacros ?? []) prefixToMacro.set(c.external_match_prefix as string, c.id as string);
+
+  const faltamMacro = TAXONOMIA.filter((t) => !prefixToMacro.has(t.prefix));
+  if (faltamMacro.length > 0) {
+    const { data: novos } = await supabase.from('controle_mensal_categorias').insert(
+      faltamMacro.map((t, i) => ({
+        client_id: clientId, nome: t.nome, tipo: t.tipo, cor: t.cor, icone: t.icone,
+        external_match_prefix: t.prefix, ordem: 100 + i,
+      })),
+    ).select('id, external_match_prefix');
+    for (const c of novos ?? []) prefixToMacro.set(c.external_match_prefix as string, c.id as string);
+  }
+
+  // 2. Rubricas (filhas) a partir da taxonomia do provedor
+  const { data: refs } = await supabase
+    .from('cm_provider_categories')
+    .select('external_id, nome_pt, prefix');
+  const { data: existRubricas } = await supabase
+    .from('controle_mensal_categorias')
+    .select('id, external_match_id')
+    .eq('client_id', clientId)
+    .not('external_match_id', 'is', null);
+  const extIdToRubrica = new Map<string, string>();
+  for (const c of existRubricas ?? []) extIdToRubrica.set(c.external_match_id as string, c.id as string);
+
+  const faltamRub = (refs ?? []).filter(
+    (r) => !MACRO_ROOT_IDS.has(r.external_id as string)
+      && prefixToMacro.has(r.prefix as string)
+      && !extIdToRubrica.has(r.external_id as string),
   );
+  if (faltamRub.length > 0) {
+    const { data: novas } = await supabase.from('controle_mensal_categorias').insert(
+      faltamRub.map((r) => ({
+        client_id: clientId,
+        parent_id: prefixToMacro.get(r.prefix as string)!,
+        nome: r.nome_pt as string,
+        tipo: 'gasto',
+        cor: '#94a3b8',
+        icone: 'Tag',
+        external_match_id: r.external_id as string,
+        external_match_prefix: r.prefix as string,
+        ordem: 50,
+      })),
+    ).select('id, external_match_id');
+    for (const c of novas ?? []) extIdToRubrica.set(c.external_match_id as string, c.id as string);
+  }
+
+  return { prefixToMacro, extIdToRubrica };
 }
 
 function competenciaFromDate(iso: string): { mes: string; mes_num: number; ano: number; competencia: number; data: string } {
@@ -267,26 +316,15 @@ async function syncOneConnection(
 
   const isCreditCard = (conn.account_type ?? '').toLowerCase() === 'credit_card';
 
-  // Garante as categorias macro antes de mapear (auto-seed, independe do app)
-  await ensureCategorias(supabase, conn.client_id);
+  // Garante categorias macro + rubricas e devolve os mapas de match (auto-seed)
+  const { prefixToMacro, extIdToRubrica } = await ensureCategorias(supabase, conn.client_id);
 
-  // Mapa prefixo (2 díg do categoryId) → categoria_id local pra categorização automática
-  const { data: cats } = await supabase
-    .from('controle_mensal_categorias')
-    .select('id, external_match_prefix')
-    .eq('client_id', conn.client_id)
-    .not('external_match_prefix', 'is', null);
-  const prefixToCat = new Map<string, string>();
-  for (const c of cats ?? []) {
-    if (c.external_match_prefix) prefixToCat.set(c.external_match_prefix as string, c.id as string);
-  }
-
-  // Mapa external_id → nome PT da rubrica (subcategoria detalhada)
-  const { data: refs } = await supabase
+  // Mapa external_id → nome PT (rubrica como texto display em subcategoria)
+  const { data: refsNome } = await supabase
     .from('cm_provider_categories')
     .select('external_id, nome_pt');
-  const extIdToRubrica = new Map<string, string>();
-  for (const r of refs ?? []) extIdToRubrica.set(r.external_id as string, r.nome_pt as string);
+  const extIdToNome = new Map<string, string>();
+  for (const r of refsNome ?? []) extIdToNome.set(r.external_id as string, r.nome_pt as string);
 
   let txs: MCPTransaction[] = [];
   try {
@@ -313,10 +351,11 @@ async function syncOneConnection(
     const { valor, eh_receita, eh_pagamento_fatura } = normalizarValor(
       tx.amount, tx.type, isCreditCard, tx.categoryId,
     );
-    // Categorização automática por prefixo do categoryId (fallback '99' = Outros)
+    // Categorização automática: categoria (macro) pelo prefixo, rubrica (folha) pelo id exato
     const prefix = (tx.categoryId ?? '').slice(0, 2);
-    const categoria_id = prefixToCat.get(prefix) ?? prefixToCat.get('99') ?? null;
-    const rubrica = tx.categoryId ? extIdToRubrica.get(tx.categoryId) ?? null : null;
+    const categoria_id = prefixToMacro.get(prefix) ?? prefixToMacro.get('99') ?? null;
+    const rubrica_id = tx.categoryId ? extIdToRubrica.get(tx.categoryId) ?? null : null;
+    const rubricaNome = tx.categoryId ? extIdToNome.get(tx.categoryId) ?? null : null;
     return {
       client_id: conn.client_id,
       bank_connection_id: conn.id,
@@ -328,7 +367,8 @@ async function syncOneConnection(
       categoria: tx.category ?? null,
       categoria_externa_id: tx.categoryId ?? null,
       categoria_id,
-      subcategoria: rubrica,
+      rubrica_id,
+      subcategoria: rubricaNome,
       mes: comp.mes,
       mes_num: comp.mes_num,
       ano: comp.ano,
@@ -389,21 +429,8 @@ async function syncOneConnection(
       inserted = ins?.length ?? 0;
     }
 
-    // Atualiza só campos do provedor nos já existentes (preserva revisão/categoria/centro)
-    for (const r of existentes) {
-      await supabase
-        .from('controle_mensal_lancamentos')
-        .update({
-          valor: r.valor,
-          data: r.data,
-          descricao: r.descricao,
-          status_transacao: r.status_transacao,
-          eh_pagamento_fatura: r.eh_pagamento_fatura,
-          mes: r.mes, mes_num: r.mes_num, ano: r.ano, competencia: r.competencia,
-        })
-        .eq('bank_connection_id', conn.id)
-        .eq('external_id', r.external_id);
-    }
+    // Já existentes são IGNORADOS — não recadastra nem altera o que já está no
+    // sistema (preserva categoria/rubrica/revisão que o consultor ajustou).
     skipped = existentes.length;
   }
 

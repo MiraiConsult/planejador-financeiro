@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/PageHeader';
-import { RevisaoManager, type RevisaoRow, type CategoriaOpt, type CentroOpt } from './RevisaoManager';
+import { RevisaoManager, type RevisaoRow, type CategoriaNode } from './RevisaoManager';
 
 type Params = Promise<{ id: string }>;
 
@@ -22,26 +22,20 @@ export default async function RevisaoPage({ params }: { params: Params }) {
   if (!client) notFound();
   if (!client.tem_controle_mensal) redirect(`/clients/${id}`);
 
-  const [{ data: rows }, { data: cats }, { data: centros }] = await Promise.all([
+  const [{ data: rows }, { data: cats }] = await Promise.all([
     supabase
       .from('controle_mensal_lancamentos')
-      .select('id, data, descricao, valor, categoria, categoria_id, subcategoria, centro_id, eh_receita, eh_pagamento_fatura, status_transacao, origem_externa, merchant')
+      .select('id, data, descricao, valor, categoria_id, rubrica_id, eh_receita, eh_pagamento_fatura, status_transacao, origem_externa')
       .eq('client_id', id)
       .eq('revisado', false)
       .order('data', { ascending: false })
       .limit(1000),
     supabase
       .from('controle_mensal_categorias')
-      .select('id, nome, tipo, cor')
+      .select('id, nome, tipo, cor, parent_id')
       .eq('client_id', id)
       .eq('ativo', true)
-      .order('ordem', { ascending: true }),
-    supabase
-      .from('controle_mensal_centros')
-      .select('id, nome')
-      .eq('client_id', id)
-      .eq('ativo', true)
-      .order('ordem', { ascending: true }),
+      .order('nome', { ascending: true }),
   ]);
 
   return (
@@ -64,8 +58,7 @@ export default async function RevisaoPage({ params }: { params: Params }) {
       <RevisaoManager
         clientId={id}
         rows={(rows ?? []) as RevisaoRow[]}
-        categorias={(cats ?? []) as CategoriaOpt[]}
-        centros={(centros ?? []) as CentroOpt[]}
+        categorias={(cats ?? []) as CategoriaNode[]}
       />
     </div>
   );

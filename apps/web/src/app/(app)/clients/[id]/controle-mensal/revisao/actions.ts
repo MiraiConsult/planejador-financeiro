@@ -12,11 +12,12 @@ async function checkOwner(client_id: string) {
   return { ok: true as const, supabase };
 }
 
-/** Atualiza categoria e/ou centro de um lançamento em revisão. */
+/** Atualiza categoria, rubrica e/ou centro de um lançamento em revisão. */
 export async function ajustarLancamento(args: {
   client_id: string;
   id: string;
   categoria_id?: string | null;
+  rubrica_id?: string | null;
   centro_id?: string | null;
   eh_pagamento_fatura?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
@@ -24,6 +25,7 @@ export async function ajustarLancamento(args: {
   if (!g.ok) return g;
   const patch: Record<string, unknown> = {};
   if (args.categoria_id !== undefined) patch.categoria_id = args.categoria_id;
+  if (args.rubrica_id !== undefined) patch.rubrica_id = args.rubrica_id;
   if (args.centro_id !== undefined) patch.centro_id = args.centro_id;
   if (args.eh_pagamento_fatura !== undefined) patch.eh_pagamento_fatura = args.eh_pagamento_fatura;
   if (Object.keys(patch).length === 0) return { ok: true };
@@ -35,6 +37,61 @@ export async function ajustarLancamento(args: {
     .eq('client_id', args.client_id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+/** Cria uma categoria macro (parent null) e retorna. */
+export async function criarCategoria(args: {
+  client_id: string;
+  nome: string;
+  tipo?: 'receita' | 'gasto' | 'ambos';
+}): Promise<{ ok: boolean; error?: string; categoria?: { id: string; nome: string; tipo: string; cor: string; parent_id: null } }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  const nome = args.nome.trim();
+  if (!nome) return { ok: false, error: 'Nome vazio' };
+  const { data, error } = await g.supabase
+    .from('controle_mensal_categorias')
+    .insert({
+      client_id: args.client_id,
+      parent_id: null,
+      nome,
+      tipo: args.tipo ?? 'gasto',
+      cor: '#64748b',
+      icone: 'Tag',
+      ordem: 50,
+    })
+    .select('id, nome, tipo, cor')
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? 'falha' };
+  return { ok: true, categoria: { ...data, parent_id: null } };
+}
+
+/** Cria uma rubrica (filha de uma categoria macro) e retorna. */
+export async function criarRubrica(args: {
+  client_id: string;
+  parent_id: string;
+  nome: string;
+}): Promise<{ ok: boolean; error?: string; rubrica?: { id: string; nome: string; tipo: string; cor: string; parent_id: string } }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  const nome = args.nome.trim();
+  if (!nome) return { ok: false, error: 'Nome vazio' };
+  if (!args.parent_id) return { ok: false, error: 'Selecione a categoria primeiro' };
+  const { data, error } = await g.supabase
+    .from('controle_mensal_categorias')
+    .insert({
+      client_id: args.client_id,
+      parent_id: args.parent_id,
+      nome,
+      tipo: 'gasto',
+      cor: '#94a3b8',
+      icone: 'Tag',
+      ordem: 50,
+    })
+    .select('id, nome, tipo, cor, parent_id')
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? 'falha' };
+  return { ok: true, rubrica: data };
 }
 
 /** Aprova lançamentos (revisado = true). Lista de ids ou todos pendentes. */
