@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, SlidersHorizontal, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, SlidersHorizontal, Wallet } from 'lucide-react';
 import { simulate } from '@planejador/engine';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
@@ -114,6 +114,12 @@ export default async function ControleMensalPage({ params }: { params: Params })
           </Button>
         </Link>
         <div className="flex items-center gap-2">
+          <Link href={`/clients/${id}/controle-mensal/bancos`}>
+            <Button variant="ghost" size="sm">
+              <Building2 size={14} />
+              Bancos
+            </Button>
+          </Link>
           <Link href={`/clients/${id}/controle-mensal/centros`}>
             <Button variant="ghost" size="sm">
               <SlidersHorizontal size={14} />
