@@ -38,7 +38,7 @@ export interface RevisaoRow {
 export interface CategoriaNode {
   id: string;
   nome: string;
-  tipo: string;
+  tipo: 'receita' | 'despesa';
   cor: string;
   parent_id: string | null;
 }
@@ -67,8 +67,13 @@ export function RevisaoManager({
   const [pending, start] = useTransition();
 
   const macros = useMemo(() => cats.filter((c) => !c.parent_id), [cats]);
-  const macroItems: ComboItem[] = useMemo(
-    () => macros.map((m) => ({ id: m.id, nome: m.nome })),
+  // Macros filtradas por tipo (despesa pra gasto, receita pra entrada)
+  const macrosDespesa: ComboItem[] = useMemo(
+    () => macros.filter((m) => m.tipo === 'despesa').map((m) => ({ id: m.id, nome: m.nome })),
+    [macros],
+  );
+  const macrosReceita: ComboItem[] = useMemo(
+    () => macros.filter((m) => m.tipo === 'receita').map((m) => ({ id: m.id, nome: m.nome })),
     [macros],
   );
   const rubricasByParent = useMemo(() => {
@@ -115,14 +120,21 @@ export function RevisaoManager({
     void ajustarLancamento({ client_id: clientId, id: rowId, rubrica_id });
   }
 
-  async function novaCategoria(nome: string): Promise<ComboItem | null> {
-    const res = await criarCategoria({ client_id: clientId, nome });
+  async function novaCategoria(tipo: 'receita' | 'despesa', nome: string): Promise<ComboItem | null> {
+    const res = await criarCategoria({ client_id: clientId, nome, tipo });
     if (!res.ok || !res.categoria) {
       toast.error(res.error ?? 'Falha ao criar categoria');
       return null;
     }
-    setCats((c) => [...c, res.categoria!]);
-    return { id: res.categoria.id, nome: res.categoria.nome };
+    const nova: CategoriaNode = {
+      id: res.categoria.id,
+      nome: res.categoria.nome,
+      tipo,
+      cor: res.categoria.cor,
+      parent_id: null,
+    };
+    setCats((c) => [...c, nova]);
+    return { id: nova.id, nome: nova.nome };
   }
   async function novaRubrica(parentId: string, nome: string): Promise<ComboItem | null> {
     const res = await criarRubrica({ client_id: clientId, parent_id: parentId, nome });
@@ -130,8 +142,16 @@ export function RevisaoManager({
       toast.error(res.error ?? 'Falha ao criar rubrica');
       return null;
     }
-    setCats((c) => [...c, res.rubrica!]);
-    return { id: res.rubrica.id, nome: res.rubrica.nome };
+    const parent = cats.find((c) => c.id === parentId);
+    const nova: CategoriaNode = {
+      id: res.rubrica.id,
+      nome: res.rubrica.nome,
+      tipo: (parent?.tipo as 'receita' | 'despesa') ?? 'despesa',
+      cor: res.rubrica.cor,
+      parent_id: parentId,
+    };
+    setCats((c) => [...c, nova]);
+    return { id: nova.id, nome: nova.nome };
   }
 
   function aprovar(ids: string[]) {
@@ -257,12 +277,12 @@ export function RevisaoManager({
                   <td className="px-2 py-1.5 align-top">
                     <ComboboxCreate
                       value={r.categoria_id}
-                      items={macroItems}
+                      items={r.eh_receita ? macrosReceita : macrosDespesa}
                       onSelect={(id) => setCategoria(r.id, id)}
-                      onCreate={novaCategoria}
-                      placeholder="Categoria…"
+                      onCreate={(nome) => novaCategoria(r.eh_receita ? 'receita' : 'despesa', nome)}
+                      placeholder={r.eh_receita ? 'Categoria (receita)…' : 'Categoria (despesa)…'}
                       accent={macro?.cor}
-                      createLabel={(q) => `Criar categoria "${q}"`}
+                      createLabel={(q) => `Criar ${r.eh_receita ? 'receita' : 'despesa'} "${q}"`}
                     />
                   </td>
                   <td className="px-2 py-1.5 align-top">

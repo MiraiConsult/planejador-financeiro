@@ -109,14 +109,14 @@ const MACRO_ROOT_IDS = new Set([
 ]);
 
 /**
- * Garante categorias macro (por prefixo) E rubricas (filhas, por external_match_id).
- * Idempotente. Retorna os mapas pra mapeamento no sync.
+ * Carrega o plano de contas do cliente. NÃO cria nada — o plano é
+ * gerenciado pelo consultor. Mapeia externalId/prefix do provedor pras
+ * categorias/rubricas locais existentes (pra sugerir, não pra impor).
  */
-async function ensureCategorias(supabase: SupabaseClient, clientId: string): Promise<{
+async function carregarPlanoDeContas(supabase: SupabaseClient, clientId: string): Promise<{
   prefixToMacro: Map<string, string>;
   extIdToRubrica: Map<string, string>;
 }> {
-  // 1. Macros
   const { data: existMacros } = await supabase
     .from('controle_mensal_categorias')
     .select('id, external_match_prefix')
@@ -126,21 +126,6 @@ async function ensureCategorias(supabase: SupabaseClient, clientId: string): Pro
   const prefixToMacro = new Map<string, string>();
   for (const c of existMacros ?? []) prefixToMacro.set(c.external_match_prefix as string, c.id as string);
 
-  const faltamMacro = TAXONOMIA.filter((t) => !prefixToMacro.has(t.prefix));
-  if (faltamMacro.length > 0) {
-    const { data: novos } = await supabase.from('controle_mensal_categorias').insert(
-      faltamMacro.map((t, i) => ({
-        client_id: clientId, nome: t.nome, tipo: t.tipo, cor: t.cor, icone: t.icone,
-        external_match_prefix: t.prefix, ordem: 100 + i,
-      })),
-    ).select('id, external_match_prefix');
-    for (const c of novos ?? []) prefixToMacro.set(c.external_match_prefix as string, c.id as string);
-  }
-
-  // 2. Rubricas (filhas) a partir da taxonomia do provedor
-  const { data: refs } = await supabase
-    .from('cm_provider_categories')
-    .select('external_id, nome_pt, prefix');
   const { data: existRubricas } = await supabase
     .from('controle_mensal_categorias')
     .select('id, external_match_id')
@@ -148,28 +133,6 @@ async function ensureCategorias(supabase: SupabaseClient, clientId: string): Pro
     .not('external_match_id', 'is', null);
   const extIdToRubrica = new Map<string, string>();
   for (const c of existRubricas ?? []) extIdToRubrica.set(c.external_match_id as string, c.id as string);
-
-  const faltamRub = (refs ?? []).filter(
-    (r) => !MACRO_ROOT_IDS.has(r.external_id as string)
-      && prefixToMacro.has(r.prefix as string)
-      && !extIdToRubrica.has(r.external_id as string),
-  );
-  if (faltamRub.length > 0) {
-    const { data: novas } = await supabase.from('controle_mensal_categorias').insert(
-      faltamRub.map((r) => ({
-        client_id: clientId,
-        parent_id: prefixToMacro.get(r.prefix as string)!,
-        nome: r.nome_pt as string,
-        tipo: 'gasto',
-        cor: '#94a3b8',
-        icone: 'Tag',
-        external_match_id: r.external_id as string,
-        external_match_prefix: r.prefix as string,
-        ordem: 50,
-      })),
-    ).select('id, external_match_id');
-    for (const c of novas ?? []) extIdToRubrica.set(c.external_match_id as string, c.id as string);
-  }
 
   return { prefixToMacro, extIdToRubrica };
 }
@@ -316,15 +279,8 @@ async function syncOneConnection(
 
   const isCreditCard = (conn.account_type ?? '').toLowerCase() === 'credit_card';
 
-  // Garante categorias macro + rubricas e devolve os mapas de match (auto-seed)
-  const { prefixToMacro, extIdToRubrica } = await ensureCategorias(supabase, conn.client_id);
-
-  // Mapa external_id → nome PT (rubrica como texto display em subcategoria)
-  const { data: refsNome } = await supabase
-    .from('cm_provider_categories')
-    .select('external_id, nome_pt');
-  const extIdToNome = new Map<string, string>();
-  for (const r of refsNome ?? []) extIdToNome.set(r.external_id as string, r.nome_pt as string);
+  // Carrega o plano de contas do cliente (apenas leitura — não cria nada)
+  const { prefixToMacro, extIdToRubrica } = await carregarPlanoDeContas(supabase, conn.client_id);
 
   let txs: MCPTransaction[] = [];
   try {
@@ -351,11 +307,12 @@ async function syncOneConnection(
     const { valor, eh_receita, eh_pagamento_fatura } = normalizarValor(
       tx.amount, tx.type, isCreditCard, tx.categoryId,
     );
-    // Categorização automática: categoria (macro) pelo prefixo, rubrica (folha) pelo id exato
+    // Categorização automática: tenta casar pelo plano de contas do cliente.
+    // Se a categoria/rubrica não existe no plano dele, fica null (ele decide na revisão).
     const prefix = (tx.categoryId ?? '').slice(0, 2);
-    const categoria_id = prefixToMacro.get(prefix) ?? prefixToMacro.get('99') ?? null;
+    const categoria_id = prefixToMacro.get(prefix) ?? null;
     const rubrica_id = tx.categoryId ? extIdToRubrica.get(tx.categoryId) ?? null : null;
-    const rubricaNome = tx.categoryId ? extIdToNome.get(tx.categoryId) ?? null : null;
+    const rubricaNome: string | null = null;
     return {
       client_id: conn.client_id,
       bank_connection_id: conn.id,

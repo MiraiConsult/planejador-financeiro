@@ -43,20 +43,22 @@ export async function ajustarLancamento(args: {
 export async function criarCategoria(args: {
   client_id: string;
   nome: string;
-  tipo?: 'receita' | 'gasto' | 'ambos';
+  tipo?: 'receita' | 'despesa';
 }): Promise<{ ok: boolean; error?: string; categoria?: { id: string; nome: string; tipo: string; cor: string; parent_id: null } }> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;
   const nome = args.nome.trim();
   if (!nome) return { ok: false, error: 'Nome vazio' };
+  const tipo = args.tipo ?? 'despesa';
+  const cor = tipo === 'receita' ? '#22c55e' : '#64748b';
   const { data, error } = await g.supabase
     .from('controle_mensal_categorias')
     .insert({
       client_id: args.client_id,
       parent_id: null,
       nome,
-      tipo: args.tipo ?? 'gasto',
-      cor: '#64748b',
+      tipo,
+      cor,
       icone: 'Tag',
       ordem: 50,
     })
@@ -83,7 +85,7 @@ export async function criarRubrica(args: {
       client_id: args.client_id,
       parent_id: args.parent_id,
       nome,
-      tipo: 'gasto',
+      tipo: 'despesa',
       cor: '#94a3b8',
       icone: 'Tag',
       ordem: 50,
