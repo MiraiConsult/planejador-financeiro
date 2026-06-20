@@ -75,6 +75,56 @@ const MESES_PT = [
 ];
 const CATEGORY_ID_PAGAMENTO_FATURA = '05100000';
 
+// Taxonomia macro (espelho de apps/web/src/lib/controle-mensal/taxonomia.ts).
+// A Edge Function semeia isto automaticamente pra não depender do deploy do app.
+const TAXONOMIA: Array<{ prefix: string; nome: string; tipo: string; cor: string; icone: string }> = [
+  { prefix: '01', nome: 'Receitas', tipo: 'receita', cor: '#22c55e', icone: 'TrendingUp' },
+  { prefix: '03', nome: 'Investimentos', tipo: 'ambos', cor: '#0ea5e9', icone: 'LineChart' },
+  { prefix: '10', nome: 'Mercado', tipo: 'gasto', cor: '#16a34a', icone: 'ShoppingCart' },
+  { prefix: '11', nome: 'Alimentação', tipo: 'gasto', cor: '#f97316', icone: 'Utensils' },
+  { prefix: '17', nome: 'Moradia', tipo: 'gasto', cor: '#0284c7', icone: 'Home' },
+  { prefix: '19', nome: 'Transporte', tipo: 'gasto', cor: '#f59e0b', icone: 'Car' },
+  { prefix: '18', nome: 'Saúde', tipo: 'gasto', cor: '#ef4444', icone: 'Heart' },
+  { prefix: '07', nome: 'Serviços', tipo: 'gasto', cor: '#8b5cf6', icone: 'Wrench' },
+  { prefix: '09', nome: 'Serviços Digitais', tipo: 'gasto', cor: '#6366f1', icone: 'Monitor' },
+  { prefix: '08', nome: 'Compras', tipo: 'gasto', cor: '#ec4899', icone: 'ShoppingBag' },
+  { prefix: '21', nome: 'Lazer', tipo: 'gasto', cor: '#d946ef', icone: 'Smile' },
+  { prefix: '12', nome: 'Viagens', tipo: 'gasto', cor: '#14b8a6', icone: 'Plane' },
+  { prefix: '20', nome: 'Seguros', tipo: 'gasto', cor: '#64748b', icone: 'Shield' },
+  { prefix: '15', nome: 'Impostos', tipo: 'gasto', cor: '#475569', icone: 'Landmark' },
+  { prefix: '16', nome: 'Taxas Bancárias', tipo: 'gasto', cor: '#94a3b8', icone: 'Banknote' },
+  { prefix: '02', nome: 'Empréstimos e Financiamentos', tipo: 'gasto', cor: '#b91c1c', icone: 'CreditCard' },
+  { prefix: '06', nome: 'Obrigações Legais', tipo: 'gasto', cor: '#78716c', icone: 'Scale' },
+  { prefix: '13', nome: 'Doações', tipo: 'gasto', cor: '#06b6d4', icone: 'HandHeart' },
+  { prefix: '14', nome: 'Apostas', tipo: 'gasto', cor: '#a16207', icone: 'Dices' },
+  { prefix: '05', nome: 'Transferências', tipo: 'ambos', cor: '#6b7280', icone: 'ArrowLeftRight' },
+  { prefix: '04', nome: 'Transferências (mesma titularidade)', tipo: 'ambos', cor: '#9ca3af', icone: 'Repeat' },
+  { prefix: '99', nome: 'Outros', tipo: 'ambos', cor: '#a8a29e', icone: 'Tag' },
+];
+
+/** Garante que o cliente tenha as categorias macro (idempotente por prefixo). */
+async function ensureCategorias(supabase: SupabaseClient, clientId: string): Promise<void> {
+  const { data: existentes } = await supabase
+    .from('controle_mensal_categorias')
+    .select('external_match_prefix')
+    .eq('client_id', clientId)
+    .not('external_match_prefix', 'is', null);
+  const jaTem = new Set((existentes ?? []).map((c) => c.external_match_prefix as string));
+  const faltam = TAXONOMIA.filter((t) => !jaTem.has(t.prefix));
+  if (faltam.length === 0) return;
+  await supabase.from('controle_mensal_categorias').insert(
+    faltam.map((t, i) => ({
+      client_id: clientId,
+      nome: t.nome,
+      tipo: t.tipo,
+      cor: t.cor,
+      icone: t.icone,
+      external_match_prefix: t.prefix,
+      ordem: 100 + i,
+    })),
+  );
+}
+
 function competenciaFromDate(iso: string): { mes: string; mes_num: number; ano: number; competencia: number; data: string } {
   const d = new Date(iso);
   const ano = d.getUTCFullYear();
@@ -216,6 +266,9 @@ async function syncOneConnection(
   const fromIso = new Date(fromMs).toISOString().slice(0, 10);
 
   const isCreditCard = (conn.account_type ?? '').toLowerCase() === 'credit_card';
+
+  // Garante as categorias macro antes de mapear (auto-seed, independe do app)
+  await ensureCategorias(supabase, conn.client_id);
 
   // Mapa prefixo (2 díg do categoryId) → categoria_id local pra categorização automática
   const { data: cats } = await supabase
