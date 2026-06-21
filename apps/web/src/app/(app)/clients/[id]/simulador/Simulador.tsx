@@ -17,9 +17,21 @@ interface Ajustes {
   receitaPct: number;   // +aumenta / -reduz
   gastosPct: number;    // +aumenta / -reduz
   sonhosPct: number;    // +aumenta / -reduz
+  // IDs (asset.id, expense.categoria, event.id) excluídos do ajuste daquela
+  // categoria. Vazio = todos os itens são afetados pelo slider.
+  desReceita: string[];
+  desGastos: string[];
+  desSonhos: string[];
 }
 
-const ZERO: Ajustes = { receitaPct: 0, gastosPct: 0, sonhosPct: 0 };
+const ZERO: Ajustes = {
+  receitaPct: 0,
+  gastosPct: 0,
+  sonhosPct: 0,
+  desReceita: [],
+  desGastos: [],
+  desSonhos: [],
+};
 
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -37,16 +49,37 @@ function aplicarAjustes(base: SimulationInput, a: Ajustes): SimulationInput {
   const fReceita = 1 + a.receitaPct / 100;
   const fGastos = 1 + a.gastosPct / 100;
   const fSonhos = 1 + a.sonhosPct / 100;
+  const desReceita = new Set(a.desReceita);
+  const desGastos = new Set(a.desGastos);
+  const desSonhos = new Set(a.desSonhos);
   return {
     ...base,
     assets: base.assets.map((x) =>
-      x.natureza === 'fluxo' ? { ...x, valor: x.valor * fReceita } : x,
+      x.natureza === 'fluxo' && !desReceita.has(x.id)
+        ? { ...x, valor: x.valor * fReceita }
+        : x,
     ),
-    expenses: base.expenses.map((x) => ({ ...x, valor_mensal: x.valor_mensal * fGastos })),
+    expenses: base.expenses.map((x) =>
+      desGastos.has(x.categoria) ? x : { ...x, valor_mensal: x.valor_mensal * fGastos },
+    ),
     events: base.events.map((x) =>
-      x.tipo === 'sonho' ? { ...x, valor: x.valor * fSonhos } : x,
+      x.tipo === 'sonho' && !desSonhos.has(x.id) ? { ...x, valor: x.valor * fSonhos } : x,
     ),
   };
+}
+
+function somaAjustada(
+  itens: { id: string; valor: number }[],
+  pct: number,
+  desativados: string[],
+): number {
+  const f = 1 + pct / 100;
+  const des = new Set(desativados);
+  return itens.reduce((s, x) => s + (des.has(x.id) ? x.valor : x.valor * f), 0);
+}
+
+function toggle(arr: string[], id: string): string[] {
+  return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 }
 
 export function Simulador({ clientId, input }: Props) {
@@ -72,20 +105,31 @@ export function Simulador({ clientId, input }: Props) {
   // (aposentadoria/aluguéis) veria "R$ 0" no slider, mesmo tendo dados.
   const ativosFluxo = input.input.assets.filter((x) => x.natureza === 'fluxo');
   const receitaBase = ativosFluxo.reduce((s, x) => s + x.valor, 0);
-  const receitaNovo = receitaBase * (1 + a.receitaPct / 100);
   const composicaoReceita = ativosFluxo
-    .map((x) => ({ nome: x.nome, valor: x.valor, sub: rangeIdade(x.idade_inicio, x.idade_fim) }))
+    .map((x) => ({
+      id: x.id,
+      nome: x.nome,
+      valor: x.valor,
+      sub: rangeIdade(x.idade_inicio, x.idade_fim),
+    }))
     .sort((x, y) => y.valor - x.valor);
+  const receitaNovo = somaAjustada(composicaoReceita, a.receitaPct, a.desReceita);
 
   const gastosBase = input.input.expenses.reduce((s, x) => s + x.valor_mensal * 12, 0);
-  const gastosNovo = gastosBase * (1 + a.gastosPct / 100);
   const composicaoGastos = agruparPorCategoria(input.input.expenses).sort(
     (x, y) => y.valor - x.valor,
   );
+  const gastosNovo = somaAjustada(composicaoGastos, a.gastosPct, a.desGastos);
 
   const sonhos = input.input.events.filter((e) => e.tipo === 'sonho');
   const somaSonhosBase = sonhos.reduce((s, e) => s + Math.abs(e.valor), 0);
-  const somaSonhosNovo = somaSonhosBase * (1 + a.sonhosPct / 100);
+  const composicaoSonhos = sonhos.map((e) => ({
+    id: e.id,
+    nome: e.descricao,
+    valor: Math.abs(e.valor),
+    sub: e.idade_inicio ? `aos ${e.idade_inicio}` : undefined,
+  }));
+  const somaSonhosNovo = somaAjustada(composicaoSonhos, a.sonhosPct, a.desSonhos);
 
   const series = [
     {
@@ -162,6 +206,11 @@ export function Simulador({ clientId, input }: Props) {
                 valorNovo={receitaNovo}
                 unidade="anual cadastrada"
                 composicao={composicaoReceita}
+                desativados={a.desReceita}
+                onToggle={(id) => setA({ ...a, desReceita: toggle(a.desReceita, id) })}
+                onSelecionarTodos={(selecionar) =>
+                  setA({ ...a, desReceita: selecionar ? [] : composicaoReceita.map((x) => x.id) })
+                }
                 composicaoVazia="Nenhuma receita cadastrada."
                 onChange={(v) => setA({ ...a, receitaPct: v })}
               />
@@ -177,6 +226,11 @@ export function Simulador({ clientId, input }: Props) {
                 unidade="anual cadastrado"
                 bomEAumentar={false}
                 composicao={composicaoGastos}
+                desativados={a.desGastos}
+                onToggle={(id) => setA({ ...a, desGastos: toggle(a.desGastos, id) })}
+                onSelecionarTodos={(selecionar) =>
+                  setA({ ...a, desGastos: selecionar ? [] : composicaoGastos.map((x) => x.id) })
+                }
                 composicaoVazia="Nenhuma despesa cadastrada."
                 onChange={(v) => setA({ ...a, gastosPct: v })}
               />
@@ -191,11 +245,12 @@ export function Simulador({ clientId, input }: Props) {
                 valorNovo={somaSonhosNovo}
                 unidade="total"
                 bomEAumentar={false}
-                composicao={sonhos.map((e) => ({
-                  nome: e.descricao,
-                  valor: Math.abs(e.valor),
-                  sub: e.idade_inicio ? `aos ${e.idade_inicio}` : undefined,
-                }))}
+                composicao={composicaoSonhos}
+                desativados={a.desSonhos}
+                onToggle={(id) => setA({ ...a, desSonhos: toggle(a.desSonhos, id) })}
+                onSelecionarTodos={(selecionar) =>
+                  setA({ ...a, desSonhos: selecionar ? [] : composicaoSonhos.map((x) => x.id) })
+                }
                 composicaoVazia="Nenhum sonho cadastrado."
                 onChange={(v) => setA({ ...a, sonhosPct: v })}
               />
@@ -271,13 +326,13 @@ function rangeIdade(ini?: number, fim?: number): string | undefined {
 
 function agruparPorCategoria(
   expenses: SimulationInput['expenses'],
-): { nome: string; valor: number; sub?: string }[] {
+): { id: string; nome: string; valor: number; sub?: string }[] {
   const acc: Record<string, number> = {};
   for (const e of expenses) {
     const anual = e.valor_mensal * 12;
     acc[e.categoria] = (acc[e.categoria] ?? 0) + anual;
   }
-  return Object.entries(acc).map(([nome, valor]) => ({ nome, valor }));
+  return Object.entries(acc).map(([nome, valor]) => ({ id: nome, nome, valor }));
 }
 
 function ControleCategoria({
@@ -290,6 +345,9 @@ function ControleCategoria({
   valorNovo,
   unidade,
   composicao,
+  desativados,
+  onToggle,
+  onSelecionarTodos,
   composicaoVazia,
   onChange,
   bomEAumentar = true,
@@ -302,12 +360,18 @@ function ControleCategoria({
   valorBase: number;
   valorNovo: number;
   unidade: string;
-  composicao: { nome: string; valor: number; sub?: string }[];
+  composicao: { id: string; nome: string; valor: number; sub?: string }[];
+  desativados: string[];
+  onToggle: (id: string) => void;
+  onSelecionarTodos: (selecionar: boolean) => void;
   composicaoVazia: string;
   onChange: (v: number) => void;
   bomEAumentar?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
+  const desSet = new Set(desativados);
+  const algumDesmarcado = composicao.some((x) => desSet.has(x.id));
+  const todosDesmarcados = composicao.length > 0 && composicao.every((x) => desSet.has(x.id));
   const delta = valorNovo - valorBase;
   const tocado = value !== 0;
   const positivoBom = bomEAumentar ? delta > 0 : delta < 0;
@@ -381,39 +445,74 @@ function ControleCategoria({
           size={11}
           className={`transition-transform ${aberto ? 'rotate-180' : ''}`}
         />
-        {aberto ? 'Ocultar composição' : `Ver composição (${composicao.length})`}
+        {aberto
+          ? 'Ocultar composição'
+          : `Ver composição (${composicao.length - desativados.filter((d) => composicao.some((c) => c.id === d)).length}/${composicao.length})`}
       </button>
 
       {aberto && (
-        <div className="mt-2 rounded-md border border-slate-200 bg-white divide-y divide-slate-100">
+        <div className="mt-2 rounded-md border border-slate-200 bg-white">
           {composicao.length === 0 ? (
             <p className="px-3 py-2 text-[11px] text-slate-400 italic">{composicaoVazia}</p>
           ) : (
-            composicao.map((item, i) => {
-              const itemNovo = item.valor * (1 + value / 100);
-              return (
-                <div
-                  key={`${item.nome}-${i}`}
-                  className="flex items-center justify-between px-3 py-1.5 text-[11px]"
+            <>
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100 bg-slate-50/60">
+                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+                  Aplicar slider em
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onSelecionarTodos(algumDesmarcado)}
+                  className="text-[10px] font-semibold text-brand-700 hover:text-brand-800 uppercase tracking-widest"
                 >
-                  <div className="min-w-0 pr-2">
-                    <p className="text-slate-700 truncate">{item.nome}</p>
-                    {item.sub && (
-                      <p className="text-[10px] text-slate-400 tabular-nums">{item.sub}</p>
-                    )}
-                  </div>
-                  <span className="tabular-nums text-right whitespace-nowrap">
-                    <span className="text-slate-500">{brl(item.valor)}</span>
-                    {tocado && (
-                      <>
-                        <span className="text-slate-300 mx-1">→</span>
-                        <span className="font-semibold text-brand-700">{brl(itemNovo)}</span>
-                      </>
-                    )}
-                  </span>
-                </div>
-              );
-            })
+                  {todosDesmarcados || algumDesmarcado ? 'Marcar todos' : 'Desmarcar todos'}
+                </button>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {composicao.map((item) => {
+                  const desativado = desSet.has(item.id);
+                  const itemNovo = desativado ? item.valor : item.valor * (1 + value / 100);
+                  return (
+                    <label
+                      key={item.id}
+                      className="flex items-center justify-between px-3 py-1.5 text-[11px] cursor-pointer hover:bg-slate-50"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <input
+                          type="checkbox"
+                          checked={!desativado}
+                          onChange={() => onToggle(item.id)}
+                          className="accent-brand-600 cursor-pointer flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p
+                            className={`truncate ${
+                              desativado ? 'text-slate-400 line-through' : 'text-slate-700'
+                            }`}
+                          >
+                            {item.nome}
+                          </p>
+                          {item.sub && (
+                            <p className="text-[10px] text-slate-400 tabular-nums">{item.sub}</p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="tabular-nums text-right whitespace-nowrap">
+                        <span className={desativado ? 'text-slate-400' : 'text-slate-500'}>
+                          {brl(item.valor)}
+                        </span>
+                        {tocado && !desativado && (
+                          <>
+                            <span className="text-slate-300 mx-1">→</span>
+                            <span className="font-semibold text-brand-700">{brl(itemNovo)}</span>
+                          </>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
