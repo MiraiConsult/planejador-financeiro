@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Settings2,
   Sparkles,
+  UserCircle,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -54,9 +55,15 @@ const navSections: {
     title: 'Configuração',
     items: [
       { href: '/settings', label: 'Premissas', icon: Settings2 },
+      { href: '/account', label: 'Minha conta', icon: UserCircle },
     ],
   },
 ];
+
+const clientGlobalSection = {
+  title: 'Conta',
+  items: [{ href: '/account', label: 'Minha conta', icon: UserCircle }],
+};
 
 export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = false }: Props) {
   const pathname = usePathname();
@@ -188,6 +195,34 @@ export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = 
             </div>
           </div>
         )}
+
+        {clientMode && (
+          <div>
+            <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              {clientGlobalSection.title}
+            </p>
+            <div className="space-y-0.5">
+              {clientGlobalSection.items.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href || pathname.startsWith(href + '/');
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      'relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                      active
+                        ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100',
+                    )}
+                  >
+                    <Icon size={15} strokeWidth={2} />
+                    <span className="flex-1">{label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="border-t border-slate-200/70 dark:border-slate-700/70 p-3 space-y-1">
@@ -200,7 +235,7 @@ export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = 
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{userEmail}</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400">Consultor</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">{clientMode ? 'Cliente' : 'Administrador'}</p>
           </div>
         </div>
         <a

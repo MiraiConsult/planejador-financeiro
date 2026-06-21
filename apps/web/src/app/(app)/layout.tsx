@@ -50,8 +50,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // ── Modo CLIENTE FINAL: navegação restrita ao próprio painel ──────────
   if (selfClient) {
     const base = `/clients/${selfClient.id}`;
-    // Fora do próprio escopo? manda pro painel dele (evita ver telas de consultor)
-    if (!path.startsWith(base)) {
+    // Whitelist: própria conta + próprio painel
+    const permitido = path === '/account' || path.startsWith('/account/') || path.startsWith(base);
+    if (!permitido) {
       redirect(painelDoCliente(selfClient));
     }
     return (
