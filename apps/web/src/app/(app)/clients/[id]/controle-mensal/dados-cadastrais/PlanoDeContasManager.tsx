@@ -48,6 +48,7 @@ export function PlanoDeContasManager({
   const [novaCatNome, setNovaCatNome] = useState('');
   const [novaCatTipo, setNovaCatTipo] = useState<'receita' | 'despesa'>('despesa');
   const [novaRubNome, setNovaRubNome] = useState<Record<string, string>>({});
+  const [excluindo, setExcluindo] = useState<CategoriaRow | null>(null);
 
   const tree: Tree[] = useMemo(() => {
     const macros = rows
@@ -100,21 +101,20 @@ export function PlanoDeContasManager({
     });
   }
   function remover(item: CategoriaRow) {
-    const tipo = item.parent_id ? 'rubrica' : 'categoria';
     if (item.lancamentos > 0) {
-      if (!confirm(
-        `Essa ${tipo} tem ${item.lancamentos} lançamento(s). Ela será desativada (não some — fica oculta nos cadastros). Confirmar?`,
-      )) return;
-    } else {
-      if (!confirm(`Excluir ${tipo} "${item.nome}"?`)) return;
+      // Abre modal pra escolher destino dos lançamentos
+      setExcluindo(item);
+      return;
     }
+    const tipo = item.parent_id ? 'rubrica' : 'categoria';
+    if (!confirm(`Excluir ${tipo} "${item.nome}"?`)) return;
     start(async () => {
       const res = await excluirItem({ client_id: clientId, id: item.id });
       if (!res.ok) {
         toast.error(res.error ?? 'Falha');
         return;
       }
-      toast.success(res.soft ? 'Desativada' : 'Excluída');
+      toast.success('Excluída');
     });
   }
   function adicionarCategoria() {
@@ -380,6 +380,220 @@ export function PlanoDeContasManager({
           <Loader2 size={11} className="animate-spin" /> salvando…
         </div>
       )}
+
+      {excluindo && (
+        <ExcluirComMergeDialog
+          clientId={clientId}
+          item={excluindo}
+          rows={rows}
+          onClose={() => setExcluindo(null)}
+          onCriarRubrica={async (parentId, nome) => {
+            const res = await criarRubrica({ client_id: clientId, input: { parent_id: parentId, nome } });
+            if (!res.ok || !res.id) {
+              toast.error(res.error ?? 'Falha ao criar rubrica');
+              return null;
+            }
+            return res.id;
+          }}
+          onCriarCategoria={async (tipo, nome) => {
+            const res = await criarCategoria({ client_id: clientId, input: { nome, tipo } });
+            if (!res.ok || !res.id) {
+              toast.error(res.error ?? 'Falha ao criar categoria');
+              return null;
+            }
+            return res.id;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExcluirComMergeDialog({
+  clientId,
+  item,
+  rows,
+  onClose,
+  onCriarRubrica,
+  onCriarCategoria,
+}: {
+  clientId: string;
+  item: CategoriaRow;
+  rows: CategoriaRow[];
+  onClose: () => void;
+  onCriarRubrica: (parentId: string, nome: string) => Promise<string | null>;
+  onCriarCategoria: (tipo: 'receita' | 'despesa', nome: string) => Promise<string | null>;
+}) {
+  const ehRubrica = item.parent_id != null;
+  // Destinos candidatos: outras rubricas da mesma categoria, OU outras categorias do mesmo tipo
+  const destinos = useMemo(() => {
+    if (ehRubrica) {
+      return rows
+        .filter((r) => r.id !== item.id && r.parent_id === item.parent_id && r.ativo)
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    }
+    return rows
+      .filter((r) => r.id !== item.id && !r.parent_id && r.tipo === item.tipo && r.ativo)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [rows, item, ehRubrica]);
+
+  const [modo, setModo] = useState<'mover' | 'criar' | 'desativar'>('mover');
+  const [destId, setDestId] = useState<string>('');
+  const [novoNome, setNovoNome] = useState('');
+  const [pending, start] = useTransition();
+  const tipoLabel = ehRubrica ? 'rubrica' : 'categoria';
+
+  function confirmar() {
+    start(async () => {
+      let destinoFinal: string | null | undefined;
+
+      if (modo === 'mover') {
+        if (!destId) {
+          toast.error(`Escolha a ${tipoLabel} de destino`);
+          return;
+        }
+        destinoFinal = destId;
+      } else if (modo === 'criar') {
+        if (!novoNome.trim()) {
+          toast.error('Digite o nome');
+          return;
+        }
+        let novoId: string | null;
+        if (ehRubrica) {
+          novoId = await onCriarRubrica(item.parent_id!, novoNome.trim());
+        } else {
+          novoId = await onCriarCategoria(item.tipo, novoNome.trim());
+        }
+        if (!novoId) return;
+        destinoFinal = novoId;
+      } else {
+        // desativar
+        destinoFinal = null;
+      }
+
+      const res = await excluirItem({
+        client_id: clientId,
+        id: item.id,
+        migrate_to: destinoFinal,
+        soft_se_em_uso: modo === 'desativar',
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? 'Falha');
+        return;
+      }
+      if (modo === 'desativar') {
+        toast.success(`${tipoLabel === 'rubrica' ? 'Rubrica' : 'Categoria'} desativada — lançamentos antigos preservados`);
+      } else {
+        toast.success(`${item.lancamentos} lançamento(s) movidos e ${tipoLabel} excluída`);
+      }
+      onClose();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-red-600">
+              Excluir {tipoLabel}
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-slate-900">
+              {item.nome}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Essa {tipoLabel} tem <strong>{item.lancamentos} lançamento{item.lancamentos === 1 ? '' : 's'}</strong> vinculado{item.lancamentos === 1 ? '' : 's'}.
+              Pra onde mover?
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-900">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {/* Opção 1: mover pra existente */}
+          <label className={`block rounded-lg border-2 p-3 cursor-pointer ${
+            modo === 'mover' ? 'border-brand-400 bg-brand-50/40' : 'border-slate-200 hover:border-slate-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" checked={modo === 'mover'} onChange={() => setModo('mover')} className="h-4 w-4" />
+              <span className="text-sm font-medium text-slate-900">Mover para outra {tipoLabel}</span>
+            </div>
+            {modo === 'mover' && (
+              <div className="mt-2 ml-6">
+                {destinos.length === 0 ? (
+                  <p className="text-xs text-amber-700">
+                    Não há outra {tipoLabel} disponível. Use "Criar nova" ou "Desativar".
+                  </p>
+                ) : (
+                  <select
+                    value={destId}
+                    onChange={(e) => setDestId(e.target.value)}
+                    className="w-full text-sm rounded-md border border-slate-200 bg-white px-2 py-1.5"
+                  >
+                    <option value="">— escolha a {tipoLabel} —</option>
+                    {destinos.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.nome} ({d.lancamentos} lançamentos)
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </label>
+
+          {/* Opção 2: criar nova */}
+          <label className={`block rounded-lg border-2 p-3 cursor-pointer ${
+            modo === 'criar' ? 'border-brand-400 bg-brand-50/40' : 'border-slate-200 hover:border-slate-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" checked={modo === 'criar'} onChange={() => setModo('criar')} className="h-4 w-4" />
+              <span className="text-sm font-medium text-slate-900">
+                Criar uma nova {tipoLabel}{!ehRubrica ? ` (${item.tipo})` : ''}
+              </span>
+            </div>
+            {modo === 'criar' && (
+              <div className="mt-2 ml-6">
+                <input
+                  type="text"
+                  autoFocus
+                  value={novoNome}
+                  onChange={(e) => setNovoNome(e.target.value)}
+                  placeholder={`Nome da nova ${tipoLabel}…`}
+                  className="w-full text-sm rounded-md border border-slate-200 bg-white px-2 py-1.5"
+                />
+              </div>
+            )}
+          </label>
+
+          {/* Opção 3: desativar (preserva) */}
+          <label className={`block rounded-lg border-2 p-3 cursor-pointer ${
+            modo === 'desativar' ? 'border-amber-400 bg-amber-50/40' : 'border-slate-200 hover:border-slate-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" checked={modo === 'desativar'} onChange={() => setModo('desativar')} className="h-4 w-4" />
+              <span className="text-sm font-medium text-slate-900">Só desativar (esconder dos cadastros)</span>
+            </div>
+            {modo === 'desativar' && (
+              <p className="mt-1 ml-6 text-xs text-slate-500">
+                Os {item.lancamentos} lançamentos ficam com essa {tipoLabel} ainda atribuída, mas ela some das listas pra novos lançamentos.
+              </p>
+            )}
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button variant="primary" size="sm" onClick={confirmar} disabled={pending}>
+            {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            Confirmar exclusão
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

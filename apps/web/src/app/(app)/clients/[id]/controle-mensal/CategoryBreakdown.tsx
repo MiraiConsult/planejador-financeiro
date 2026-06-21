@@ -10,7 +10,7 @@ import { BarChart3, List, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
 import { brl, brlShort } from '@/lib/controle-mensal/format';
-import type { BreakdownData, BreakdownGroup } from '@/lib/controle-mensal/analytics';
+import type { BreakdownData, BreakdownGroup, LancamentoDetalhado } from '@/lib/controle-mensal/analytics';
 import { cor } from './charts';
 
 interface KpiTile { label: string; value: string; tone?: 'positive' | 'negative' | 'default'; color?: string; }
@@ -233,6 +233,7 @@ export function CategoryBreakdown({
             labelsMes={data.labels_mes}
             serieMensal={data.serie_mensal[grupoModal.chave] ?? []}
             serieItem={data.serie_mensal_item[grupoModal.chave] ?? {}}
+            lancamentos={data.lancamentos_por_grupo?.[grupoModal.chave] ?? []}
           />
         </Dialog>
       )}
@@ -362,12 +363,14 @@ function ComparacaoCategoria({
   labelsMes,
   serieMensal,
   serieItem,
+  lancamentos,
 }: {
   grupo: BreakdownGroup;
   cor: string;
   labelsMes: string[];
   serieMensal: number[];
   serieItem: Record<string, number[]>;
+  lancamentos: LancamentoDetalhado[];
 }) {
   // ── Estatísticas mensais do total da categoria ──────────────────────
   const dadosNz = serieMensal.filter((v) => v > 0);
@@ -547,6 +550,120 @@ function ComparacaoCategoria({
           </div>
         </div>
       )}
+
+      {lancamentos.length > 0 && (
+        <LancamentosDetalhe lancamentos={lancamentos} cor={corHex} grupoTotal={grupo.total} />
+      )}
+    </div>
+  );
+}
+
+function LancamentosDetalhe({
+  lancamentos,
+  cor: corHex,
+  grupoTotal,
+}: {
+  lancamentos: LancamentoDetalhado[];
+  cor: string;
+  grupoTotal: number;
+}) {
+  const [filtroRub, setFiltroRub] = useState<string>('');
+  const [busca, setBusca] = useState('');
+
+  const rubricasDisponiveis = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const l of lancamentos) set.set(l.rubrica, (set.get(l.rubrica) ?? 0) + 1);
+    return [...set.entries()].sort((a, b) => b[1] - a[1]).map(([nome, n]) => ({ nome, n }));
+  }, [lancamentos]);
+
+  const filtrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return lancamentos.filter((l) => {
+      if (filtroRub && l.rubrica !== filtroRub) return false;
+      if (q && !l.descricao.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [lancamentos, filtroRub, busca]);
+
+  const totalFiltrado = filtrados.reduce((s, l) => s + l.valor, 0);
+
+  function fmtData(iso: string): string {
+    const [a = '', m = '', d = ''] = iso.split('-');
+    return `${d}/${m}/${a}`;
+  }
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2 gap-3 flex-wrap">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+          Lançamentos
+        </p>
+        <p className="text-[11px] text-slate-400 tabular-nums">
+          {filtrados.length} de {lancamentos.length} · {brl(totalFiltrado)}
+          {filtrados.length !== lancamentos.length && ` (${((totalFiltrado / grupoTotal) * 100).toFixed(1)}% do grupo)`}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <select
+          value={filtroRub}
+          onChange={(e) => setFiltroRub(e.target.value)}
+          className="text-xs rounded-md border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 px-2 py-1"
+        >
+          <option value="">Todas as rubricas</option>
+          {rubricasDisponiveis.map((r) => (
+            <option key={r.nome} value={r.nome}>{r.nome} ({r.n})</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar na descrição…"
+          className="text-xs rounded-md border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 px-2 py-1 w-56"
+        />
+      </div>
+
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="max-h-[400px] overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 sticky top-0">
+              <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                <th className="text-left px-3 py-2 font-semibold">Data</th>
+                <th className="text-left px-3 py-2 font-semibold">Descrição</th>
+                <th className="text-left px-3 py-2 font-semibold">Rubrica</th>
+                <th className="text-left px-3 py-2 font-semibold">Origem</th>
+                <th className="text-right px-3 py-2 font-semibold">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filtrados.map((l, i) => (
+                <tr key={l.id ?? i} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                  <td className="px-3 py-1.5 text-slate-600 tabular-nums whitespace-nowrap">{fmtData(l.data)}</td>
+                  <td className="px-3 py-1.5 text-slate-900 dark:text-slate-100 max-w-[280px] truncate" title={l.descricao}>
+                    {l.descricao}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <span
+                      className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded"
+                      style={{ backgroundColor: `${corHex}22`, color: corHex }}
+                    >
+                      {l.rubrica}
+                    </span>
+                  </td>
+                  <td className="px-3 py-1.5 text-slate-500">{l.origem ?? '—'}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-medium text-slate-900 dark:text-slate-50 whitespace-nowrap">
+                    {brl(l.valor)}
+                  </td>
+                </tr>
+              ))}
+              {filtrados.length === 0 && (
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Nenhum lançamento</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

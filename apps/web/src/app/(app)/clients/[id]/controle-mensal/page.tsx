@@ -27,7 +27,7 @@ const brlCompact = (n: number) => {
 type Params = Promise<{ id: string }>;
 
 const COLS =
-  'id,data,descricao,valor,categoria,subcategoria,mes,mes_num,ano,competencia,tipo,centro_id,eh_receita,origem,cliente_obs,viagem,sistema,is_nexlex';
+  'id,data,descricao,valor,categoria,subcategoria,categoria_id,rubrica_id,mes,mes_num,ano,competencia,tipo,centro_id,eh_receita,origem,cliente_obs,viagem,sistema,is_nexlex';
 
 function uniqOrdenado(vals: Array<string | null | undefined>): string[] {
   return [...new Set(vals.map((v) => (v ?? '').trim()).filter(Boolean))].sort((a, b) =>
@@ -95,7 +95,21 @@ export default async function ControleMensalPage({ params }: { params: Params })
     .select(COLS)
     .eq('client_id', id)
     .eq('revisado', true);
-  const rows = (rowsRaw2 ?? []) as unknown as Lancamento[];
+  const rowsBruto = (rowsRaw2 ?? []) as unknown as Lancamento[];
+
+  // Resolve nomes estruturados (plano de contas) — substitui texto legado.
+  const { data: catRows } = await supabase
+    .from('controle_mensal_categorias')
+    .select('id, nome')
+    .eq('client_id', id);
+  const catMap = new Map<string, string>((catRows ?? []).map((c) => [c.id as string, c.nome as string]));
+
+  const rows: Lancamento[] = rowsBruto.map((r) => ({
+    ...r,
+    // Categoria/Rubrica do plano de contas têm prioridade sobre texto antigo.
+    categoria: (r.categoria_id && catMap.get(r.categoria_id)) || r.categoria,
+    subcategoria: (r.rubrica_id && catMap.get(r.rubrica_id)) || r.subcategoria,
+  }));
 
   // Conta lançamentos aguardando revisão (importados de banco, ainda não validados)
   const { count: pendentesRevisao } = await supabase

@@ -139,17 +139,31 @@ export async function atualizarItem(args: {
 }
 
 /**
- * Exclui. Hard delete se não houver lançamentos vinculados (categoria ou rubrica),
- * senão soft delete (ativo=false).
+ * Exclui. Se houver lançamentos vinculados, exige `migrate_to` (id de outra
+ * categoria/rubrica do mesmo nível) — move os lançamentos lá antes de apagar.
+ * `migrate_to = null` força soft delete (ativo=false), preservando histórico.
  */
 export async function excluirItem(args: {
   client_id: string;
   id: string;
-}): Promise<{ ok: boolean; error?: string; soft?: boolean }> {
+  migrate_to?: string | null;
+  /** Se true e migrate_to vier null, faz soft delete; senão exige migrate_to quando tem uso. */
+  soft_se_em_uso?: boolean;
+}): Promise<{ ok: boolean; error?: string; soft?: boolean; em_uso?: number; tipo?: 'categoria' | 'rubrica' }> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;
 
-  // Em uso por algum lançamento? (categoria_id OU rubrica_id)
+  const { data: item } = await g.supabase
+    .from('controle_mensal_categorias')
+    .select('id, parent_id, tipo')
+    .eq('id', args.id)
+    .eq('client_id', args.client_id)
+    .maybeSingle();
+  if (!item) return { ok: false, error: 'Item não encontrado' };
+  const ehRubrica = item.parent_id != null;
+  const tipoItem: 'categoria' | 'rubrica' = ehRubrica ? 'rubrica' : 'categoria';
+
+  // Conta lançamentos vinculados (categoria_id OU rubrica_id)
   const { count: cnt1 } = await g.supabase
     .from('controle_mensal_lancamentos')
     .select('id', { count: 'exact', head: true })
@@ -160,8 +174,15 @@ export async function excluirItem(args: {
     .select('id', { count: 'exact', head: true })
     .eq('client_id', args.client_id)
     .eq('rubrica_id', args.id);
+  const emUso = (cnt1 ?? 0) + (cnt2 ?? 0);
 
-  if ((cnt1 ?? 0) + (cnt2 ?? 0) > 0) {
+  if (emUso > 0 && args.migrate_to === undefined) {
+    // Cliente não decidiu o que fazer com os lançamentos
+    return { ok: false, error: 'em-uso', em_uso: emUso, tipo: tipoItem };
+  }
+
+  if (emUso > 0 && args.migrate_to === null && args.soft_se_em_uso) {
+    // Soft delete
     const { error } = await g.supabase
       .from('controle_mensal_categorias')
       .update({ ativo: false })
@@ -172,7 +193,42 @@ export async function excluirItem(args: {
     return { ok: true, soft: true };
   }
 
-  // Hard delete (cascade vai apagar as rubricas filhas se for categoria raiz vazia)
+  // Migra lançamentos pro destino, se houver
+  if (emUso > 0 && args.migrate_to) {
+    const { data: dest } = await g.supabase
+      .from('controle_mensal_categorias')
+      .select('id, parent_id')
+      .eq('id', args.migrate_to)
+      .eq('client_id', args.client_id)
+      .maybeSingle();
+    if (!dest) return { ok: false, error: 'Destino inválido' };
+    const destEhRubrica = dest.parent_id != null;
+    if (destEhRubrica !== ehRubrica) {
+      return { ok: false, error: ehRubrica
+        ? 'Destino precisa ser outra rubrica'
+        : 'Destino precisa ser outra categoria' };
+    }
+
+    if (ehRubrica) {
+      // Move pelos rubrica_id
+      const { error } = await g.supabase
+        .from('controle_mensal_lancamentos')
+        .update({ rubrica_id: args.migrate_to, categoria_id: dest.parent_id })
+        .eq('client_id', args.client_id)
+        .eq('rubrica_id', args.id);
+      if (error) return { ok: false, error: error.message };
+    } else {
+      // Move pelos categoria_id e zera rubrica (rubricas eram filhas dessa categoria — não fazem mais sentido)
+      const { error } = await g.supabase
+        .from('controle_mensal_lancamentos')
+        .update({ categoria_id: args.migrate_to, rubrica_id: null })
+        .eq('client_id', args.client_id)
+        .eq('categoria_id', args.id);
+      if (error) return { ok: false, error: error.message };
+    }
+  }
+
+  // Agora pode apagar (cascade limpa rubricas filhas se for categoria raiz sem lançamentos)
   const { error } = await g.supabase
     .from('controle_mensal_categorias')
     .delete()

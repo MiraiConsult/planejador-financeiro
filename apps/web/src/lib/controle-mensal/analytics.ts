@@ -10,6 +10,10 @@ export interface Lancamento {
   valor: number;
   categoria: string | null;
   subcategoria: string | null;
+  /** FK pra controle_mensal_categorias (macro). */
+  categoria_id?: string | null;
+  /** FK pra controle_mensal_categorias (filha = rubrica). */
+  rubrica_id?: string | null;
   mes: string;
   mes_num: number | null;
   ano: number | null;
@@ -25,6 +29,20 @@ export interface Lancamento {
   viagem: string | null;
   sistema: string | null;
   is_nexlex: boolean;
+}
+
+/** Map id → nome usado pelas funções de breakdown (categorias e rubricas). */
+export type CategoriasMap = Map<string, string>;
+
+/** Resolve nome da categoria: id → tabela; fallback texto antigo. */
+export function nomeCategoria(l: Lancamento, m?: CategoriasMap): string {
+  if (l.categoria_id && m?.get(l.categoria_id)) return m.get(l.categoria_id)!;
+  return l.categoria ?? '—';
+}
+/** Resolve nome da rubrica: id → tabela; fallback subcategoria texto. NUNCA usa descrição. */
+export function nomeRubrica(l: Lancamento, m?: CategoriasMap): string {
+  if (l.rubrica_id && m?.get(l.rubrica_id)) return m.get(l.rubrica_id)!;
+  return l.subcategoria ?? '(sem rubrica)';
 }
 
 export interface MesInfo { competencia: number; mes: string; ano: number | null; label: string; }
@@ -79,6 +97,42 @@ export interface ReceitasData {
   breakdown: BreakdownData;
 }
 
+/* ─── Detalhamento por lançamento (drill-down de Comparação) ───────── */
+
+export interface LancamentoDetalhado {
+  id?: string;
+  data: string;
+  descricao: string;
+  valor: number;
+  rubrica: string;
+  origem: string | null;
+}
+
+/** Devolve lançamentos crus de um grupo (categoria/rubrica) ordenados por valor desc. */
+export function lancamentosPorGrupo(
+  rows: Lancamento[],
+  getGroup: (l: Lancamento) => string,
+  getItem: (l: Lancamento) => string,
+): Record<string, LancamentoDetalhado[]> {
+  const out: Record<string, LancamentoDetalhado[]> = {};
+  for (const r of rows) {
+    const g = getGroup(r) || '—';
+    if (!out[g]) out[g] = [];
+    out[g].push({
+      id: r.id,
+      data: r.data,
+      descricao: r.descricao,
+      valor: Math.abs(r.valor),
+      rubrica: getItem(r) || '(sem rubrica)',
+      origem: r.origem,
+    });
+  }
+  for (const g of Object.keys(out)) {
+    out[g]!.sort((a, b) => b.valor - a.valor);
+  }
+  return out;
+}
+
 /* ─── Breakdown genérico (grupo → itens) ──────────────────────────────
  * Estrutura genérica que alimenta a view <CategoryBreakdown>:
  * grupo (ex. categoria de gasto) com lista de itens agregados
@@ -100,6 +154,8 @@ export interface BreakdownData {
   serie_mensal: Record<string, number[]>;
   /** Série mensal por item, dentro de cada grupo. grupo → item → série. */
   serie_mensal_item: Record<string, Record<string, number[]>>;
+  /** Lançamentos crus por grupo (pra drill-down "ver descrições"). */
+  lancamentos_por_grupo?: Record<string, LancamentoDetalhado[]>;
 }
 
 export function buildBreakdown<T extends { competencia: number | null; mes: string; ano: number | null }>(
@@ -174,12 +230,37 @@ export function buildBreakdown<T extends { competencia: number | null; mes: stri
       serie_mensal_item[g][nome] = arr.map(round2);
     }
   }
+
+  // Drill-down: lançamentos crus por grupo (só quando rows são Lancamento).
+  const lancamentos_por_grupo: Record<string, LancamentoDetalhado[]> = {};
+  for (const r of rows) {
+    const anyR = r as unknown as Lancamento;
+    if (typeof anyR.descricao !== 'string') continue; // não é Lancamento
+    const v = Math.abs(getValue(r));
+    if (!v) continue;
+    const g = getGroup(r) || '—';
+    const i = getItem(r) || '(sem rubrica)';
+    if (!lancamentos_por_grupo[g]) lancamentos_por_grupo[g] = [];
+    lancamentos_por_grupo[g].push({
+      id: anyR.id,
+      data: anyR.data,
+      descricao: anyR.descricao,
+      valor: v,
+      rubrica: i,
+      origem: anyR.origem ?? null,
+    });
+  }
+  for (const g of Object.keys(lancamentos_por_grupo)) {
+    lancamentos_por_grupo[g]!.sort((a, b) => b.valor - a.valor);
+  }
+
   return {
     total: round2(total),
     grupos,
     labels_mes: meses.map((m) => m.label),
     serie_mensal,
     serie_mensal_item,
+    lancamentos_por_grupo,
   };
 }
 
@@ -261,13 +342,13 @@ export function agregarPorCentro(rows: Lancamento[], centroIds: string[]): Centr
     despesas: buildBreakdown(
       despesas,
       (l) => l.categoria ?? '—',
-      (l) => l.descricao || '—',
+      (l) => l.subcategoria || '(sem rubrica)',
       (l) => l.valor,
     ),
     receitas: buildBreakdown(
       receitas,
       (l) => l.cliente_obs || l.categoria || 'Receitas',
-      (l) => l.descricao || '—',
+      (l) => l.subcategoria || '(sem rubrica)',
       (l) => l.valor,
     ),
     lancamentosReceitas: sortLanc(receitas),
@@ -335,7 +416,7 @@ export function pessoal(rows: Lancamento[]): PessoalData {
     breakdown: buildBreakdown(
       pes,
       (l) => l.categoria ?? '—',
-      (l) => l.descricao || '—',
+      (l) => l.subcategoria || '(sem rubrica)',
       (l) => l.valor,
     ),
   };
@@ -460,7 +541,7 @@ export function receitas(rows: Lancamento[]): ReceitasData {
     breakdown: buildBreakdown(
       rec,
       (l) => l.cliente_obs || '—',
-      (l) => l.descricao || '—',
+      (l) => l.subcategoria || '(sem rubrica)',
       (l) => l.valor,
     ),
   };
