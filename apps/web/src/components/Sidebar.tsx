@@ -2,14 +2,39 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings2, LogOut, HelpCircle, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Building2,
+  CalendarRange,
+  Edit3,
+  GitCompare,
+  HelpCircle,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  Settings2,
+  Sparkles,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '@/lib/cn';
 
+export interface CurrentClient {
+  id: string;
+  nome: string;
+  tem_bp: boolean;
+  tem_cm: boolean;
+  bp_pendente: boolean;
+  cm_pendente: boolean;
+}
+
 interface Props {
   userEmail: string;
   signOutAction: () => void;
+  currentClient?: CurrentClient | null;
 }
 
 const navSections: {
@@ -31,8 +56,9 @@ const navSections: {
   },
 ];
 
-export function Sidebar({ userEmail, signOutAction }: Props) {
+export function Sidebar({ userEmail, signOutAction, currentClient }: Props) {
   const pathname = usePathname();
+  const clientItems = currentClient ? buildClientItems(currentClient) : [];
 
   return (
     <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-sm sticky top-0 h-screen dark:border-slate-700/70 dark:bg-slate-900/70">
@@ -54,7 +80,7 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 space-y-6 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 px-3 space-y-6 overflow-y-auto scrollbar-thin pb-4">
         {navSections.map((section) => (
           <div key={section.title}>
             <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
@@ -62,7 +88,12 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
             </p>
             <div className="space-y-0.5">
               {section.items.map(({ href, label, icon: Icon, disabled, badge }) => {
-                const active = pathname === href || pathname.startsWith(href + '/');
+                const active =
+                  // "Clientes" não fica ativo quando estamos dentro de um cliente
+                  // (a seção "Cliente atual" assume o destaque)
+                  href === '/clients' && currentClient
+                    ? false
+                    : pathname === href || pathname.startsWith(href + '/');
                 if (disabled) {
                   return (
                     <div
@@ -102,6 +133,55 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
             </div>
           </div>
         ))}
+
+        {currentClient && clientItems.length > 0 && (
+          <div>
+            <div className="px-3 mb-2 flex items-center justify-between gap-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 truncate">
+                Cliente atual
+              </p>
+              <Link
+                href="/clients"
+                className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 inline-flex items-center gap-0.5"
+                title="Voltar para lista de clientes"
+              >
+                <ArrowLeft size={10} />
+                lista
+              </Link>
+            </div>
+            <div className="px-3 mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate" title={currentClient.nome}>
+              {currentClient.nome}
+            </div>
+            <div className="space-y-0.5">
+              {clientItems.map(({ href, label, icon: Icon, badge }) => {
+                const active = pathname === href || pathname.startsWith(href + '/');
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      'relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                      active
+                        ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100',
+                    )}
+                  >
+                    <Icon size={15} strokeWidth={2} />
+                    <span className="flex-1 truncate">{label}</span>
+                    {badge && (
+                      <span className={cn(
+                        'text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
+                        active ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
+                      )}>
+                        {badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="border-t border-slate-200/70 dark:border-slate-700/70 p-3 space-y-1">
@@ -138,6 +218,62 @@ export function Sidebar({ userEmail, signOutAction }: Props) {
       </div>
     </aside>
   );
+}
+
+interface ClientNavItem {
+  href: string;
+  label: string;
+  icon: typeof Users;
+  badge?: string;
+}
+
+function buildClientItems(c: CurrentClient): ClientNavItem[] {
+  const base = `/clients/${c.id}`;
+  const items: ClientNavItem[] = [];
+  if (c.tem_bp) {
+    items.push({
+      href: `${base}/balanco`,
+      label: 'Balanço Patrimonial',
+      icon: Wallet,
+      badge: c.bp_pendente ? 'pendente' : undefined,
+    });
+  }
+  if (c.tem_cm) {
+    items.push({
+      href: `${base}/controle-mensal`,
+      label: 'Controle Mensal',
+      icon: CalendarRange,
+      badge: c.cm_pendente ? 'pendente' : undefined,
+    });
+    items.push({
+      href: `${base}/controle-mensal/dados-cadastrais`,
+      label: 'Dados Cadastrais',
+      icon: BookOpen,
+    });
+    items.push({
+      href: `${base}/controle-mensal/bancos`,
+      label: 'Bancos',
+      icon: Building2,
+    });
+  }
+  if (c.tem_bp && !c.bp_pendente) {
+    items.push({
+      href: `${base}/compare`,
+      label: 'Comparar cenários',
+      icon: GitCompare,
+    });
+    items.push({
+      href: `${base}/transcript`,
+      label: 'Refinar transcrição',
+      icon: MessageSquare,
+    });
+    items.push({
+      href: `${base}/edit`,
+      label: 'Editar dados',
+      icon: Edit3,
+    });
+  }
+  return items;
 }
 
 export function MobileTopBar({ userEmail, signOutAction }: Props) {
