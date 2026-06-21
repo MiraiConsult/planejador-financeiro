@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/PageHeader';
 import { PerfilForm } from './PerfilForm';
 import { DEFAULT_ALOCACAO_EXCEDENTE, type FaixaExcedente, type PerfilInput } from './defaults';
+import { AcoesExcedenteList } from '../excedente/AcoesExcedenteList';
 
 type Params = Promise<{ id: string }>;
 
@@ -36,6 +37,17 @@ export default async function PerfilPage({ params }: { params: Params }) {
     alocacao_excedente: alocacao,
   };
 
+  const { data: acoesExcedenteData } = await supabase
+    .from('excedente_acoes')
+    .select('id, idade, acao, created_at')
+    .eq('client_id', id)
+    .order('created_at', { ascending: false });
+  const acoesExcedente = (acoesExcedenteData ?? []).map((a) => ({
+    id: a.id as string,
+    idade: a.idade as number | null,
+    acao: a.acao as string,
+  }));
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <PageHeader
@@ -44,6 +56,7 @@ export default async function PerfilPage({ params }: { params: Params }) {
         description="Dados pessoais, horizonte de planejamento e perfil de carteira. Alterar estes dados refaz a simulação."
       />
       <PerfilForm clientId={id} inicial={inicial} />
+      <AcoesExcedenteList clientId={id} acoes={acoesExcedente} />
     </div>
   );
 }

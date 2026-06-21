@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { simulate } from '@planejador/engine';
 import { loadSimulationInput } from '@/lib/loadSimulation';
+import { ExcedentePopup } from '../excedente/ExcedentePopup';
 import { ativarControleMensal } from '../../actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -137,6 +138,16 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
     };
   }
   const result = simulate(input);
+
+  // ─── Detecta excedente não alocado para popup (etapa 3) ───
+  const linhaPrimeiroExcedente = result.rows.find((r) => r.consumo_excedente > 0);
+  const totalExcedente = result.rows.reduce((s, r) => s + r.consumo_excedente, 0);
+  const { count: qtdAcoesExcedente } = await supabase
+    .from('excedente_acoes')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', id);
+  const mostrarPopupExcedente = totalExcedente > 0 && (qtdAcoesExcedente ?? 0) === 0;
+
   const perfil = perfilLabel[client.perfil_carteira] ?? perfilLabel.moderado!;
   const palette = avatarPalettes[hashIdx(client.id, avatarPalettes.length)];
   const initials = client.nome_completo
@@ -562,6 +573,13 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
         Próxima iteração: CRUD de ativos/despesas/eventos · múltiplos cenários · análise de
         sensibilidade
       </p>
+
+      <ExcedentePopup
+        clientId={id}
+        open={mostrarPopupExcedente}
+        idadeReferencia={linhaPrimeiroExcedente?.idade ?? null}
+        totalExcedente={totalExcedente}
+      />
     </div>
   );
 }
