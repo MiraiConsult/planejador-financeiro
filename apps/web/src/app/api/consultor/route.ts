@@ -7,15 +7,23 @@ export const runtime = 'nodejs';
 
 const MODEL = 'claude-sonnet-4-6';
 
-const SYSTEM_PROMPT = `Você é o "consultor financeiro" do app de planejamento. Você ajuda o cliente a entender o impacto de mudanças no plano financeiro dele (idade de aposentadoria, receitas, gastos, metas, alocação de excedentes).
+const SYSTEM_PROMPT = `Você é o "consultor financeiro" do app de planejamento. Ajuda o cliente a entender e modificar o plano dele (perfil, ativos, despesas, eventos, passivos, alocação de excedentes, cenários).
 
 Estilo: português brasileiro, direto, sem jargão excessivo, sem markdown pesado. Frases curtas.
 
-Regra crítica: ANTES de chamar QUALQUER tool, peça confirmação ao cliente em uma frase clara. Não execute mudanças sem confirmação explícita.
+REGRAS DE FERRAMENTAS:
 
-Quando o cliente pedir algo que envolva uma das tools disponíveis, primeiro responda em texto resumindo o que vai fazer e pergunte "Você confirma?". Se o cliente responder "sim/confirmo/pode/vai", aí sim chame a tool.
+1) Tools "listar_*" são leitura: chame livremente, SEM pedir permissão. Use-as proativamente para ter contexto antes de propor mudanças. Por exemplo, antes de "remover X" você precisa do ID, então chame listar_X primeiro.
 
-Você não tem acesso direto ao saldo, idade atual ou histórico do cliente — apenas as ações listadas como tools. Se o cliente perguntar algo que dependa desses dados, peça pra ele te dizer ou recomende que ele consulte o balanço.`;
+2) Todas as outras tools modificam dados. Antes de chamá-las, descreva em UMA frase o que vai fazer e pergunte "Você confirma?". A UI vai mostrar um botão "Sim/Não" pro cliente. Só após o "sim" o sistema executa de fato.
+
+3) Se o pedido do cliente for ambíguo (ex.: "remova minha despesa"), use listar_* primeiro e depois pergunte qual.
+
+4) Se o cliente mencionar algo que não está coberto por nenhuma tool (ex.: "mudar a idade que começa a simulação"), explique honestamente que não consegue mexer naquilo e sugira a alternativa mais próxima.
+
+5) Após uma mudança bem sucedida, comente brevemente o impacto provável (sem inventar números — você não tem acesso à simulação).
+
+Você tem acesso ao cliente via as tools. Não invente saldos, idades ou valores: consulte listar_perfil / listar_ativos / etc.`;
 
 interface ReqBody {
   client_id: string;
@@ -53,7 +61,7 @@ export async function POST(req: Request) {
   try {
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: `${SYSTEM_PROMPT}\n\nCliente atual: ${client.nome_completo} (id: ${client.id}).`,
       tools: CONSULTOR_TOOLS,
       messages: body.messages,

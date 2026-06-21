@@ -5,11 +5,8 @@ import { Bot, Loader2, Send, Sparkles, X } from 'lucide-react';
 import type Anthropic from '@anthropic-ai/sdk';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
-import {
-  executarAtualizarIdadeAposentadoria,
-  executarCriarMetaDeCompra,
-  executarRegistrarAcaoExcedente,
-} from './actions';
+import { executarToolConsultor } from './actions';
+import { READ_ONLY_TOOLS } from '@/app/api/consultor/tools';
 
 interface Props {
   clientId: string;
@@ -40,26 +37,63 @@ export function ConsultorWidget({ clientId }: Props) {
 
   async function enviarAoModelo(novasMsgs: Msg[]) {
     setEnviando(true);
+    let msgsAtuais = novasMsgs;
     try {
-      const res = await fetch('/api/consultor', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, messages: novasMsgs }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error ?? 'Erro no consultor');
-        return;
-      }
-      const content = data.content as Anthropic.ContentBlock[];
-      setMsgs([...novasMsgs, { role: 'assistant', content }]);
-      const toolBlock = content.find((b): b is ToolUseBlock => b.type === 'tool_use');
-      if (toolBlock) {
+      // Loop pra permitir auto-execução de tools de leitura em cascata.
+      // Limite de 5 iterações é defesa contra loops do modelo.
+      for (let iter = 0; iter < 5; iter++) {
+        const res = await fetch('/api/consultor', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ client_id: clientId, messages: msgsAtuais }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error ?? 'Erro no consultor');
+          return;
+        }
+        const content = data.content as Anthropic.ContentBlock[];
+        msgsAtuais = [...msgsAtuais, { role: 'assistant', content }];
+        setMsgs(msgsAtuais);
+        const toolBlock = content.find((b): b is ToolUseBlock => b.type === 'tool_use');
+        if (!toolBlock) return;
+
+        // Read-only: executa direto e devolve resultado pro modelo,
+        // sem incomodar o usuário com confirmação.
+        if (READ_ONLY_TOOLS.has(toolBlock.name)) {
+          const resultado = await executarToolConsultor({
+            client_id: clientId,
+            tool_name: toolBlock.name,
+            input: (toolBlock.input ?? {}) as Record<string, unknown>,
+          });
+          const conteudoResult = resultado.ok
+            ? JSON.stringify({ resumo: resultado.resumo, dados: resultado.dados })
+            : `Erro: ${resultado.error ?? 'falha'}`;
+          msgsAtuais = [
+            ...msgsAtuais,
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: toolBlock.id,
+                  content: conteudoResult,
+                  is_error: !resultado.ok,
+                },
+              ],
+            },
+          ];
+          setMsgs(msgsAtuais);
+          continue; // re-chama o modelo com o resultado
+        }
+
+        // Write: pede confirmação do usuário e sai do loop
         setPending({
           tool_use_id: toolBlock.id,
           name: toolBlock.name,
           input: (toolBlock.input ?? {}) as Record<string, unknown>,
         });
+        return;
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Falha de rede');
@@ -80,33 +114,16 @@ export function ConsultorWidget({ clientId }: Props) {
   async function confirmarTool() {
     if (!pending) return;
     setEnviando(true);
-    let resultado: { ok: boolean; error?: string; resumo?: string } = {
-      ok: false,
-      error: 'Tool desconhecida',
-    };
-    try {
-      const i = pending.input;
-      if (pending.name === 'atualizar_idade_aposentadoria') {
-        resultado = await executarAtualizarIdadeAposentadoria({
-          client_id: clientId,
-          idade: Number(i.idade),
-        });
-      } else if (pending.name === 'criar_meta_de_compra') {
-        resultado = await executarCriarMetaDeCompra({
-          client_id: clientId,
-          descricao: String(i.descricao ?? ''),
-          idade: Number(i.idade),
-          valor: Number(i.valor),
-        });
-      } else if (pending.name === 'registrar_acao_excedente') {
-        resultado = await executarRegistrarAcaoExcedente({
-          client_id: clientId,
-          acao: String(i.acao ?? ''),
-        });
-      }
-    } catch (e) {
-      resultado = { ok: false, error: e instanceof Error ? e.message : 'Erro' };
-    }
+    const resultado = await executarToolConsultor({
+      client_id: clientId,
+      tool_name: pending.name,
+      input: pending.input,
+    }).catch((e) => ({
+      ok: false as const,
+      error: e instanceof Error ? e.message : 'Erro',
+      resumo: undefined,
+      dados: undefined,
+    }));
     const toolResult: Msg = {
       role: 'user',
       content: [
@@ -259,13 +276,38 @@ export function ConsultorWidget({ clientId }: Props) {
 
 function descricaoTool(p: PendingTool): string {
   const i = p.input;
+  const brl = (n: unknown) => `R$ ${Number(n).toLocaleString('pt-BR')}`;
   switch (p.name) {
     case 'atualizar_idade_aposentadoria':
       return `Atualizar idade de aposentadoria para ${i.idade}.`;
-    case 'criar_meta_de_compra':
-      return `Criar meta "${i.descricao}" aos ${i.idade} anos por R$ ${Number(i.valor).toLocaleString('pt-BR')}.`;
+    case 'atualizar_idade_reducao_trabalho':
+      return `Atualizar idade de redução de trabalho para ${i.idade}.`;
+    case 'atualizar_expectativa_vida':
+      return `Atualizar expectativa de vida para ${i.anos} anos.`;
+    case 'atualizar_perfil_carteira':
+      return `Mudar perfil de carteira para ${i.perfil}.`;
+    case 'criar_ativo':
+      return `Criar ativo "${i.nome}" (${i.tipo}, ${i.natureza}) — ${brl(i.valor)}, idade ${i.idade_inicio}–${i.idade_fim}.`;
+    case 'remover_ativo':
+      return `Remover ativo (id: ${i.asset_id}).`;
+    case 'criar_despesa':
+      return `Criar despesa "${i.descricao}" (${i.categoria}) — ${brl(i.valor_mensal)}/mês, idade ${i.idade_inicio}–${i.idade_fim}.`;
+    case 'remover_despesa':
+      return `Remover despesa (id: ${i.expense_id}).`;
+    case 'criar_evento':
+      return `Criar evento "${i.descricao}" (${i.tipo}) — ${brl(i.valor)} aos ${i.idade_inicio} anos.`;
+    case 'remover_evento':
+      return `Remover evento (id: ${i.event_id}).`;
+    case 'criar_passivo':
+      return `Criar passivo "${i.nome}" — saldo ${brl(i.saldo_atual)}, parcela ${brl(i.parcela_mensal)}/mês.`;
+    case 'remover_passivo':
+      return `Remover passivo (id: ${i.liability_id}).`;
     case 'registrar_acao_excedente':
-      return `Registrar ação para excedentes: "${i.acao}".`;
+      return `Registrar ação${i.idade != null ? ` para idade ${i.idade}` : ''}: "${i.acao}".`;
+    case 'remover_acao_excedente':
+      return `Remover ação de excedente (id: ${i.acao_id}).`;
+    case 'remover_cenario_personalizado':
+      return `Remover cenário personalizado (id: ${i.scenario_id}).`;
     default:
       return `Executar ${p.name} com ${JSON.stringify(i)}.`;
   }
