@@ -2,36 +2,30 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, Plus, RotateCcw, Target, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react';
-import { simulate, type Client, type FinancialEvent, type SimulationInput, type SimulationResult } from '@planejador/engine';
+import { ArrowLeft, ChevronDown, Loader2, Plus, RotateCcw, Save, Target, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { simulate, type Client, type SimulationInput, type SimulationResult } from '@planejador/engine';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { toast } from '@/components/ui/Toast';
 import { CompareChart } from '@/components/charts/CompareChart';
+import {
+  aplicarSimuladorState,
+  somaAjustada,
+  type SimuladorMeta,
+  type SimuladorState,
+} from '@/lib/simuladorState';
+import { salvarCenarioPersonalizado } from './actions';
 
 interface Props {
   clientId: string;
   input: { client: Client; input: SimulationInput };
 }
 
-interface Meta {
-  id: string;          // gerado client-side; só vive em memória
-  descricao: string;
-  idade: number;
-  valor: number;       // sempre positivo na UI; vira saída no engine
-  tipo: 'compra' | 'sonho' | 'viagem_pontual';
-}
-
-interface Ajustes {
-  receitaPct: number;   // +aumenta / -reduz
-  gastosPct: number;    // +aumenta / -reduz
-  sonhosPct: number;    // +aumenta / -reduz
-  // IDs (asset.id, expense.categoria, event.id) excluídos do ajuste daquela
-  // categoria. Vazio = todos os itens são afetados pelo slider.
-  desReceita: string[];
-  desGastos: string[];
-  desSonhos: string[];
-}
+// Mantemos aliases curtos pros tipos do módulo compartilhado para
+// minimizar diff no JSX abaixo.
+type Meta = SimuladorMeta;
+type Ajustes = SimuladorState['ajustes'];
 
 const ZERO: Ajustes = {
   receitaPct: 0,
@@ -54,72 +48,6 @@ const brlCompact = (n: number) => {
   return brl(n);
 };
 
-function escalarOverrides(
-  overrides: Record<string, number> | undefined,
-  fator: number,
-): Record<string, number> | undefined {
-  if (!overrides) return overrides;
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(overrides)) out[k] = v * fator;
-  return out;
-}
-
-function metaParaEvento(m: Meta): FinancialEvent {
-  return {
-    id: m.id,
-    tipo: m.tipo,
-    descricao: m.descricao,
-    valor: -Math.abs(m.valor),
-    padrao_recorrencia: 'unico',
-    idade_inicio: m.idade,
-    indexado_inflacao: true,
-  };
-}
-
-function aplicarAjustes(base: SimulationInput, a: Ajustes, metas: Meta[]): SimulationInput {
-  const fReceita = 1 + a.receitaPct / 100;
-  const fGastos = 1 + a.gastosPct / 100;
-  const fSonhos = 1 + a.sonhosPct / 100;
-  const desReceita = new Set(a.desReceita);
-  const desGastos = new Set(a.desGastos);
-  const desSonhos = new Set(a.desSonhos);
-  return {
-    ...base,
-    assets: base.assets.map((x) =>
-      x.natureza === 'fluxo' && !desReceita.has(x.id)
-        ? { ...x, valor: x.valor * fReceita, overrides: escalarOverrides(x.overrides, fReceita) }
-        : x,
-    ),
-    expenses: base.expenses.map((x) =>
-      desGastos.has(x.categoria)
-        ? x
-        : {
-            ...x,
-            valor_mensal: x.valor_mensal * fGastos,
-            overrides: escalarOverrides(x.overrides, fGastos),
-          },
-    ),
-    events: [
-      ...base.events.map((x) =>
-        x.tipo === 'sonho' && !desSonhos.has(x.id)
-          ? { ...x, valor: x.valor * fSonhos, overrides: escalarOverrides(x.overrides, fSonhos) }
-          : x,
-      ),
-      ...metas.map(metaParaEvento),
-    ],
-  };
-}
-
-function somaAjustada(
-  itens: { id: string; valor: number }[],
-  pct: number,
-  desativados: string[],
-): number {
-  const f = 1 + pct / 100;
-  const des = new Set(desativados);
-  return itens.reduce((s, x) => s + (des.has(x.id) ? x.valor : x.valor * f), 0);
-}
-
 function toggle(arr: string[], id: string): string[] {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 }
@@ -128,10 +56,11 @@ export function Simulador({ clientId, input }: Props) {
   const [a, setA] = useState<Ajustes>(ZERO);
   const [metas, setMetas] = useState<Meta[]>([]);
   const [modalMeta, setModalMeta] = useState(false);
+  const [modalSalvar, setModalSalvar] = useState(false);
 
   const baseResult = useMemo<SimulationResult>(() => simulate(input.input), [input.input]);
   const ajustadoResult = useMemo<SimulationResult>(
-    () => simulate(aplicarAjustes(input.input, a, metas)),
+    () => simulate(aplicarSimuladorState(input.input, { ajustes: a, metas })),
     [input.input, a, metas],
   );
 
@@ -200,11 +129,23 @@ export function Simulador({ clientId, input }: Props) {
             Voltar ao balanço
           </Button>
         </Link>
-        <Link href={`/clients/${clientId}/balanco`} title="Fechar">
-          <Button variant="ghost" size="sm" aria-label="Fechar">
-            <X size={16} />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!tocado}
+            onClick={() => setModalSalvar(true)}
+            title={tocado ? 'Salvar como cenário' : 'Ajuste algo para salvar'}
+          >
+            <Save size={14} />
+            Salvar como cenário
           </Button>
-        </Link>
+          <Link href={`/clients/${clientId}/balanco`} title="Fechar">
+            <Button variant="ghost" size="sm" aria-label="Fechar">
+              <X size={16} />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div>
@@ -429,7 +370,84 @@ export function Simulador({ clientId, input }: Props) {
           setModalMeta(false);
         }}
       />
+
+      <ModalSalvarCenario
+        open={modalSalvar}
+        onClose={() => setModalSalvar(false)}
+        clientId={clientId}
+        state={{ ajustes: a, metas }}
+      />
     </div>
+  );
+}
+
+function ModalSalvarCenario({
+  open,
+  onClose,
+  clientId,
+  state,
+}: {
+  open: boolean;
+  onClose: () => void;
+  clientId: string;
+  state: SimuladorState;
+}) {
+  const [nome, setNome] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    if (!nome.trim()) return;
+    setSalvando(true);
+    const res = await salvarCenarioPersonalizado({
+      client_id: clientId,
+      nome: nome.trim(),
+      state,
+    });
+    setSalvando(false);
+    if (!res.ok) {
+      toast.error(res.error ?? 'Erro ao salvar');
+      return;
+    }
+    toast.success(`Cenário "${nome.trim()}" salvo`);
+    setNome('');
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} size="sm" title="Salvar como cenário">
+      <div className="space-y-4 p-1">
+        <p className="text-xs text-slate-500 leading-relaxed">
+          O cenário fica disponível em <strong>Comparar cenários</strong>, junto com base /
+          otimista / pessimista. Você pode salvar quantos quiser.
+        </p>
+        <Campo label="Nome do cenário">
+          <input
+            type="text"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Casa em Floripa + corte de gastos"
+            maxLength={100}
+            className={inputCls}
+            autoFocus
+          />
+        </Campo>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" size="sm" onClick={onClose} type="button" disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={salvar}
+            type="button"
+            disabled={salvando || !nome.trim()}
+          >
+            {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Salvar
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
