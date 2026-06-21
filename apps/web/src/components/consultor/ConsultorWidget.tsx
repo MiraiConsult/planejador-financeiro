@@ -286,6 +286,10 @@ function descricaoTool(p: PendingTool): string {
       return `Atualizar expectativa de vida para ${i.anos} anos.`;
     case 'atualizar_perfil_carteira':
       return `Mudar perfil de carteira para ${i.perfil}.`;
+    case 'atualizar_idade_inicio_simulacao':
+      return i.idade == null
+        ? 'Remover override da idade inicial (voltar a usar a idade real).'
+        : `Forçar idade inicial da simulação para ${i.idade} anos.`;
     case 'criar_ativo':
       return `Criar ativo "${i.nome}" (${i.tipo}, ${i.natureza}) — ${brl(i.valor)}, idade ${i.idade_inicio}–${i.idade_fim}.`;
     case 'remover_ativo':

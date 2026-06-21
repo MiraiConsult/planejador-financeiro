@@ -50,7 +50,7 @@ export async function executarToolConsultor(args: {
     case 'listar_perfil': {
       const { data, error } = await supabase
         .from('clients')
-        .select('nome_completo, data_nascimento, expectativa_vida_anos, idade_aposentadoria, idade_reducao_trabalho, perfil_carteira, alocacao_excedente')
+        .select('nome_completo, data_nascimento, expectativa_vida_anos, idade_aposentadoria, idade_reducao_trabalho, idade_inicio_simulacao, perfil_carteira, alocacao_excedente')
         .eq('id', cid)
         .maybeSingle();
       if (error) return { ok: false, error: error.message };
@@ -137,6 +137,25 @@ export async function executarToolConsultor(args: {
         return { ok: false, error: 'Perfil inválido' };
       }
       return update('perfil_carteira', perfil, `Perfil de carteira → ${perfil}.`);
+    }
+    case 'atualizar_idade_inicio_simulacao': {
+      const raw = i.idade;
+      if (raw === null || raw === undefined) {
+        return update(
+          'idade_inicio_simulacao',
+          null,
+          'Override de idade removido (volta a usar a idade real).',
+        );
+      }
+      const idade = Number(raw);
+      if (!Number.isInteger(idade) || idade < 1 || idade > 120) {
+        return { ok: false, error: 'Idade fora do intervalo (1-120)' };
+      }
+      return update(
+        'idade_inicio_simulacao',
+        idade,
+        `Idade inicial da simulação → ${idade} anos.`,
+      );
     }
 
     // ─── Ativos ────────────────────────────────────────────────

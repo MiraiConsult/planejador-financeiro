@@ -61,6 +61,20 @@ export const CONSULTOR_TOOLS: Anthropic.Tool[] = [
       required: ['perfil'],
     },
   },
+  {
+    name: 'atualizar_idade_inicio_simulacao',
+    description: 'Força a idade em que a simulação começa, sobrepondo a idade real derivada de data_nascimento. Útil quando o cliente quer ver o plano a partir de uma idade específica que não é a atual. Passe null para limpar o override e voltar a usar a idade real.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        idade: {
+          type: ['number', 'null'],
+          description: 'Idade que vira "hoje" na simulação (1 a 120), ou null para remover o override.',
+        },
+      },
+      required: ['idade'],
+    },
+  },
 
   // ─── Ativos (3) ───────────────────────────────────────────────
   {

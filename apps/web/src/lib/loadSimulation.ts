@@ -180,6 +180,16 @@ export async function loadSimulationInput(client_id: string): Promise<{
       }
     : { id: 'sc-base', nome: 'Base', tipo: 'base' };
 
+  // Quando o cliente força idade_inicio_simulacao, computamos um
+  // reference_date sintético (data_nascimento + N anos) para que o
+  // motor enxergue essa idade como "hoje". Sem isso, usa data atual.
+  let reference_date: string | undefined;
+  if (c.idade_inicio_simulacao != null && c.data_nascimento) {
+    const nasc = new Date(c.data_nascimento);
+    nasc.setUTCFullYear(nasc.getUTCFullYear() + c.idade_inicio_simulacao);
+    reference_date = nasc.toISOString().slice(0, 10);
+  }
+
   const input: SimulationInput = {
     client,
     assets,
@@ -188,7 +198,7 @@ export async function loadSimulationInput(client_id: string): Promise<{
     liabilities,
     assumptions,
     scenario,
-    // usa hoje como data de referência por padrão; engine deriva idade
+    reference_date,
   };
 
   return { client, input };
