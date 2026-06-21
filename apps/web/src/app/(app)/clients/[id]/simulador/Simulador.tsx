@@ -2,15 +2,24 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown, RotateCcw, TrendingDown, TrendingUp, X } from 'lucide-react';
-import { simulate, type Client, type SimulationInput, type SimulationResult } from '@planejador/engine';
+import { ArrowLeft, ChevronDown, Plus, RotateCcw, Target, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { simulate, type Client, type FinancialEvent, type SimulationInput, type SimulationResult } from '@planejador/engine';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
 import { CompareChart } from '@/components/charts/CompareChart';
 
 interface Props {
   clientId: string;
   input: { client: Client; input: SimulationInput };
+}
+
+interface Meta {
+  id: string;          // gerado client-side; só vive em memória
+  descricao: string;
+  idade: number;
+  valor: number;       // sempre positivo na UI; vira saída no engine
+  tipo: 'compra' | 'sonho' | 'viagem_pontual';
 }
 
 interface Ajustes {
@@ -55,7 +64,19 @@ function escalarOverrides(
   return out;
 }
 
-function aplicarAjustes(base: SimulationInput, a: Ajustes): SimulationInput {
+function metaParaEvento(m: Meta): FinancialEvent {
+  return {
+    id: m.id,
+    tipo: m.tipo,
+    descricao: m.descricao,
+    valor: -Math.abs(m.valor),
+    padrao_recorrencia: 'unico',
+    idade_inicio: m.idade,
+    indexado_inflacao: true,
+  };
+}
+
+function aplicarAjustes(base: SimulationInput, a: Ajustes, metas: Meta[]): SimulationInput {
   const fReceita = 1 + a.receitaPct / 100;
   const fGastos = 1 + a.gastosPct / 100;
   const fSonhos = 1 + a.sonhosPct / 100;
@@ -78,11 +99,14 @@ function aplicarAjustes(base: SimulationInput, a: Ajustes): SimulationInput {
             overrides: escalarOverrides(x.overrides, fGastos),
           },
     ),
-    events: base.events.map((x) =>
-      x.tipo === 'sonho' && !desSonhos.has(x.id)
-        ? { ...x, valor: x.valor * fSonhos, overrides: escalarOverrides(x.overrides, fSonhos) }
-        : x,
-    ),
+    events: [
+      ...base.events.map((x) =>
+        x.tipo === 'sonho' && !desSonhos.has(x.id)
+          ? { ...x, valor: x.valor * fSonhos, overrides: escalarOverrides(x.overrides, fSonhos) }
+          : x,
+      ),
+      ...metas.map(metaParaEvento),
+    ],
   };
 }
 
@@ -102,14 +126,17 @@ function toggle(arr: string[], id: string): string[] {
 
 export function Simulador({ clientId, input }: Props) {
   const [a, setA] = useState<Ajustes>(ZERO);
+  const [metas, setMetas] = useState<Meta[]>([]);
+  const [modalMeta, setModalMeta] = useState(false);
 
   const baseResult = useMemo<SimulationResult>(() => simulate(input.input), [input.input]);
   const ajustadoResult = useMemo<SimulationResult>(
-    () => simulate(aplicarAjustes(input.input, a)),
-    [input.input, a],
+    () => simulate(aplicarAjustes(input.input, a, metas)),
+    [input.input, a, metas],
   );
 
-  const tocado = a.receitaPct !== 0 || a.gastosPct !== 0 || a.sonhosPct !== 0;
+  const tocado =
+    a.receitaPct !== 0 || a.gastosPct !== 0 || a.sonhosPct !== 0 || metas.length > 0;
 
   const sBase = baseResult.summary;
   const sNovo = ajustadoResult.summary;
@@ -202,7 +229,10 @@ export function Simulador({ clientId, input }: Props) {
                 <CardTitle>Controles</CardTitle>
                 <button
                   type="button"
-                  onClick={() => setA(ZERO)}
+                  onClick={() => {
+                    setA(ZERO);
+                    setMetas([]);
+                  }}
                   disabled={!tocado}
                   className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Zerar ajustes"
@@ -274,6 +304,60 @@ export function Simulador({ clientId, input }: Props) {
               />
             </CardContent>
           </Card>
+
+          {/* Metas pontuais */}
+          <Card>
+            <CardHeader className="border-b border-slate-100/70">
+              <div className="flex items-center justify-between">
+                <CardTitle>Metas pontuais</CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setModalMeta(true)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
+                >
+                  <Plus size={12} />
+                  Adicionar
+                </button>
+              </div>
+              <CardDescription>
+                Compras únicas que adicionam saída no ano alvo (ex.: comprar casa).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-3">
+              {metas.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Nenhuma meta adicionada.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {metas.map((m) => (
+                    <li key={m.id} className="flex items-center justify-between py-2 text-xs">
+                      <div className="min-w-0 pr-2">
+                        <p className="font-semibold text-slate-800 truncate flex items-center gap-1.5">
+                          <Target size={11} className="text-brand-600 flex-shrink-0" />
+                          {m.descricao}
+                        </p>
+                        <p className="text-[10px] text-slate-400 tabular-nums">
+                          aos {m.idade} anos · {m.tipo}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold tabular-nums text-red-600">
+                          {brl(-m.valor)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMetas(metas.filter((x) => x.id !== m.id))}
+                          className="text-slate-400 hover:text-red-600"
+                          title="Remover"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Painel de impacto */}
@@ -302,6 +386,13 @@ export function Simulador({ clientId, input }: Props) {
             />
           </div>
 
+          {metas.length > 0 && (
+            <div className="rounded-2xl border border-brand-200 bg-brand-50/50 px-4 py-3 text-xs text-brand-900">
+              <strong>{metas.length}</strong>{' '}
+              {metas.length === 1 ? 'meta adicionada' : 'metas adicionadas'} no cenário ajustado.
+            </div>
+          )}
+
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -327,9 +418,139 @@ export function Simulador({ clientId, input }: Props) {
           </Card>
         </div>
       </div>
+
+      <ModalNovaMeta
+        open={modalMeta}
+        onClose={() => setModalMeta(false)}
+        idadeMin={baseResult.rows[0]?.idade ?? 0}
+        idadeMax={baseResult.rows[baseResult.rows.length - 1]?.idade ?? 100}
+        onAdd={(m) => {
+          setMetas([...metas, { ...m, id: crypto.randomUUID() }]);
+          setModalMeta(false);
+        }}
+      />
     </div>
   );
 }
+
+function ModalNovaMeta({
+  open,
+  onClose,
+  idadeMin,
+  idadeMax,
+  onAdd,
+}: {
+  open: boolean;
+  onClose: () => void;
+  idadeMin: number;
+  idadeMax: number;
+  onAdd: (m: Omit<Meta, 'id'>) => void;
+}) {
+  const [descricao, setDescricao] = useState('');
+  const [idade, setIdade] = useState<number | ''>('');
+  const [valor, setValor] = useState<number | ''>('');
+  const [tipo, setTipo] = useState<Meta['tipo']>('compra');
+
+  function reset() {
+    setDescricao('');
+    setIdade('');
+    setValor('');
+    setTipo('compra');
+  }
+  function fechar() {
+    reset();
+    onClose();
+  }
+
+  const valido =
+    descricao.trim().length > 0 &&
+    typeof idade === 'number' &&
+    idade >= idadeMin &&
+    idade <= idadeMax &&
+    typeof valor === 'number' &&
+    valor > 0;
+
+  function salvar() {
+    if (!valido) return;
+    onAdd({
+      descricao: descricao.trim(),
+      idade: idade as number,
+      valor: valor as number,
+      tipo,
+    });
+    reset();
+  }
+
+  return (
+    <Dialog open={open} onClose={fechar} size="sm" title="Nova meta pontual">
+      <div className="space-y-4 p-1">
+        <Campo label="Descrição">
+          <input
+            type="text"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder="Comprar casa em Floripa"
+            className={inputCls}
+            autoFocus
+          />
+        </Campo>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo label={`Idade alvo (${idadeMin}–${idadeMax})`}>
+            <input
+              type="number"
+              min={idadeMin}
+              max={idadeMax}
+              value={idade}
+              onChange={(e) => setIdade(e.target.value ? parseInt(e.target.value) : '')}
+              className={inputCls}
+            />
+          </Campo>
+          <Campo label="Valor (R$)">
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={valor}
+              onChange={(e) => setValor(e.target.value ? parseFloat(e.target.value) : '')}
+              className={inputCls}
+            />
+          </Campo>
+        </div>
+        <Campo label="Tipo">
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value as Meta['tipo'])}
+            className={inputCls}
+          >
+            <option value="compra">Compra única</option>
+            <option value="sonho">Sonho</option>
+            <option value="viagem_pontual">Viagem pontual</option>
+          </select>
+        </Campo>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" size="sm" onClick={fechar} type="button">
+            Cancelar
+          </Button>
+          <Button variant="primary" size="sm" onClick={salvar} disabled={!valido} type="button">
+            Adicionar meta
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-xs font-medium text-slate-700">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const inputCls =
+  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500';
 
 function Separador() {
   return <div className="h-px bg-slate-100" />;
