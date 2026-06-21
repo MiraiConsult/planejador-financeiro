@@ -35,6 +35,8 @@ interface Props {
   userEmail: string;
   signOutAction: () => void;
   currentClient?: CurrentClient | null;
+  /** true quando o usuário logado é o próprio cliente final (visão restrita). */
+  clientMode?: boolean;
 }
 
 const navSections: {
@@ -56,9 +58,11 @@ const navSections: {
   },
 ];
 
-export function Sidebar({ userEmail, signOutAction, currentClient }: Props) {
+export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = false }: Props) {
   const pathname = usePathname();
   const clientItems = currentClient ? buildClientItems(currentClient) : [];
+  // Cliente final não vê o menu global de consultor (Visão geral, Clientes, Premissas)
+  const sectionsToShow = clientMode ? [] : navSections;
 
   return (
     <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-sm sticky top-0 h-screen dark:border-slate-700/70 dark:bg-slate-900/70">
@@ -81,7 +85,7 @@ export function Sidebar({ userEmail, signOutAction, currentClient }: Props) {
       </div>
 
       <nav className="flex-1 px-3 space-y-6 overflow-y-auto scrollbar-thin pb-4">
-        {navSections.map((section) => (
+        {sectionsToShow.map((section) => (
           <div key={section.title}>
             <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               {section.title}
@@ -138,16 +142,18 @@ export function Sidebar({ userEmail, signOutAction, currentClient }: Props) {
           <div>
             <div className="px-3 mb-2 flex items-center justify-between gap-1">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 truncate">
-                Cliente atual
+                {clientMode ? 'Meu painel' : 'Cliente atual'}
               </p>
-              <Link
-                href="/clients"
-                className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 inline-flex items-center gap-0.5"
-                title="Voltar para lista de clientes"
-              >
-                <ArrowLeft size={10} />
-                lista
-              </Link>
+              {!clientMode && (
+                <Link
+                  href="/clients"
+                  className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 inline-flex items-center gap-0.5"
+                  title="Voltar para lista de clientes"
+                >
+                  <ArrowLeft size={10} />
+                  lista
+                </Link>
+              )}
             </div>
             <div className="px-3 mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate" title={currentClient.nome}>
               {currentClient.nome}
