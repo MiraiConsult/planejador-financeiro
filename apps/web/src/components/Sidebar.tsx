@@ -313,6 +313,7 @@ function buildClientGroups(c: CurrentClient): ClientNavGroup[] {
       children: bpReady
         ? [
             { href: `${base}/perfil`, hrefPath: `${base}/perfil`, label: 'Perfil do cliente' },
+            { href: `${base}/simulador`, hrefPath: `${base}/simulador`, label: 'Simulador interativo' },
             { href: `${base}/compare`, hrefPath: `${base}/compare`, label: 'Comparar cenários' },
             { href: `${base}/transcript`, hrefPath: `${base}/transcript`, label: 'Refinar transcrição' },
             { href: `${base}/edit`, hrefPath: `${base}/edit`, label: 'Editar dados' },
