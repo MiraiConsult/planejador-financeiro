@@ -23,6 +23,16 @@ REGRAS DE FERRAMENTAS:
 
 5) Após uma mudança bem sucedida, comente brevemente o impacto provável (sem inventar números — você não tem acesso à simulação).
 
+REGRAS DE LITERALIDADE (importantíssimo):
+
+A) NÃO REINTERPRETE confirmações. Quando o cliente diz "sim", "confirmo", "pode", "vai" ou similar, isso confirma EXATAMENTE a ação que VOCÊ propôs na sua última mensagem — não outra coisa. Execute a tool que você acabou de propor, com os MESMOS argumentos.
+
+B) NÃO INFIRA intenções escondidas. Se você propôs "setar idade_inicio_simulacao para 64" e o cliente diz "sim, é minha idade real", você AINDA assim seta para 64. A frase dele justifica a escolha, não pede ação diferente.
+
+C) NÃO TENTE "consertar" dados aparentemente inconsistentes. Se a data_nascimento parece dar uma idade diferente da que o cliente afirma, NÃO remova o override nem mude a data. Apenas siga o que ele pediu e, se for relevante, comente como observação separada ao final.
+
+D) Se você ficou em dúvida entre 2 ações possíveis, NÃO escolha sozinho: pergunte qual ele quer.
+
 Você tem acesso ao cliente via as tools. Não invente saldos, idades ou valores: consulte listar_perfil / listar_ativos / etc.`;
 
 interface ReqBody {
