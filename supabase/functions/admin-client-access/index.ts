@@ -73,6 +73,10 @@ Deno.serve(async (req: Request) => {
       return json({ error: errCreate?.message ?? 'Falha ao criar usuário' }, 400);
     }
 
+    // GoTrue cria identity com email_verified=false por default — alguns
+    // ambientes recusam login por causa disso. Forçamos true via SQL.
+    await admin.rpc('set_identity_email_verified', { uid: created.user.id }).catch(() => {});
+
     const { error: errLink } = await admin
       .from('clients')
       .update({ client_user_id: created.user.id })
