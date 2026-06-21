@@ -8,11 +8,22 @@ export async function signIn(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user) {
+    redirect(`/login?error=${encodeURIComponent(error?.message ?? 'Falha no login')}`);
   }
   revalidatePath('/', 'layout');
+
+  // Manda direto pro destino certo (evita signIn -> /clients -> redirect
+  // do layout, que às vezes deixa a tela em branco no primeiro carregamento).
+  const { data: self } = await supabase
+    .from('clients')
+    .select('id, tem_balanco_patrimonial')
+    .eq('client_user_id', data.user.id)
+    .maybeSingle();
+  if (self) {
+    redirect(`/clients/${self.id}/${self.tem_balanco_patrimonial ? 'balanco' : 'controle-mensal'}`);
+  }
   redirect('/clients');
 }
 
