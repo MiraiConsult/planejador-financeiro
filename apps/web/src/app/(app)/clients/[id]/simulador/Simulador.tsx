@@ -67,24 +67,21 @@ export function Simulador({ clientId, input }: Props) {
   const deltaBreakEven =
     (sNovo.idade_break_even ?? Infinity) - (sBase.idade_break_even ?? Infinity);
 
-  // Composição: ano corrente (primeira linha) para receita/gastos;
-  // total agregado para sonhos (eventos não são por ano).
-  const linha0Base = baseResult.rows[0];
-  const linha0Novo = ajustadoResult.rows[0];
-
-  const receitaBase = linha0Base?.receitas_total ?? 0;
-  const receitaNovo = linha0Novo?.receitas_total ?? 0;
-  const composicaoReceita = (linha0Base?.detalhes.receitas_por_ativo ?? [])
-    .slice()
+  // Composição: usamos os valores CADASTRADOS (anuais), não a linha 0 da
+  // simulação. Senão um cliente cujas receitas só começam em alguns anos
+  // (aposentadoria/aluguéis) veria "R$ 0" no slider, mesmo tendo dados.
+  const ativosFluxo = input.input.assets.filter((x) => x.natureza === 'fluxo');
+  const receitaBase = ativosFluxo.reduce((s, x) => s + x.valor, 0);
+  const receitaNovo = receitaBase * (1 + a.receitaPct / 100);
+  const composicaoReceita = ativosFluxo
+    .map((x) => ({ nome: x.nome, valor: x.valor, sub: rangeIdade(x.idade_inicio, x.idade_fim) }))
     .sort((x, y) => y.valor - x.valor);
 
-  const gastosBase =
-    (linha0Base?.despesas_essenciais ?? 0) + (linha0Base?.despesas_nao_essenciais ?? 0);
-  const gastosNovo =
-    (linha0Novo?.despesas_essenciais ?? 0) + (linha0Novo?.despesas_nao_essenciais ?? 0);
-  const composicaoGastos = Object.entries(linha0Base?.detalhes.despesas_por_categoria ?? {})
-    .map(([categoria, valor]) => ({ categoria, valor }))
-    .sort((x, y) => y.valor - x.valor);
+  const gastosBase = input.input.expenses.reduce((s, x) => s + x.valor_mensal * 12, 0);
+  const gastosNovo = gastosBase * (1 + a.gastosPct / 100);
+  const composicaoGastos = agruparPorCategoria(input.input.expenses).sort(
+    (x, y) => y.valor - x.valor,
+  );
 
   const sonhos = input.input.events.filter((e) => e.tipo === 'sonho');
   const somaSonhosBase = sonhos.reduce((s, e) => s + Math.abs(e.valor), 0);
@@ -163,8 +160,8 @@ export function Simulador({ clientId, input }: Props) {
                 step={1}
                 valorBase={receitaBase}
                 valorNovo={receitaNovo}
-                unidade="/ ano"
-                composicao={composicaoReceita.map((r) => ({ nome: r.nome, valor: r.valor }))}
+                unidade="anual cadastrada"
+                composicao={composicaoReceita}
                 composicaoVazia="Nenhuma receita cadastrada."
                 onChange={(v) => setA({ ...a, receitaPct: v })}
               />
@@ -177,9 +174,9 @@ export function Simulador({ clientId, input }: Props) {
                 step={1}
                 valorBase={gastosBase}
                 valorNovo={gastosNovo}
-                unidade="/ ano"
+                unidade="anual cadastrado"
                 bomEAumentar={false}
-                composicao={composicaoGastos.map((g) => ({ nome: g.categoria, valor: g.valor }))}
+                composicao={composicaoGastos}
                 composicaoVazia="Nenhuma despesa cadastrada."
                 onChange={(v) => setA({ ...a, gastosPct: v })}
               />
@@ -194,7 +191,11 @@ export function Simulador({ clientId, input }: Props) {
                 valorNovo={somaSonhosNovo}
                 unidade="total"
                 bomEAumentar={false}
-                composicao={sonhos.map((e) => ({ nome: e.descricao, valor: Math.abs(e.valor) }))}
+                composicao={sonhos.map((e) => ({
+                  nome: e.descricao,
+                  valor: Math.abs(e.valor),
+                  sub: e.idade_inicio ? `aos ${e.idade_inicio}` : undefined,
+                }))}
                 composicaoVazia="Nenhum sonho cadastrado."
                 onChange={(v) => setA({ ...a, sonhosPct: v })}
               />
@@ -261,6 +262,24 @@ function Separador() {
   return <div className="h-px bg-slate-100" />;
 }
 
+function rangeIdade(ini?: number, fim?: number): string | undefined {
+  if (ini == null && fim == null) return undefined;
+  if (ini != null && fim != null) return `${ini}–${fim}`;
+  if (ini != null) return `a partir de ${ini}`;
+  return `até ${fim}`;
+}
+
+function agruparPorCategoria(
+  expenses: SimulationInput['expenses'],
+): { nome: string; valor: number; sub?: string }[] {
+  const acc: Record<string, number> = {};
+  for (const e of expenses) {
+    const anual = e.valor_mensal * 12;
+    acc[e.categoria] = (acc[e.categoria] ?? 0) + anual;
+  }
+  return Object.entries(acc).map(([nome, valor]) => ({ nome, valor }));
+}
+
 function ControleCategoria({
   label,
   value,
@@ -283,7 +302,7 @@ function ControleCategoria({
   valorBase: number;
   valorNovo: number;
   unidade: string;
-  composicao: { nome: string; valor: number }[];
+  composicao: { nome: string; valor: number; sub?: string }[];
   composicaoVazia: string;
   onChange: (v: number) => void;
   bomEAumentar?: boolean;
@@ -377,7 +396,12 @@ function ControleCategoria({
                   key={`${item.nome}-${i}`}
                   className="flex items-center justify-between px-3 py-1.5 text-[11px]"
                 >
-                  <span className="text-slate-600 truncate pr-2">{item.nome}</span>
+                  <div className="min-w-0 pr-2">
+                    <p className="text-slate-700 truncate">{item.nome}</p>
+                    {item.sub && (
+                      <p className="text-[10px] text-slate-400 tabular-nums">{item.sub}</p>
+                    )}
+                  </div>
                   <span className="tabular-nums text-right whitespace-nowrap">
                     <span className="text-slate-500">{brl(item.valor)}</span>
                     {tocado && (
