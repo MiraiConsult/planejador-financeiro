@@ -271,6 +271,11 @@ interface ClientNavItem {
 function buildClientItems(c: CurrentClient): ClientNavItem[] {
   const base = `/clients/${c.id}`;
   const items: ClientNavItem[] = [];
+  items.push({
+    href: `${base}/perfil`,
+    label: 'Perfil do cliente',
+    icon: UserCircle,
+  });
   if (c.tem_bp) {
     items.push({
       href: `${base}/balanco`,
