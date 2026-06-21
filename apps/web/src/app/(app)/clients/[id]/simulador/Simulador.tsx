@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RotateCcw, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, RotateCcw, TrendingDown, TrendingUp, X } from 'lucide-react';
 import { simulate, type Client, type SimulationInput, type SimulationResult } from '@planejador/engine';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -14,9 +14,9 @@ interface Props {
 }
 
 interface Ajustes {
-  receitaPct: number;   // aumento %
-  gastosPct: number;    // diminuição %
-  sonhosPct: number;    // aumento %
+  receitaPct: number;   // +aumenta / -reduz
+  gastosPct: number;    // +aumenta / -reduz
+  sonhosPct: number;    // +aumenta / -reduz
 }
 
 const ZERO: Ajustes = { receitaPct: 0, gastosPct: 0, sonhosPct: 0 };
@@ -35,7 +35,7 @@ const brlCompact = (n: number) => {
 
 function aplicarAjustes(base: SimulationInput, a: Ajustes): SimulationInput {
   const fReceita = 1 + a.receitaPct / 100;
-  const fGastos = 1 - a.gastosPct / 100;
+  const fGastos = 1 + a.gastosPct / 100;
   const fSonhos = 1 + a.sonhosPct / 100;
   return {
     ...base,
@@ -66,6 +66,29 @@ export function Simulador({ clientId, input }: Props) {
   const deltaPico = sNovo.patrimonio_pico - sBase.patrimonio_pico;
   const deltaBreakEven =
     (sNovo.idade_break_even ?? Infinity) - (sBase.idade_break_even ?? Infinity);
+
+  // Composição: ano corrente (primeira linha) para receita/gastos;
+  // total agregado para sonhos (eventos não são por ano).
+  const linha0Base = baseResult.rows[0];
+  const linha0Novo = ajustadoResult.rows[0];
+
+  const receitaBase = linha0Base?.receitas_total ?? 0;
+  const receitaNovo = linha0Novo?.receitas_total ?? 0;
+  const composicaoReceita = (linha0Base?.detalhes.receitas_por_ativo ?? [])
+    .slice()
+    .sort((x, y) => y.valor - x.valor);
+
+  const gastosBase =
+    (linha0Base?.despesas_essenciais ?? 0) + (linha0Base?.despesas_nao_essenciais ?? 0);
+  const gastosNovo =
+    (linha0Novo?.despesas_essenciais ?? 0) + (linha0Novo?.despesas_nao_essenciais ?? 0);
+  const composicaoGastos = Object.entries(linha0Base?.detalhes.despesas_por_categoria ?? {})
+    .map(([categoria, valor]) => ({ categoria, valor }))
+    .sort((x, y) => y.valor - x.valor);
+
+  const sonhos = input.input.events.filter((e) => e.tipo === 'sonho');
+  const somaSonhosBase = sonhos.reduce((s, e) => s + Math.abs(e.valor), 0);
+  const somaSonhosNovo = somaSonhosBase * (1 + a.sonhosPct / 100);
 
   const series = [
     {
@@ -106,88 +129,102 @@ export function Simulador({ clientId, input }: Props) {
           Comparação de cenários
         </h1>
         <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-2xl">
-          Ajuste as variáveis e veja o impacto no patrimônio em tempo real. Nada é salvo até você
-          confirmar.
+          Ajuste as variáveis e veja o impacto no patrimônio em tempo real. Slider à direita
+          aumenta, à esquerda reduz. Nada é salvo até você confirmar.
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-[340px_1fr] gap-6">
+      <div className="grid lg:grid-cols-[380px_1fr] gap-6">
         {/* Painel de controles */}
-        <Card>
-          <CardHeader className="border-b border-slate-100/70">
-            <div className="flex items-center justify-between">
-              <CardTitle>Controles</CardTitle>
-              <button
-                type="button"
-                onClick={() => setA(ZERO)}
-                disabled={!tocado}
-                className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Zerar ajustes"
-              >
-                <RotateCcw size={12} />
-                Zerar
-              </button>
-            </div>
-            <CardDescription>Aplica em todos os itens de cada categoria.</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-6">
-            <Slider
-              label="Aumento de receita"
-              value={a.receitaPct}
-              min={0}
-              max={50}
-              step={1}
-              suffix="%"
-              tone="success"
-              onChange={(v) => setA({ ...a, receitaPct: v })}
-            />
-            <Slider
-              label="Diminuição de gastos gerais"
-              value={a.gastosPct}
-              min={0}
-              max={50}
-              step={1}
-              suffix="%"
-              tone="success"
-              onChange={(v) => setA({ ...a, gastosPct: v })}
-            />
-            <Slider
-              label="Aumento de sonhos"
-              value={a.sonhosPct}
-              min={0}
-              max={100}
-              step={5}
-              suffix="%"
-              tone="warning"
-              onChange={(v) => setA({ ...a, sonhosPct: v })}
-            />
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="border-b border-slate-100/70">
+              <div className="flex items-center justify-between">
+                <CardTitle>Controles</CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setA(ZERO)}
+                  disabled={!tocado}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Zerar ajustes"
+                >
+                  <RotateCcw size={12} />
+                  Zerar
+                </button>
+              </div>
+              <CardDescription>Aplica em todos os itens da categoria.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-5">
+              <ControleCategoria
+                label="Receita"
+                value={a.receitaPct}
+                min={-50}
+                max={100}
+                step={1}
+                valorBase={receitaBase}
+                valorNovo={receitaNovo}
+                unidade="/ ano"
+                composicao={composicaoReceita.map((r) => ({ nome: r.nome, valor: r.valor }))}
+                composicaoVazia="Nenhuma receita cadastrada."
+                onChange={(v) => setA({ ...a, receitaPct: v })}
+              />
+              <Separador />
+              <ControleCategoria
+                label="Gastos gerais"
+                value={a.gastosPct}
+                min={-50}
+                max={100}
+                step={1}
+                valorBase={gastosBase}
+                valorNovo={gastosNovo}
+                unidade="/ ano"
+                bomEAumentar={false}
+                composicao={composicaoGastos.map((g) => ({ nome: g.categoria, valor: g.valor }))}
+                composicaoVazia="Nenhuma despesa cadastrada."
+                onChange={(v) => setA({ ...a, gastosPct: v })}
+              />
+              <Separador />
+              <ControleCategoria
+                label="Sonhos"
+                value={a.sonhosPct}
+                min={-100}
+                max={100}
+                step={5}
+                valorBase={somaSonhosBase}
+                valorNovo={somaSonhosNovo}
+                unidade="total"
+                bomEAumentar={false}
+                composicao={sonhos.map((e) => ({ nome: e.descricao, valor: Math.abs(e.valor) }))}
+                composicaoVazia="Nenhum sonho cadastrado."
+                onChange={(v) => setA({ ...a, sonhosPct: v })}
+              />
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Painel de impacto */}
         <div className="space-y-6">
           <div className="grid sm:grid-cols-3 gap-3">
             <DeltaCard
               label="Patrimônio final"
-              base={brlCompact(sBase.patrimonio_final)}
               novo={brlCompact(sNovo.patrimonio_final)}
+              base={brlCompact(sBase.patrimonio_final)}
               delta={deltaPatrimonio}
               fmt={brlCompact}
             />
             <DeltaCard
               label="Pico patrimonial"
-              base={brlCompact(sBase.patrimonio_pico)}
               novo={brlCompact(sNovo.patrimonio_pico)}
+              base={brlCompact(sBase.patrimonio_pico)}
               delta={deltaPico}
               fmt={brlCompact}
             />
             <DeltaCard
               label="Idade de exaustão"
-              base={sBase.idade_break_even ? `${sBase.idade_break_even}a` : 'nunca'}
               novo={sNovo.idade_break_even ? `${sNovo.idade_break_even}a` : 'nunca'}
+              base={sBase.idade_break_even ? `${sBase.idade_break_even}a` : 'nunca'}
               delta={Number.isFinite(deltaBreakEven) ? deltaBreakEven : 0}
               fmt={(n) => (n === 0 ? '=' : `${n > 0 ? '+' : ''}${n.toFixed(0)}a`)}
-              positivoBom
             />
           </div>
 
@@ -220,36 +257,64 @@ export function Simulador({ clientId, input }: Props) {
   );
 }
 
-function Slider({
+function Separador() {
+  return <div className="h-px bg-slate-100" />;
+}
+
+function ControleCategoria({
   label,
   value,
   min,
   max,
   step,
-  suffix,
-  tone,
+  valorBase,
+  valorNovo,
+  unidade,
+  composicao,
+  composicaoVazia,
   onChange,
+  bomEAumentar = true,
 }: {
   label: string;
   value: number;
   min: number;
   max: number;
   step: number;
-  suffix: string;
-  tone: 'success' | 'warning';
+  valorBase: number;
+  valorNovo: number;
+  unidade: string;
+  composicao: { nome: string; valor: number }[];
+  composicaoVazia: string;
   onChange: (v: number) => void;
+  bomEAumentar?: boolean;
 }) {
-  const corValor = tone === 'success' ? 'text-emerald-700' : 'text-amber-700';
+  const [aberto, setAberto] = useState(false);
+  const delta = valorNovo - valorBase;
+  const tocado = value !== 0;
+  const positivoBom = bomEAumentar ? delta > 0 : delta < 0;
+  const negativoBom = bomEAumentar ? delta < 0 : delta > 0;
+  const corDelta = !tocado
+    ? 'text-slate-400'
+    : positivoBom
+      ? 'text-emerald-600'
+      : negativoBom
+        ? 'text-red-600'
+        : 'text-slate-500';
+
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-2">
-        <label className="text-xs font-medium text-slate-700">{label}</label>
-        <span className={`text-sm font-bold tabular-nums ${value > 0 ? corValor : 'text-slate-400'}`}>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <label className="text-sm font-semibold text-slate-800">{label}</label>
+        <span
+          className={`text-sm font-bold tabular-nums ${
+            value === 0 ? 'text-slate-400' : value > 0 ? 'text-emerald-700' : 'text-red-700'
+          }`}
+        >
           {value > 0 ? '+' : ''}
-          {value}
-          {suffix}
+          {value}%
         </span>
       </div>
+
       <input
         type="range"
         min={min}
@@ -259,13 +324,75 @@ function Slider({
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full accent-brand-600"
       />
-      <div className="flex justify-between text-[10px] text-slate-400 mt-1 tabular-nums">
-        <span>0{suffix}</span>
+      <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 tabular-nums">
+        <span>{min}%</span>
+        <span className="text-slate-500">0%</span>
         <span>
-          {max}
-          {suffix}
+          +{max}%
         </span>
       </div>
+
+      <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-md bg-slate-50 px-2.5 py-1.5">
+          <p className="text-[9px] uppercase tracking-widest text-slate-400">Atual {unidade}</p>
+          <p className="font-bold tabular-nums text-slate-700 mt-0.5">{brl(valorBase)}</p>
+        </div>
+        <div className={`rounded-md px-2.5 py-1.5 ${tocado ? 'bg-brand-50' : 'bg-slate-50'}`}>
+          <p className="text-[9px] uppercase tracking-widest text-slate-400">Ajustado</p>
+          <p className={`font-bold tabular-nums mt-0.5 ${tocado ? 'text-brand-700' : 'text-slate-700'}`}>
+            {brl(valorNovo)}
+          </p>
+        </div>
+      </div>
+
+      {tocado && (
+        <p className={`mt-1.5 text-[11px] font-medium tabular-nums ${corDelta}`}>
+          Δ {delta > 0 ? '+' : ''}
+          {brl(delta)}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800"
+        aria-expanded={aberto}
+      >
+        <ChevronDown
+          size={11}
+          className={`transition-transform ${aberto ? 'rotate-180' : ''}`}
+        />
+        {aberto ? 'Ocultar composição' : `Ver composição (${composicao.length})`}
+      </button>
+
+      {aberto && (
+        <div className="mt-2 rounded-md border border-slate-200 bg-white divide-y divide-slate-100">
+          {composicao.length === 0 ? (
+            <p className="px-3 py-2 text-[11px] text-slate-400 italic">{composicaoVazia}</p>
+          ) : (
+            composicao.map((item, i) => {
+              const itemNovo = item.valor * (1 + value / 100);
+              return (
+                <div
+                  key={`${item.nome}-${i}`}
+                  className="flex items-center justify-between px-3 py-1.5 text-[11px]"
+                >
+                  <span className="text-slate-600 truncate pr-2">{item.nome}</span>
+                  <span className="tabular-nums text-right whitespace-nowrap">
+                    <span className="text-slate-500">{brl(item.valor)}</span>
+                    {tocado && (
+                      <>
+                        <span className="text-slate-300 mx-1">→</span>
+                        <span className="font-semibold text-brand-700">{brl(itemNovo)}</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -276,19 +403,15 @@ function DeltaCard({
   novo,
   delta,
   fmt,
-  positivoBom,
 }: {
   label: string;
   base: string;
   novo: string;
   delta: number;
   fmt: (n: number) => string;
-  positivoBom?: boolean;
 }) {
-  const bom = positivoBom ? delta > 0 : delta > 0;
-  const ruim = positivoBom ? delta < 0 : delta < 0;
-  const cor = delta === 0 ? 'text-slate-500' : bom ? 'text-emerald-600' : ruim ? 'text-red-600' : 'text-slate-500';
-  const Icon = delta === 0 ? null : bom ? TrendingUp : TrendingDown;
+  const cor = delta === 0 ? 'text-slate-500' : delta > 0 ? 'text-emerald-600' : 'text-red-600';
+  const Icon = delta === 0 ? null : delta > 0 ? TrendingUp : TrendingDown;
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <p className="text-[10px] uppercase tracking-widest text-slate-400">{label}</p>
