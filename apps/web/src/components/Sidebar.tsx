@@ -1,20 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
-  BookOpen,
-  Building2,
   CalendarRange,
-  Edit3,
-  GitCompare,
   HelpCircle,
+  Home,
   LayoutDashboard,
   LogOut,
-  MessageSquare,
   Settings2,
-  Sparkles,
   UserCircle,
   Users,
   Wallet,
@@ -67,7 +62,9 @@ const clientGlobalSection = {
 
 export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = false }: Props) {
   const pathname = usePathname();
-  const clientItems = currentClient ? buildClientItems(currentClient) : [];
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get('tab');
+  const clientGroups = currentClient ? buildClientGroups(currentClient) : [];
   // Cliente final não vê o menu global de consultor (Visão geral, Clientes, Premissas)
   const sectionsToShow = clientMode ? [] : navSections;
 
@@ -80,14 +77,15 @@ export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = 
 
       <div className="px-3 mb-3">
         <Link
-          href="/clients"
-          className="group flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-brand-50 via-brand-50 to-sky-50 px-3 py-2.5 text-xs font-medium text-brand-700 ring-1 ring-inset ring-brand-200/50 hover:ring-brand-300 transition-all"
+          href={
+            clientMode && currentClient
+              ? `/clients/${currentClient.id}/${currentClient.tem_bp ? 'balanco' : 'controle-mensal'}`
+              : '/clients'
+          }
+          className="group flex items-center gap-2 rounded-xl bg-gradient-to-br from-brand-50 via-brand-50 to-sky-50 px-3 py-2.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-200/50 hover:ring-brand-300 transition-all dark:from-brand-900/30 dark:via-brand-900/20 dark:to-sky-900/20 dark:text-brand-200 dark:ring-brand-700/40"
         >
-          <span className="flex items-center gap-2">
-            <Sparkles size={12} className="text-brand-500" />
-            Plano Beta
-          </span>
-          <span className="text-[10px] uppercase tracking-wider text-brand-500">Free</span>
+          <Home size={14} className="text-brand-600 dark:text-brand-300" />
+          <span>Início</span>
         </Link>
       </div>
 
@@ -145,54 +143,87 @@ export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = 
           </div>
         ))}
 
-        {currentClient && clientItems.length > 0 && (
-          <div>
-            <div className="px-3 mb-2 flex items-center justify-between gap-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 truncate">
-                {clientMode ? 'Meu painel' : 'Cliente atual'}
-              </p>
-              {!clientMode && (
-                <Link
-                  href="/clients"
-                  className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 inline-flex items-center gap-0.5"
-                  title="Voltar para lista de clientes"
-                >
-                  <ArrowLeft size={10} />
-                  lista
-                </Link>
-              )}
-            </div>
-            <div className="px-3 mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate" title={currentClient.nome}>
-              {currentClient.nome}
-            </div>
-            <div className="space-y-0.5">
-              {clientItems.map(({ href, label, icon: Icon, badge }) => {
-                const active = pathname === href || pathname.startsWith(href + '/');
-                return (
+        {currentClient && clientGroups.length > 0 && (
+          <div className="space-y-5">
+            <div>
+              <div className="px-3 mb-2 flex items-center justify-between gap-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 truncate">
+                  {clientMode ? 'Meu painel' : 'Cliente atual'}
+                </p>
+                {!clientMode && (
                   <Link
-                    key={href}
-                    href={href}
+                    href="/clients"
+                    className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 inline-flex items-center gap-0.5"
+                    title="Voltar para lista de clientes"
+                  >
+                    <ArrowLeft size={10} />
+                    lista
+                  </Link>
+                )}
+              </div>
+              <div className="px-3 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate" title={currentClient.nome}>
+                {currentClient.nome}
+              </div>
+            </div>
+
+            {clientGroups.map((group) => {
+              const headerActive =
+                pathname === group.header.href ||
+                (group.header.href && pathname.startsWith(group.header.href + '/')) ||
+                group.children.some((c) => pathname === c.hrefPath);
+              return (
+                <div key={group.header.label} className="space-y-0.5">
+                  {/* Header do grupo (principal) */}
+                  <Link
+                    href={group.header.href}
                     className={cn(
-                      'relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                      active
+                      'relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all',
+                      headerActive
                         ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100',
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100',
                     )}
                   >
-                    <Icon size={15} strokeWidth={2} />
-                    <span className="flex-1 truncate">{label}</span>
-                    {badge && (
+                    <group.header.icon size={16} strokeWidth={2.2} />
+                    <span className="flex-1 truncate">{group.header.label}</span>
+                    {group.header.badge && (
                       <span className={cn(
                         'text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
-                        active ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
+                        headerActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
                       )}>
-                        {badge}
+                        {group.header.badge}
                       </span>
                     )}
                   </Link>
-                );
-              })}
-            </div>
+
+                  {/* Filhos do grupo (indentados) */}
+                  {group.children.length > 0 && (
+                    <div className="ml-3 pl-4 border-l border-slate-200 dark:border-slate-700 space-y-0.5">
+                      {group.children.map((child) => {
+                        const onPath = pathname === child.hrefPath;
+                        const active = child.tab
+                          ? onPath && currentTab === child.tab
+                          : onPath && !currentTab;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={cn(
+                              'flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] transition-colors',
+                              active
+                                ? 'bg-slate-100 text-slate-900 font-medium dark:bg-slate-800 dark:text-slate-100'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100',
+                            )}
+                          >
+                            <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+                            <span className="truncate">{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -261,65 +292,57 @@ export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = 
   );
 }
 
-interface ClientNavItem {
-  href: string;
-  label: string;
-  icon: typeof Users;
-  badge?: string;
+interface ClientNavGroup {
+  header: { href: string; label: string; icon: typeof Users; badge?: string };
+  children: { href: string; hrefPath: string; tab?: string; label: string }[];
 }
 
-function buildClientItems(c: CurrentClient): ClientNavItem[] {
+function buildClientGroups(c: CurrentClient): ClientNavGroup[] {
   const base = `/clients/${c.id}`;
-  const items: ClientNavItem[] = [];
-  items.push({
-    href: `${base}/perfil`,
-    label: 'Perfil do cliente',
-    icon: UserCircle,
-  });
+  const groups: ClientNavGroup[] = [];
+
   if (c.tem_bp) {
-    items.push({
-      href: `${base}/balanco`,
-      label: 'Balanço Patrimonial',
-      icon: Wallet,
-      badge: c.bp_pendente ? 'pendente' : undefined,
+    const bpReady = !c.bp_pendente;
+    groups.push({
+      header: {
+        href: `${base}/balanco`,
+        label: 'Balanço Patrimonial',
+        icon: Wallet,
+        badge: c.bp_pendente ? 'pendente' : undefined,
+      },
+      children: bpReady
+        ? [
+            { href: `${base}/perfil`, hrefPath: `${base}/perfil`, label: 'Perfil do cliente' },
+            { href: `${base}/compare`, hrefPath: `${base}/compare`, label: 'Comparar cenários' },
+            { href: `${base}/transcript`, hrefPath: `${base}/transcript`, label: 'Refinar transcrição' },
+            { href: `${base}/edit`, hrefPath: `${base}/edit`, label: 'Editar dados' },
+          ]
+        : [
+            { href: `${base}/perfil`, hrefPath: `${base}/perfil`, label: 'Perfil do cliente' },
+          ],
     });
   }
+
   if (c.tem_cm) {
-    items.push({
-      href: `${base}/controle-mensal`,
-      label: 'Controle Mensal',
-      icon: CalendarRange,
-      badge: c.cm_pendente ? 'pendente' : undefined,
-    });
-    items.push({
-      href: `${base}/controle-mensal/dados-cadastrais`,
-      label: 'Dados Cadastrais',
-      icon: BookOpen,
-    });
-    items.push({
-      href: `${base}/controle-mensal/bancos`,
-      label: 'Bancos',
-      icon: Building2,
-    });
-  }
-  if (c.tem_bp && !c.bp_pendente) {
-    items.push({
-      href: `${base}/compare`,
-      label: 'Comparar cenários',
-      icon: GitCompare,
-    });
-    items.push({
-      href: `${base}/transcript`,
-      label: 'Refinar transcrição',
-      icon: MessageSquare,
-    });
-    items.push({
-      href: `${base}/edit`,
-      label: 'Editar dados',
-      icon: Edit3,
+    const dados = `${base}/controle-mensal/dados-cadastrais`;
+    groups.push({
+      header: {
+        href: `${base}/controle-mensal`,
+        label: 'Controle Mensal',
+        icon: CalendarRange,
+        badge: c.cm_pendente ? 'pendente' : undefined,
+      },
+      children: [
+        { href: `${base}/controle-mensal`, hrefPath: `${base}/controle-mensal`, label: 'Lançamentos' },
+        { href: dados, hrefPath: dados, label: 'Dados' },
+        { href: `${dados}?tab=plano`, hrefPath: dados, tab: 'plano', label: 'Plano de contas' },
+        { href: `${dados}?tab=centros`, hrefPath: dados, tab: 'centros', label: 'Centros' },
+        { href: `${base}/controle-mensal/bancos`, hrefPath: `${base}/controle-mensal/bancos`, label: 'Bancos' },
+      ],
     });
   }
-  return items;
+
+  return groups;
 }
 
 export function MobileTopBar({ userEmail, signOutAction }: Props) {
