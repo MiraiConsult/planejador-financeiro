@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { makeMatchKey } from '@/lib/controle-mensal/match';
 
 async function checkOwner(client_id: string) {
   const supabase = await createClient();
@@ -96,32 +97,85 @@ export async function criarRubrica(args: {
   return { ok: true, rubrica: data };
 }
 
-/** Aprova lançamentos (revisado = true). Lista de ids ou todos pendentes. */
+/**
+ * Aprova lançamentos (revisado = true) E aprende com a categorização:
+ * pra cada aprovado vindo de banco com categoria/rubrica preenchidas, cria
+ * ou atualiza uma regra (match_key → categoria_id, rubrica_id). Próximos
+ * syncs aplicam a regra automaticamente.
+ */
 export async function aprovarLancamentos(args: {
   client_id: string;
   ids?: string[];
   todos?: boolean;
-}): Promise<{ ok: boolean; error?: string; aprovados?: number }> {
+}): Promise<{ ok: boolean; error?: string; aprovados?: number; regrasAprendidas?: number }> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;
 
+  // 1) Lê os lançamentos que serão aprovados (precisa antes do UPDATE pra
+  //    extrair merchant/descricao/categoria pro aprendizado).
   let q = g.supabase
     .from('controle_mensal_lancamentos')
-    .update({ revisado: true }, { count: 'exact' })
+    .select('id, descricao, merchant, categoria_id, rubrica_id, centro_id, bank_connection_id')
     .eq('client_id', args.client_id)
     .eq('revisado', false);
-
   if (!args.todos) {
     if (!args.ids || args.ids.length === 0) return { ok: true, aprovados: 0 };
     q = q.in('id', args.ids);
   }
+  const { data: pendentes, error: errLer } = await q;
+  if (errLer) return { ok: false, error: errLer.message };
+  if (!pendentes || pendentes.length === 0) return { ok: true, aprovados: 0 };
 
-  const { error, count } = await q.select('id');
-  if (error) return { ok: false, error: error.message };
+  // 2) UPDATE pra revisado=true
+  const ids = pendentes.map((p) => p.id as string);
+  const { error: errUp } = await g.supabase
+    .from('controle_mensal_lancamentos')
+    .update({ revisado: true })
+    .in('id', ids);
+  if (errUp) return { ok: false, error: errUp.message };
+
+  // 3) Aprendizado: upsert de regras pros que vieram de banco e estão categorizados
+  const regrasMap = new Map<string, {
+    match_key: string;
+    categoria_id: string | null;
+    rubrica_id: string | null;
+    centro_id: string | null;
+  }>();
+  for (const l of pendentes) {
+    // Só aprende com vindos de banco e que TÊM categorização definida
+    if (!l.bank_connection_id) continue;
+    if (!l.categoria_id && !l.rubrica_id) continue;
+    const key = makeMatchKey(l.merchant as string | null, l.descricao as string);
+    // 'd:' vazio não conta (descrição muito ruim pra match)
+    if (key === 'd:' || key === 'm:') continue;
+    // Última aprovação vence (sobrescreve em duplicatas no mesmo batch)
+    regrasMap.set(key, {
+      match_key: key,
+      categoria_id: l.categoria_id as string | null,
+      rubrica_id: l.rubrica_id as string | null,
+      centro_id: l.centro_id as string | null,
+    });
+  }
+
+  let regrasAprendidas = 0;
+  if (regrasMap.size > 0) {
+    const rows = [...regrasMap.values()].map((r) => ({
+      client_id: args.client_id,
+      match_key: r.match_key,
+      categoria_id: r.categoria_id,
+      rubrica_id: r.rubrica_id,
+      centro_id: r.centro_id,
+      origem: 'manual', // veio de aprovação do consultor
+    }));
+    const { error, count } = await g.supabase
+      .from('controle_mensal_regras_categorizacao')
+      .upsert(rows, { onConflict: 'client_id,match_key', count: 'exact' });
+    if (!error) regrasAprendidas = count ?? rows.length;
+  }
 
   revalidatePath(`/clients/${args.client_id}/controle-mensal`);
   revalidatePath(`/clients/${args.client_id}/controle-mensal/revisao`);
-  return { ok: true, aprovados: count ?? 0 };
+  return { ok: true, aprovados: ids.length, regrasAprendidas };
 }
 
 /** Exclui lançamentos em revisão (descarta — não quero esse lançamento). */

@@ -154,6 +154,11 @@ export function RevisaoManager({
     return { id: nova.id, nome: nova.nome };
   }
 
+  function msgAprovados(n: number, regras: number | undefined): string {
+    const base = `${n} aprovado(s) — já estão nos números`;
+    if (!regras) return base;
+    return `${base}. ${regras} regra(s) aprendida(s) pra próximos syncs.`;
+  }
   function aprovar(ids: string[]) {
     if (ids.length === 0) return;
     start(async () => {
@@ -161,7 +166,7 @@ export function RevisaoManager({
       if (!res.ok) { toast.error(res.error ?? 'Falha'); return; }
       setRows((rs) => rs.filter((r) => !ids.includes(r.id)));
       setSelecionados(new Set());
-      toast.success(`${res.aprovados} aprovado(s)`);
+      toast.success(msgAprovados(res.aprovados ?? 0, res.regrasAprendidas));
       router.refresh();
     });
   }
@@ -170,7 +175,7 @@ export function RevisaoManager({
       const res = await aprovarLancamentos({ client_id: clientId, todos: true });
       if (!res.ok) { toast.error(res.error ?? 'Falha'); return; }
       setRows([]); setSelecionados(new Set());
-      toast.success(`${res.aprovados} aprovado(s) — já estão nos números`);
+      toast.success(msgAprovados(res.aprovados ?? 0, res.regrasAprendidas));
       router.refresh();
     });
   }
