@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, CalendarRange, Plus, Sparkles, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowRight, CalendarRange, Plus, ShieldAlert, Sparkles, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { simulate } from '@planejador/engine';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { loadSimulationInput } from '@/lib/loadSimulation';
 import { deleteClient, seedMarcelo } from './actions';
+import { GerenciarAcessoButton } from './GerenciarAcesso';
 
 const perfilLabel: Record<
   string,
@@ -57,9 +58,11 @@ function hashIdx(s: string, n: number) {
 
 export default async function ClientsPage() {
   const supabase = await createClient();
+  const { data: adminFlag } = await supabase.rpc('current_user_is_admin');
+  const admin = adminFlag === true;
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, nome_completo, data_nascimento, perfil_carteira, expectativa_vida_anos, created_at, onboarding_step, onboarding_step_cm, tem_balanco_patrimonial, tem_controle_mensal, updated_at')
+    .select('id, nome_completo, data_nascimento, perfil_carteira, expectativa_vida_anos, created_at, onboarding_step, onboarding_step_cm, tem_balanco_patrimonial, tem_controle_mensal, client_user_id, updated_at')
     .order('created_at', { ascending: false });
 
   const isDraft = (c: { onboarding_step: number | null; onboarding_step_cm: number | null; tem_balanco_patrimonial: boolean; tem_controle_mensal: boolean }) =>
@@ -94,6 +97,18 @@ export default async function ClientsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      {admin && (
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-5 py-3 flex items-center gap-3">
+          <ShieldAlert size={18} className="text-amber-700 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">Acesso de administrador</p>
+            <p className="text-xs text-amber-700">
+              Você está como admin: vê e opera todos os clientes e pode gerenciar os logins de acesso deles.
+            </p>
+          </div>
+        </div>
+      )}
+
       <PageHeader
         eyebrow="Painel"
         title="Clientes"
@@ -308,6 +323,15 @@ export default async function ClientsPage() {
                     </div>
                   </div>
                 </Link>
+                {admin && (
+                  <div className="px-5 pb-4 -mt-1">
+                    <GerenciarAcessoButton
+                      clientId={c.id}
+                      clientNome={c.nome_completo}
+                      temLogin={c.client_user_id != null}
+                    />
+                  </div>
+                )}
                 <form
                   action={deleteClient}
                   className="absolute top-3 right-14 opacity-0 group-hover:opacity-100 transition-opacity"
