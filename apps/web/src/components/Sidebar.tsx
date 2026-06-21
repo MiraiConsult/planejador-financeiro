@@ -333,8 +333,8 @@ function buildClientGroups(c: CurrentClient): ClientNavGroup[] {
         badge: c.cm_pendente ? 'pendente' : undefined,
       },
       children: [
-        { href: `${base}/controle-mensal`, hrefPath: `${base}/controle-mensal`, label: 'Lançamentos' },
-        { href: dados, hrefPath: dados, label: 'Dados' },
+        { href: `${base}/controle-mensal/lancamentos`, hrefPath: `${base}/controle-mensal/lancamentos`, label: 'Lançamentos' },
+        { href: `${base}/controle-mensal`, hrefPath: `${base}/controle-mensal`, label: 'Dados' },
         { href: `${dados}?tab=plano`, hrefPath: dados, tab: 'plano', label: 'Plano de contas' },
         { href: `${dados}?tab=centros`, hrefPath: dados, tab: 'centros', label: 'Centros' },
         { href: `${base}/controle-mensal/bancos`, hrefPath: `${base}/controle-mensal/bancos`, label: 'Bancos' },
