@@ -45,6 +45,16 @@ const brlCompact = (n: number) => {
   return brl(n);
 };
 
+function escalarOverrides(
+  overrides: Record<string, number> | undefined,
+  fator: number,
+): Record<string, number> | undefined {
+  if (!overrides) return overrides;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(overrides)) out[k] = v * fator;
+  return out;
+}
+
 function aplicarAjustes(base: SimulationInput, a: Ajustes): SimulationInput {
   const fReceita = 1 + a.receitaPct / 100;
   const fGastos = 1 + a.gastosPct / 100;
@@ -56,14 +66,22 @@ function aplicarAjustes(base: SimulationInput, a: Ajustes): SimulationInput {
     ...base,
     assets: base.assets.map((x) =>
       x.natureza === 'fluxo' && !desReceita.has(x.id)
-        ? { ...x, valor: x.valor * fReceita }
+        ? { ...x, valor: x.valor * fReceita, overrides: escalarOverrides(x.overrides, fReceita) }
         : x,
     ),
     expenses: base.expenses.map((x) =>
-      desGastos.has(x.categoria) ? x : { ...x, valor_mensal: x.valor_mensal * fGastos },
+      desGastos.has(x.categoria)
+        ? x
+        : {
+            ...x,
+            valor_mensal: x.valor_mensal * fGastos,
+            overrides: escalarOverrides(x.overrides, fGastos),
+          },
     ),
     events: base.events.map((x) =>
-      x.tipo === 'sonho' && !desSonhos.has(x.id) ? { ...x, valor: x.valor * fSonhos } : x,
+      x.tipo === 'sonho' && !desSonhos.has(x.id)
+        ? { ...x, valor: x.valor * fSonhos, overrides: escalarOverrides(x.overrides, fSonhos) }
+        : x,
     ),
   };
 }
