@@ -1,4 +1,5 @@
 import type {
+  AlocacaoExcedenteFaixa,
   Asset,
   Assumptions,
   EventoDisparado,
@@ -160,9 +161,18 @@ export function simulate(input: SimulationInput): SimulationResult {
     const fluxoLiquido =
       receitas + eventosPositivos - despesasEssenciais - despesasNaoEssenciais - eventosNegativos;
 
+    // ─── Alocação do excedente ─────────────────────────────────────────
+    // Quando o fluxo do ano é positivo, só uma % vai pro saldo investido
+    // (definida por faixa etária). O resto vira "consumo extra" — não
+    // acumula nem rende. Fluxo negativo é integralmente sacado do saldo.
+    const pctInvestir = pctInvestirNaIdade(idade, client.alocacao_excedente);
+    const consumoExcedente =
+      fluxoLiquido > 0 ? fluxoLiquido * (1 - pctInvestir) : 0;
+    const fluxoLiquidoCaixa = fluxoLiquido - consumoExcedente;
+
     // ─── Juros sobre dívida (cobrados ANTES do retorno) ───
     const jurosDivida = saldoDivida * premissas.custo_credito_aa;
-    let saldoPreRetorno = saldoInicial + fluxoLiquido - jurosDivida;
+    let saldoPreRetorno = saldoInicial + fluxoLiquidoCaixa - jurosDivida;
 
     // ─── Retorno: só a partir do ano 2 (t >= 1) e só sobre saldo positivo ───
     // Regra do meio: as entradas/saídas do ano acontecem em média na metade
@@ -171,7 +181,7 @@ export function simulate(input: SimulationInput): SimulationResult {
     // correta (Excel: TIR/FV padrão).
     // IMPORTANTE: o sistema opera em VALORES REAIS (moeda de hoje, sem
     // inflação) — `retornoEfetivo` precisa ser REAL pra ser consistente.
-    const saldoMedio = Math.max(0, saldoInicial + (fluxoLiquido - jurosDivida) / 2);
+    const saldoMedio = Math.max(0, saldoInicial + (fluxoLiquidoCaixa - jurosDivida) / 2);
     const retorno =
       t === 0
         ? 0
@@ -248,6 +258,7 @@ export function simulate(input: SimulationInput): SimulationResult {
       eventos_positivos: round2(eventosPositivos),
       eventos_negativos: round2(eventosNegativos),
       fluxo_liquido: round2(fluxoLiquido),
+      consumo_excedente: round2(consumoExcedente),
       juros_divida: round2(jurosDivida),
       retorno: round2(retorno),
       saldo_final: round2(saldoFinal),
@@ -324,4 +335,23 @@ function round2(n: number): number {
 
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
+}
+
+/**
+ * Retorna a fração (0..1) do fluxo líquido positivo que deve ser investida
+ * naquela idade. Última faixa (ate_idade=null) cobre o resto da vida.
+ * Sem faixas configuradas → 100% investido (comportamento legado).
+ */
+function pctInvestirNaIdade(
+  idade: number,
+  faixas?: AlocacaoExcedenteFaixa[],
+): number {
+  if (!faixas || faixas.length === 0) return 1;
+  for (const f of faixas) {
+    if (f.ate_idade == null || idade <= f.ate_idade) {
+      const pct = Math.min(100, Math.max(0, f.pct_investido));
+      return pct / 100;
+    }
+  }
+  return 1;
 }

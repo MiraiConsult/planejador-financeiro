@@ -66,6 +66,9 @@ export async function loadSimulationInput(client_id: string): Promise<{
     perfil_carteira: c.perfil_carteira,
     custom_retorno_aa: c.custom_retorno_aa ?? undefined,
     custom_volatilidade_aa: c.custom_volatilidade_aa ?? undefined,
+    alocacao_excedente: Array.isArray(c.alocacao_excedente)
+      ? (c.alocacao_excedente as { ate_idade: number | null; pct_investido: number }[])
+      : undefined,
   };
 
   const assets: Asset[] = (assetsRes.data ?? []).map((a) => ({

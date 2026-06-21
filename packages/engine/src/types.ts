@@ -59,6 +59,15 @@ export interface Client {
   perfil_carteira: PerfilCarteira;
   custom_retorno_aa?: number;       // só quando perfil = 'custom'
   custom_volatilidade_aa?: number;
+  // Faixas etárias da % do fluxo líquido positivo investida (resto vira
+  // consumo extra do ano). Última faixa tem ate_idade=null (até morrer).
+  // Ausente/vazio = motor usa 100% (legado).
+  alocacao_excedente?: AlocacaoExcedenteFaixa[];
+}
+
+export interface AlocacaoExcedenteFaixa {
+  ate_idade: number | null;
+  pct_investido: number;            // 0..100
 }
 
 export interface Asset {
@@ -197,6 +206,7 @@ export interface SimulationRow {
   eventos_positivos: number;
   eventos_negativos: number;
   fluxo_liquido: number;
+  consumo_excedente: number;        // parte do fluxo positivo NÃO investida (vira gasto extra)
   juros_divida: number;
   retorno: number;
   saldo_final: number;              // saldo financeiro líquido

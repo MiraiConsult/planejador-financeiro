@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/PageHeader';
 import { PerfilForm } from './PerfilForm';
-import type { PerfilInput } from './actions';
+import { DEFAULT_ALOCACAO_EXCEDENTE, type FaixaExcedente, type PerfilInput } from './defaults';
 
 type Params = Promise<{ id: string }>;
 
@@ -14,10 +14,13 @@ export default async function PerfilPage({ params }: { params: Params }) {
 
   const { data: c } = await supabase
     .from('clients')
-    .select('id, nome_completo, data_nascimento, expectativa_vida_anos, idade_aposentadoria, idade_reducao_trabalho, perfil_carteira, custom_retorno_aa, custom_volatilidade_aa, pais_residencia, estado_civil')
+    .select('id, nome_completo, data_nascimento, expectativa_vida_anos, idade_aposentadoria, idade_reducao_trabalho, perfil_carteira, custom_retorno_aa, custom_volatilidade_aa, pais_residencia, estado_civil, alocacao_excedente')
     .eq('id', id)
     .maybeSingle();
   if (!c) notFound();
+
+  const alocacaoDb = Array.isArray(c.alocacao_excedente) ? (c.alocacao_excedente as unknown as FaixaExcedente[]) : null;
+  const alocacao = alocacaoDb && alocacaoDb.length > 0 ? alocacaoDb : DEFAULT_ALOCACAO_EXCEDENTE;
 
   const inicial: PerfilInput = {
     nome_completo: c.nome_completo,
@@ -30,6 +33,7 @@ export default async function PerfilPage({ params }: { params: Params }) {
     custom_volatilidade_aa: c.custom_volatilidade_aa != null ? Number(c.custom_volatilidade_aa) : null,
     pais_residencia: c.pais_residencia ?? 'BR',
     estado_civil: c.estado_civil ?? null,
+    alocacao_excedente: alocacao,
   };
 
   return (
