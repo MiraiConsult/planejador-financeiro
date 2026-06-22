@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import type {
   Asset,
@@ -14,8 +15,14 @@ import type {
  * Carrega todas as entidades do cliente + premissas + cenário default
  * e monta o input pronto para `simulate()`.
  * Retorna null se o cliente não existir ou não for visível pelo RLS.
+ *
+ * Envolvido em React.cache: chamadas com o mesmo client_id durante a
+ * mesma request HTTP reusam o resultado (várias páginas/componentes
+ * que precisam do input não pagam 7 queries cada).
  */
-export async function loadSimulationInput(client_id: string): Promise<{
+export const loadSimulationInput = cache(async function loadSimulationInputImpl(
+  client_id: string,
+): Promise<{
   client: EngineClient;
   input: SimulationInput;
 } | null> {
@@ -202,4 +209,4 @@ export async function loadSimulationInput(client_id: string): Promise<{
   };
 
   return { client, input };
-}
+});
