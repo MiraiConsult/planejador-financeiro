@@ -65,7 +65,7 @@ export async function salvarCategorias(args: {
       .insert({
         client_id: args.client_id,
         nome: c.nome.trim(),
-        tipo: c.tipo,
+        tipo: c.tipo === 'receita' ? 'receita' : 'despesa',
         cor: c.cor,
         icone: c.icone,
         ordem: i,
@@ -85,7 +85,7 @@ export async function salvarCategorias(args: {
       .insert({
         client_id: args.client_id,
         nome: c.nome.trim(),
-        tipo: c.tipo,
+        tipo: c.tipo === 'receita' ? 'receita' : 'despesa',
         cor: c.cor,
         icone: c.icone,
         ordem: i,

@@ -181,7 +181,10 @@ export async function semearCategoriasPadrao(client_id: string): Promise<{ ok: b
   const rows = faltantes.map((c, i) => ({
     client_id,
     nome: c.nome,
-    tipo: c.tipo,
+    // Taxonomia usa 'receita'|'gasto'|'ambos'; tabela só aceita
+    // 'receita'|'despesa'. 'gasto'/'ambos' viram 'despesa' (Receitas
+    // continuam separadas na macro '01').
+    tipo: c.tipo === 'receita' ? 'receita' : 'despesa',
     cor: c.cor,
     icone: c.icone,
     external_match_prefix: c.prefix,
