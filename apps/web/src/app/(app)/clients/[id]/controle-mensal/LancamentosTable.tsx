@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Download, SlidersHorizontal, X,
 } from 'lucide-react';
@@ -50,6 +50,10 @@ export function LancamentosTable({
   const [sortKey, setSortKey] = useState<SortKey>('data');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [editing, setEditing] = useState<Lancamento | null>(null);
+  // Paginação client-side: começa em 100 linhas, +100 a cada clique.
+  // Reseta sempre que algum filtro/ordenação muda.
+  const PAGE_SIZE = 100;
+  const [visivel, setVisivel] = useState(PAGE_SIZE);
   const [, start] = useTransition();
 
   const anos = useMemo(
@@ -103,6 +107,14 @@ export function LancamentosTable({
     });
     return arr;
   }, [rows, q, ano, mes, centro, categoria, origem, valMin, valMax, dataIni, dataFim, sortKey, sortDir]);
+
+  // Sempre que filtros ou ordenação mudam, volta pra primeira página.
+  useEffect(() => {
+    setVisivel(PAGE_SIZE);
+  }, [q, ano, mes, centro, categoria, origem, valMin, valMax, dataIni, dataFim, sortKey, sortDir]);
+
+  const visiveis = useMemo(() => filtrados.slice(0, visivel), [filtrados, visivel]);
+  const temMais = filtrados.length > visivel;
 
   const soma = filtrados.reduce((a, l) => a + l.valor, 0);
 
@@ -249,7 +261,7 @@ export function LancamentosTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filtrados.map((l, i) => (
+            {visiveis.map((l, i) => (
               <tr key={l.id ?? i} className="group hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
                 <td className="px-3 py-2 whitespace-nowrap text-slate-500">{fmtData(l.data)}</td>
                 <td className="px-3 py-2 text-slate-800 dark:text-slate-100">{l.descricao}</td>
@@ -286,8 +298,28 @@ export function LancamentosTable({
         </table>
       </div>
 
+      {temMais && (
+        <div className="flex items-center justify-center gap-3 px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40">
+          <button
+            type="button"
+            onClick={() => setVisivel((v) => v + PAGE_SIZE)}
+            className="text-xs font-semibold text-brand-700 hover:text-brand-800 px-3 py-1.5 rounded-md hover:bg-white"
+          >
+            Carregar mais {Math.min(PAGE_SIZE, filtrados.length - visivel)}
+          </button>
+          <button
+            type="button"
+            onClick={() => setVisivel(filtrados.length)}
+            className="text-xs font-medium text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-md hover:bg-white"
+          >
+            Mostrar todos ({filtrados.length})
+          </button>
+        </div>
+      )}
+
       <p className="text-xs text-slate-500 px-4 py-2 border-t border-slate-100 dark:border-slate-800">
-        {filtrados.length} lançamento(s) · soma:{' '}
+        Mostrando {Math.min(visivel, filtrados.length).toLocaleString('pt-BR')} de{' '}
+        {filtrados.length.toLocaleString('pt-BR')} lançamento(s) · soma (total filtrado):{' '}
         <span className={`font-semibold ${val(soma)}`}>{brl(soma)}</span>
       </p>
 

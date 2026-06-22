@@ -48,77 +48,80 @@ export default async function ControleMensalPage({ params }: { params: Params })
     .single();
   if (!client) notFound();
 
-  // Resumo do Balanço Patrimonial (se contratado e finalizado)
-  let bpSummary:
+  // Resumo do Balanço Patrimonial (se contratado e finalizado).
+  // BP rodando no client teria que receber o input completo só pra
+  // mostrar idade e patrimônio inicial/final. Pra evitar payload pesado
+  // aqui, deixo no server mas em paralelo com o resto (não bloqueia).
+  // Em chamada cacheada (React.cache) já não paga 2x quando outras
+  // partes do app chamam loadSimulationInput na mesma request.
+  const bpPromise: Promise<
     | { pendente: false; idadeInicial: number; idadeFinal: number; patrimonioHoje: number; patrimonioFinal: number }
     | { pendente: true; step: number }
-    | null = null;
-  if (client.tem_balanco_patrimonial) {
+    | null
+  > = (async () => {
+    if (!client.tem_balanco_patrimonial) return null;
     if (client.onboarding_step != null) {
-      bpSummary = { pendente: true, step: client.onboarding_step };
-    } else {
-      const loaded = await loadSimulationInput(id);
-      if (loaded) {
-        const r = simulate(loaded.input);
-        bpSummary = {
-          pendente: false,
-          idadeInicial: r.input_summary.idade_inicial,
-          idadeFinal: r.input_summary.idade_final,
-          patrimonioHoje:
-            r.input_summary.saldo_financeiro_inicial + r.input_summary.patrimonio_iliquido_inicial,
-          patrimonioFinal: r.summary.patrimonio_final,
-        };
-      }
+      return { pendente: true, step: client.onboarding_step };
     }
-  }
+    const loaded = await loadSimulationInput(id);
+    if (!loaded) return null;
+    const r = simulate(loaded.input);
+    return {
+      pendente: false,
+      idadeInicial: r.input_summary.idade_inicial,
+      idadeFinal: r.input_summary.idade_final,
+      patrimonioHoje:
+        r.input_summary.saldo_financeiro_inicial + r.input_summary.patrimonio_iliquido_inicial,
+      patrimonioFinal: r.summary.patrimonio_final,
+    };
+  })();
 
-  const { data: rowsRaw } = await supabase
-    .from('controle_mensal_lancamentos')
-    .select(COLS)
-    .eq('client_id', id);
-  const rowsPreBackfill = (rowsRaw ?? []) as unknown as Lancamento[];
-
-  // Auto-backfill: cria centros default + preenche centro_id/eh_receita
-  // em lançamentos que ainda não têm (idempotente).
-  if (rowsPreBackfill.length > 0) {
-    const precisaBackfill = rowsPreBackfill.some(
-      (r) => r.centro_id == null || r.eh_receita == null,
-    );
-    if (precisaBackfill) {
-      await garantirCentros(id);
-    }
-  }
-
-  // Re-query depois do backfill (só REVISADOS alimentam as views/números).
-  const { data: rowsRaw2 } = await supabase
-    .from('controle_mensal_lancamentos')
-    .select(COLS)
-    .eq('client_id', id)
-    .eq('revisado', true);
-  const rowsBruto = (rowsRaw2 ?? []) as unknown as Lancamento[];
-
-  // Resolve nomes estruturados (plano de contas) — substitui texto legado.
-  const { data: catRows } = await supabase
-    .from('controle_mensal_categorias')
-    .select('id, nome')
-    .eq('client_id', id);
-  const catMap = new Map<string, string>((catRows ?? []).map((c) => [c.id as string, c.nome as string]));
-
-  const rows: Lancamento[] = rowsBruto.map((r) => ({
-    ...r,
-    // Categoria/Rubrica do plano de contas têm prioridade sobre texto antigo.
-    categoria: (r.categoria_id && catMap.get(r.categoria_id)) || r.categoria,
-    subcategoria: (r.rubrica_id && catMap.get(r.rubrica_id)) || r.subcategoria,
-  }));
-
-  // Conta lançamentos aguardando revisão (importados de banco, ainda não validados)
-  const { count: pendentesRevisao } = await supabase
+  // Detecta se precisa de backfill via count direto (em vez de puxar todos
+  // os lançamentos só pra fazer .some), e dispara em paralelo com as
+  // queries pesadas. Resolve antes de retornar pra garantir consistência.
+  const precisaBackfillPromise = supabase
     .from('controle_mensal_lancamentos')
     .select('id', { count: 'exact', head: true })
     .eq('client_id', id)
-    .eq('revisado', false);
+    .or('centro_id.is.null,eh_receita.is.null');
 
-  const centros = await listarCentros(id);
+  // Queries do dashboard em paralelo: lançamentos revisados (que alimentam
+  // as views), plano de contas, count de pendentes de revisão, centros,
+  // backfill check e simulação do BP.
+  const [rowsRes, catRes, pendRes, centros, precisaBack, bpSummary] = await Promise.all([
+    supabase
+      .from('controle_mensal_lancamentos')
+      .select(COLS)
+      .eq('client_id', id)
+      .eq('revisado', true),
+    supabase
+      .from('controle_mensal_categorias')
+      .select('id, nome')
+      .eq('client_id', id),
+    supabase
+      .from('controle_mensal_lancamentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', id)
+      .eq('revisado', false),
+    listarCentros(id),
+    precisaBackfillPromise,
+    bpPromise,
+  ]);
+
+  if ((precisaBack.count ?? 0) > 0) {
+    await garantirCentros(id);
+  }
+
+  const rowsBruto = (rowsRes.data ?? []) as unknown as Lancamento[];
+  const catMap = new Map<string, string>(
+    (catRes.data ?? []).map((c) => [c.id as string, c.nome as string]),
+  );
+  const rows: Lancamento[] = rowsBruto.map((r) => ({
+    ...r,
+    categoria: (r.categoria_id && catMap.get(r.categoria_id)) || r.categoria,
+    subcategoria: (r.rubrica_id && catMap.get(r.rubrica_id)) || r.subcategoria,
+  }));
+  const pendentesRevisao = pendRes.count;
 
   const sugestoes = {
     categorias: uniqOrdenado(rows.map((r) => r.categoria)),
