@@ -1,4 +1,4 @@
-// Taxonomia enxuta de categorias do Controle Mensal, mapeada a partir da
+// Taxonomia enxuta de categorias do Controle Financeiro, mapeada a partir da
 // taxonomia do Banco MCP / Pluggy (130 categorias) pelos 2 primeiros dígitos
 // do categoryId. Cada macro-categoria agrupa as subcategorias do provedor.
 //

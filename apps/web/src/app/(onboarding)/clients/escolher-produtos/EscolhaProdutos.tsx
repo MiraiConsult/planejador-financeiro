@@ -136,7 +136,7 @@ export function EscolhaProdutos() {
               onClick={() => toggleProduto('balanco')}
             />
             <ProdutoCard
-              titulo="Controle Mensal"
+              titulo="Controle Financeiro"
               descricao="Gestão do realizado mês a mês: lançamentos, categorias, centros, importação de extratos."
               icon={<CalendarRange size={20} />}
               ativo={produtos.has('controle_mensal')}

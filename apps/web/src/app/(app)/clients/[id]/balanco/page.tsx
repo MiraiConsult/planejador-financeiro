@@ -90,7 +90,7 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
   ) {
     redirect(`/clients/${id}/onboarding-cm`);
   }
-  // Cliente só-CM finalizado: vai direto pro controle mensal
+  // Cliente só-CM finalizado: vai direto pro Controle Financeiro
   if (!meta.tem_balanco_patrimonial && meta.tem_controle_mensal) {
     redirect(`/clients/${id}/controle-mensal`);
   }
@@ -100,7 +100,7 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
 
   const { client, input } = loaded;
 
-  // Resumo do Controle Mensal (se contratado). Mês corrente.
+  // Resumo do Controle Financeiro (se contratado). Mês corrente.
   let cmSummary: {
     pendente: boolean;
     step: number | null;
@@ -174,11 +174,6 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
           <Link href={`/clients/${id}/transcript`}>
             <Button variant="outline" size="sm">
               Refinar via transcrição
-            </Button>
-          </Link>
-          <Link href={`/clients/${id}/controle-mensal`}>
-            <Button variant="outline" size="sm">
-              Controle mensal
             </Button>
           </Link>
           <Link href={`/clients/${id}/compare`}>
@@ -255,7 +250,7 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
         </div>
       </div>
 
-      {/* Card pra ativar Controle Mensal (cliente só-BP) */}
+      {/* Card pra ativar Controle Financeiro (cliente só-BP) */}
       {!meta.tem_controle_mensal && (
         <form action={ativarControleMensal}>
           <input type="hidden" name="id" value={id} />
@@ -268,7 +263,7 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-slate-900 group-hover:text-emerald-900">
-                Ativar Controle Mensal
+                Ativar Controle Financeiro
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 Acompanhar lançamentos reais mês a mês (categorias, centros, importação de extratos)
@@ -279,7 +274,7 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
         </form>
       )}
 
-      {/* Card do Controle Mensal */}
+      {/* Card do Controle Financeiro */}
       {cmSummary && (
         <Link
           href={cmSummary.pendente ? `/clients/${id}/onboarding-cm` : `/clients/${id}/controle-mensal`}
@@ -302,7 +297,7 @@ export default async function ClientDetailPage({ params }: { params: Params }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700">
-                  Controle Mensal
+                  Controle Financeiro
                 </p>
                 {cmSummary.pendente && (
                   <Badge variant="warning">Onboarding pendente · passo {cmSummary.step}/4</Badge>

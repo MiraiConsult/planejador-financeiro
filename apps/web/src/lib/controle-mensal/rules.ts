@@ -1,4 +1,4 @@
-// Regras de negócio do Controle Mensal (porte de backend/rules.py).
+// Regras de negócio do Controle Financeiro (porte de backend/rules.py).
 // Fonte de verdade: a planilha de Lançamentos. Mês = competência (não a data).
 
 export const MESES = [

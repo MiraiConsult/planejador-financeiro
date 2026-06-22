@@ -56,7 +56,7 @@ export default async function LancamentosPage({ params }: { params: Params }) {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <PageHeader
-        eyebrow="Controle Mensal"
+        eyebrow="Controle Financeiro"
         title={`Lançamentos — ${client.nome_completo}`}
         description={`${rows.length.toLocaleString('pt-BR')} lançamentos no total. Filtre, edite ou exporte direto da tabela.`}
       />

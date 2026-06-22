@@ -74,7 +74,7 @@ export function StepCentros({ clientId, centrosJaConfigurados, onConcluido }: Pr
             <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
               {centrosJaConfigurados > 0
                 ? `${centrosJaConfigurados} centros já existem pra esse cliente.`
-                : 'Template aplicado. Você pode ajustar depois em Controle Mensal → Centros.'}
+                : 'Template aplicado. Você pode ajustar depois em Controle Financeiro → Centros.'}
             </p>
           </div>
         </div>

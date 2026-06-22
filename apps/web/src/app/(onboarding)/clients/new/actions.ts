@@ -248,7 +248,7 @@ export async function finalizeOnboarding(args: {
     .eq('id', args.client_id);
   if (error) return { ok: false, error: error.message };
 
-  // Se o cliente também contratou Controle Mensal e ainda não fez o onboarding
+  // Se o cliente também contratou Controle Financeiro e ainda não fez o onboarding
   // dele, encaminha pra lá. Senão, vai pro detalhe.
   const { data: c } = await supabase
     .from('clients')

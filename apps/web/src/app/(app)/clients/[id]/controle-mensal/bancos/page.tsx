@@ -42,15 +42,15 @@ export default async function BancosPage({ params }: { params: Params }) {
         <Link href={`/clients/${id}/controle-mensal`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft size={14} />
-            Voltar para o controle mensal
+            Voltar para o Controle Financeiro
           </Button>
         </Link>
       </div>
 
       <PageHeader
-        eyebrow="Controle Mensal"
+        eyebrow="Controle Financeiro"
         title={`Bancos conectados — ${client.nome_completo}`}
-        description="Sincronização automática diária dos extratos dos bancos conectados via Banco MCP (Open Finance). Cada transação vira um lançamento no controle mensal, com dedup automático por id externo."
+        description="Sincronização automática diária dos extratos dos bancos conectados via Banco MCP (Open Finance). Cada transação vira um lançamento no Controle Financeiro, com dedup automático por id externo."
       />
 
       <BancosManager

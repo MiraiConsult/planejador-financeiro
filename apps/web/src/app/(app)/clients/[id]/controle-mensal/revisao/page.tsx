@@ -44,13 +44,13 @@ export default async function RevisaoPage({ params }: { params: Params }) {
         <Link href={`/clients/${id}/controle-mensal`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft size={14} />
-            Voltar para o controle mensal
+            Voltar para o Controle Financeiro
           </Button>
         </Link>
       </div>
 
       <PageHeader
-        eyebrow="Controle Mensal"
+        eyebrow="Controle Financeiro"
         title={`Revisão de lançamentos — ${client.nome_completo}`}
         description="Lançamentos importados dos bancos. Confira a categoria sugerida (mapeada automaticamente), ajuste o que precisar e aprove. Só os aprovados entram nos gráficos e no demonstrativo."
       />

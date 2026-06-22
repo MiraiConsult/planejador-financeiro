@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Insights estruturados que a IA devolve ao analisar o Controle Mensal.
+ * Insights estruturados que a IA devolve ao analisar o Controle Financeiro.
  * Strict-mode OpenAI: tudo required; campos não-aplicáveis = null.
  */
 export const controleInsightsSchema = z.object({

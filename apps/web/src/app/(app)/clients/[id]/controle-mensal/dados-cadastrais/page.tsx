@@ -86,12 +86,12 @@ export default async function DadosCadastraisPage({
       <Link href={`/clients/${id}/controle-mensal`}>
         <Button variant="ghost" size="sm">
           <ArrowLeft size={14} />
-          Voltar ao Controle Mensal
+          Voltar ao Controle Financeiro
         </Button>
       </Link>
 
       <PageHeader
-        eyebrow="Controle Mensal · Configuração"
+        eyebrow="Controle Financeiro · Configuração"
         title={`Dados Cadastrais — ${client.nome_completo}`}
         description="Plano de contas (categorias e rubricas) e centros do cliente. Edite, adicione ou remova diretamente."
       />

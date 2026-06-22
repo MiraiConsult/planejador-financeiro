@@ -22,7 +22,7 @@ export async function signIn(formData: FormData) {
     .eq('client_user_id', data.user.id)
     .maybeSingle();
   if (self) {
-    redirect(`/clients/${self.id}/${self.tem_balanco_patrimonial ? 'balanco' : 'controle-mensal'}`);
+    redirect(`/clients/${self.id}/inicio`);
   }
   redirect('/clients');
 }

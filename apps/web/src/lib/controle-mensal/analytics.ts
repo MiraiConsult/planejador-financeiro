@@ -1,4 +1,4 @@
-// Agregações de cada visão do Controle Mensal (porte de backend/analytics.py).
+// Agregações de cada visão do Controle Financeiro (porte de backend/analytics.py).
 // Recebe os lançamentos já lidos do Supabase e devolve estruturas prontas pra UI.
 
 export const ALERTA_MARGEM_PCT = 15;

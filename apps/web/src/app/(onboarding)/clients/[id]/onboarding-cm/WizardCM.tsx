@@ -100,7 +100,7 @@ export function WizardCM({
         toast.error(res.error ?? 'Falha ao finalizar');
         return;
       }
-      toast.success('Onboarding do Controle Mensal concluído');
+      toast.success('Onboarding do Controle Financeiro concluído');
       router.push(`/clients/${clientId}/controle-mensal`);
     });
   }
@@ -115,7 +115,7 @@ export function WizardCM({
             <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
               <span className="font-medium text-slate-900 dark:text-slate-100">{clientName}</span>
               <span className="text-slate-400 mx-2">·</span>
-              Controle Mensal
+              Controle Financeiro
             </p>
           </div>
           <Link href="/clients">

@@ -122,7 +122,7 @@ export async function deleteClient(formData: FormData) {
   revalidatePath('/clients');
 }
 
-/** Ativa o produto Controle Mensal para um cliente existente. */
+/** Ativa o produto Controle Financeiro para um cliente existente. */
 export async function ativarControleMensal(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '');
   if (!id) return;

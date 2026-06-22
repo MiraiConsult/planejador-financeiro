@@ -163,7 +163,7 @@ export default async function ClientsPage() {
                 items.push({
                   key: `${d.id}-cm`,
                   href: `/clients/${d.id}/onboarding-cm`,
-                  produto: 'Controle Mensal',
+                  produto: 'Controle Financeiro',
                   passo: `Passo ${d.onboarding_step_cm} de 4`,
                 });
               }
@@ -268,7 +268,7 @@ export default async function ClientsPage() {
                       {c.tem_controle_mensal && (
                         <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                           <CalendarRange size={9} />
-                          Controle Mensal
+                          Controle Financeiro
                         </span>
                       )}
                     </div>
@@ -314,7 +314,7 @@ export default async function ClientsPage() {
                     <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                       <span className="text-xs font-medium text-brand-600 flex items-center gap-1.5">
                         <TrendIcon size={12} strokeWidth={2.5} />
-                        {c.tem_balanco_patrimonial ? 'Abrir simulação' : 'Abrir controle mensal'}
+                        {c.tem_balanco_patrimonial ? 'Abrir simulação' : 'Abrir Controle Financeiro'}
                       </span>
                       <ArrowRight
                         size={14}

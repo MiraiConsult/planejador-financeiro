@@ -1,4 +1,4 @@
-// Formatação pt-BR compartilhada pelo módulo Controle Mensal.
+// Formatação pt-BR compartilhada pelo módulo Controle Financeiro.
 
 export const brl = (n: number): string =>
   (Number(n) || 0).toLocaleString('pt-BR', {

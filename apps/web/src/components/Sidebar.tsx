@@ -79,7 +79,7 @@ export function Sidebar({ userEmail, signOutAction, currentClient, clientMode = 
         <Link
           href={
             clientMode && currentClient
-              ? `/clients/${currentClient.id}/${currentClient.tem_bp ? 'balanco' : 'controle-mensal'}`
+              ? `/clients/${currentClient.id}/inicio`
               : '/clients'
           }
           className="group flex items-center gap-2 rounded-xl bg-gradient-to-br from-brand-50 via-brand-50 to-sky-50 px-3 py-2.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-200/50 hover:ring-brand-300 transition-all dark:from-brand-900/30 dark:via-brand-900/20 dark:to-sky-900/20 dark:text-brand-200 dark:ring-brand-700/40"
@@ -312,6 +312,7 @@ function buildClientGroups(c: CurrentClient): ClientNavGroup[] {
       },
       children: bpReady
         ? [
+            { href: `${base}/balanco`, hrefPath: `${base}/balanco`, label: 'Dashboard' },
             { href: `${base}/perfil`, hrefPath: `${base}/perfil`, label: 'Perfil do cliente' },
             { href: `${base}/simulador`, hrefPath: `${base}/simulador`, label: 'Simulador interativo' },
             { href: `${base}/compare`, hrefPath: `${base}/compare`, label: 'Comparar cenários' },
@@ -329,13 +330,13 @@ function buildClientGroups(c: CurrentClient): ClientNavGroup[] {
     groups.push({
       header: {
         href: `${base}/controle-mensal`,
-        label: 'Controle Mensal',
+        label: 'Controle Financeiro',
         icon: CalendarRange,
         badge: c.cm_pendente ? 'pendente' : undefined,
       },
       children: [
+        { href: `${base}/controle-mensal`, hrefPath: `${base}/controle-mensal`, label: 'Dashboard' },
         { href: `${base}/controle-mensal/lancamentos`, hrefPath: `${base}/controle-mensal/lancamentos`, label: 'Lançamentos' },
-        { href: `${base}/controle-mensal`, hrefPath: `${base}/controle-mensal`, label: 'Dados' },
         { href: `${dados}?tab=plano`, hrefPath: dados, tab: 'plano', label: 'Plano de contas' },
         { href: `${dados}?tab=centros`, hrefPath: dados, tab: 'centros', label: 'Centros' },
         { href: `${base}/controle-mensal/bancos`, hrefPath: `${base}/controle-mensal/bancos`, label: 'Bancos' },

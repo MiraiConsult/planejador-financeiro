@@ -153,7 +153,7 @@ export default async function ControleMensalPage({ params }: { params: Params })
       </div>
 
       <PageHeader
-        eyebrow="Controle Mensal"
+        eyebrow="Controle Financeiro"
         title={`Realizado — ${client.nome_completo}`}
         description="Lançamentos reais (receitas e gastos) importados mês a mês. Fonte: planilha de Lançamentos. O tipo Mirai nunca entra nos gastos pessoais; viagens ficam à parte."
       />

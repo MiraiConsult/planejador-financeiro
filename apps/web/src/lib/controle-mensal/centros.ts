@@ -1,4 +1,4 @@
-// Modelo + templates dos centros do Controle Mensal.
+// Modelo + templates dos centros do Controle Financeiro.
 // Centro = divisão configurável pelo consultor pra organizar lançamentos
 // (pode ser pessoa, empresa, projeto…). Hierarquia opcional pai/filho.
 

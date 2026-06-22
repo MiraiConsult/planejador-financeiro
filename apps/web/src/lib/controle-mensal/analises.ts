@@ -1,4 +1,4 @@
-// Análises avançadas do Controle Mensal: comparações período×dimensão e
+// Análises avançadas do Controle Financeiro: comparações período×dimensão e
 // indicadores (resultado, poupança, fixo×variável, Pareto, origem, movers).
 // Hierarquia: tipo (área) → centro de custo (categoria) → rubrica (subcategoria).
 

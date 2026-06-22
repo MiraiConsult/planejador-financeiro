@@ -28,8 +28,5 @@ export default async function ClientRoutePage({ params }: { params: Params }) {
   if (!c.tem_balanco_patrimonial && c.tem_controle_mensal && c.onboarding_step_cm != null) {
     redirect(`/clients/${id}/onboarding-cm`);
   }
-  if (!c.tem_balanco_patrimonial && c.tem_controle_mensal) {
-    redirect(`/clients/${id}/controle-mensal`);
-  }
-  redirect(`/clients/${id}/balanco`);
+  redirect(`/clients/${id}/inicio`);
 }

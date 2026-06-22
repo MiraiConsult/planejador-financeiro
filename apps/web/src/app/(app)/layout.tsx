@@ -28,10 +28,9 @@ function toCurrentClient(data: ClientRow): CurrentClient {
 const SELECT_CLIENT =
   'id, nome_completo, tem_balanco_patrimonial, tem_controle_mensal, onboarding_step, onboarding_step_cm';
 
-/** Painel inicial do cliente: balanço se tiver, senão controle mensal. */
+/** Painel inicial do cliente: balanço se tiver, senão Controle Financeiro. */
 function painelDoCliente(c: ClientRow): string {
-  if (c.tem_balanco_patrimonial) return `/clients/${c.id}/balanco`;
-  return `/clients/${c.id}/controle-mensal`;
+  return `/clients/${c.id}/inicio`;
 }
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
