@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getAuthUserEmail, getAuthUserId } from '@/lib/supabase/server';
 import { Sidebar, MobileTopBar, type CurrentClient } from '@/components/Sidebar';
 import { signOut } from '../(auth)/actions';
 
@@ -37,52 +37,57 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
   const path = (await headers()).get('x-pathname') ?? '';
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Tudo em paralelo: user id (local), selfClient lookup, e (se aplicável)
+  // o currentClient. Antes era sequencial → ~3 round-trips.
+  const m = path.match(/^\/clients\/([0-9a-f-]{36})(?:\/|$)/i);
+  const userId = await getAuthUserId();
 
-  // É um cliente final? (login vinculado via client_user_id)
-  const { data: selfClient } = await supabase
-    .from('clients')
-    .select(SELECT_CLIENT)
-    .eq('client_user_id', user?.id ?? '')
-    .maybeSingle();
+  const [{ data: selfClient }, currentRes] = await Promise.all([
+    supabase
+      .from('clients')
+      .select(SELECT_CLIENT)
+      .eq('client_user_id', userId ?? '')
+      .maybeSingle(),
+    m
+      ? supabase.from('clients').select(SELECT_CLIENT).eq('id', m[1]!).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   // ── Modo CLIENTE FINAL: navegação restrita ao próprio painel ──────────
   if (selfClient) {
     const base = `/clients/${selfClient.id}`;
-    // Whitelist: própria conta + próprio painel
     const permitido = path === '/account' || path.startsWith('/account/') || path.startsWith(base);
     if (!permitido) {
       redirect(painelDoCliente(selfClient));
     }
+    const email = (await getAuthUserEmail()) ?? '—';
     return (
       <div className="flex min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(59,130,246,0.06),transparent)]">
         <Sidebar
-          userEmail={user?.email ?? '—'}
+          userEmail={email}
           signOutAction={signOut}
           currentClient={toCurrentClient(selfClient)}
           clientMode
         />
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileTopBar userEmail={user?.email ?? '—'} signOutAction={signOut} />
+          <MobileTopBar userEmail={email} signOutAction={signOut} />
           <main className="flex-1 p-6 lg:p-10 animate-fade-up">{children}</main>
         </div>
       </div>
     );
   }
 
-  // ── Modo CONSULTOR / ADMIN: menu global + seção contextual do cliente ──
-  let currentClient: CurrentClient | null = null;
-  const m = path.match(/^\/clients\/([0-9a-f-]{36})(?:\/|$)/i);
-  if (m) {
-    const { data } = await supabase.from('clients').select(SELECT_CLIENT).eq('id', m[1]!).maybeSingle();
-    if (data) currentClient = toCurrentClient(data);
-  }
+  // ── Modo CONSULTOR / ADMIN ────────────────────────────────────────────
+  const currentClient: CurrentClient | null = currentRes.data
+    ? toCurrentClient(currentRes.data as ClientRow)
+    : null;
+  const email = (await getAuthUserEmail()) ?? '—';
 
   return (
     <div className="flex min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(59,130,246,0.06),transparent)]">
-      <Sidebar userEmail={user?.email ?? '—'} signOutAction={signOut} currentClient={currentClient} />
+      <Sidebar userEmail={email} signOutAction={signOut} currentClient={currentClient} />
       <div className="flex-1 flex flex-col min-w-0">
-        <MobileTopBar userEmail={user?.email ?? '—'} signOutAction={signOut} />
+        <MobileTopBar userEmail={email} signOutAction={signOut} />
         <main className="flex-1 p-6 lg:p-10 animate-fade-up">{children}</main>
       </div>
     </div>

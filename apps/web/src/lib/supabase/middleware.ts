@@ -29,20 +29,35 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Validação JWT local (sem round-trip pro auth.users): rotinas modernas
+  // do supabase-ssr/2.x expõem getClaims(). Cai pra getUser() em fallback.
+  // Middleware roda em CADA navegação — é o gargalo mais sensível.
+  let signedIn = false;
+  type ClaimsLike = { data?: { claims?: { sub?: string } | null } | null };
+  const getClaimsFn = (supabase.auth as { getClaims?: () => Promise<ClaimsLike> }).getClaims;
+  if (typeof getClaimsFn === 'function') {
+    try {
+      const r = await getClaimsFn.call(supabase.auth);
+      signedIn = !!r?.data?.claims?.sub;
+    } catch {
+      // fallback abaixo
+    }
+  }
+  if (!signedIn) {
+    const { data } = await supabase.auth.getUser();
+    signedIn = !!data.user;
+  }
 
   const path = request.nextUrl.pathname;
   const isPublic = path === '/login' || path.startsWith('/auth/') || path.startsWith('/preview');
 
-  if (!user && !isPublic) {
+  if (!signedIn && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  if (user && path === '/login') {
+  if (signedIn && path === '/login') {
     const url = request.nextUrl.clone();
     url.pathname = '/clients';
     return NextResponse.redirect(url);
