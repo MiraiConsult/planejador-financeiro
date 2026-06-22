@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Calendar, CalendarRange, CircleDollarSign, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowRight, CalendarRange, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { simulate } from '@planejador/engine';
 import { loadSimulationInput } from '@/lib/loadSimulation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { BpKpisClient } from './BpKpisClient';
 
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -33,32 +33,10 @@ export default async function InicioPage({ params }: { params: Params }) {
     .maybeSingle();
   if (!c) notFound();
 
-  // ─── BP: roda simulação se disponível ─────────────────────────
-  let bp: {
-    pendente: boolean;
-    patrimonioHoje?: number;
-    patrimonioFinal?: number;
-    breakEven?: number | null;
-    pico?: number;
-  } | null = null;
-  if (c.tem_balanco_patrimonial) {
-    const pendente = c.onboarding_step != null;
-    if (pendente) {
-      bp = { pendente: true };
-    } else {
-      const loaded = await loadSimulationInput(id);
-      if (loaded) {
-        const result = simulate(loaded.input);
-        bp = {
-          pendente: false,
-          patrimonioHoje: result.rows[0]?.patrimonio_total ?? 0,
-          patrimonioFinal: result.summary.patrimonio_final,
-          breakEven: result.summary.idade_break_even,
-          pico: result.summary.patrimonio_pico,
-        };
-      }
-    }
-  }
+  // ─── BP: só pegamos o input. A simulação roda no client. ──────
+  const bpPendente = c.tem_balanco_patrimonial && c.onboarding_step != null;
+  const bpInput =
+    c.tem_balanco_patrimonial && !bpPendente ? await loadSimulationInput(id) : null;
 
   // ─── CF: resumo do mês corrente ───────────────────────────────
   const meses = [
@@ -99,6 +77,7 @@ export default async function InicioPage({ params }: { params: Params }) {
   }
 
   const saldoMes = cf ? cf.receitaMes - cf.gastoMes : 0;
+  const temBp = c.tem_balanco_patrimonial;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -113,7 +92,7 @@ export default async function InicioPage({ params }: { params: Params }) {
       </div>
 
       {/* ─── BP card ──────────────────────────────────────────── */}
-      {bp && (
+      {temBp && (
         <Link href={`/clients/${id}/balanco`} className="block group">
           <Card className="group-hover:ring-2 group-hover:ring-brand-200 transition-all">
             <CardHeader>
@@ -128,43 +107,19 @@ export default async function InicioPage({ params }: { params: Params }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {bp.pendente && <Badge variant="warning">Onboarding pendente</Badge>}
+                  {bpPendente && <Badge variant="warning">Onboarding pendente</Badge>}
                   <ArrowRight size={18} className="text-slate-400 group-hover:text-brand-700 transition-colors" />
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              {bp.pendente ? (
+              {bpPendente ? (
                 <p className="text-sm text-slate-500">
                   Continue o cadastro para ver a projeção patrimonial.
                 </p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <KpiInicio
-                    label="Patrimônio hoje"
-                    value={brlCompact(bp.patrimonioHoje ?? 0)}
-                    icon={Wallet}
-                  />
-                  <KpiInicio
-                    label="Pico projetado"
-                    value={brlCompact(bp.pico ?? 0)}
-                    icon={TrendingUp}
-                    tone="success"
-                  />
-                  <KpiInicio
-                    label="Projeção final"
-                    value={brlCompact(bp.patrimonioFinal ?? 0)}
-                    icon={CircleDollarSign}
-                    tone={(bp.patrimonioFinal ?? 0) < 0 ? 'danger' : 'success'}
-                  />
-                  <KpiInicio
-                    label="Break-even"
-                    value={bp.breakEven ? `${bp.breakEven} anos` : 'nunca'}
-                    icon={Calendar}
-                    tone={bp.breakEven ? 'danger' : 'default'}
-                  />
-                </div>
-              )}
+              ) : bpInput ? (
+                <BpKpisClient input={bpInput.input} />
+              ) : null}
             </CardContent>
           </Card>
         </Link>
@@ -209,14 +164,14 @@ export default async function InicioPage({ params }: { params: Params }) {
                 </p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <KpiInicio label="Receita do mês" value={brlCompact(cf.receitaMes)} tone="success" />
-                  <KpiInicio label="Gastos do mês" value={brlCompact(cf.gastoMes)} tone="danger" />
-                  <KpiInicio
+                  <KpiCfBox label="Receita do mês" value={brlCompact(cf.receitaMes)} tone="success" />
+                  <KpiCfBox label="Gastos do mês" value={brlCompact(cf.gastoMes)} tone="danger" />
+                  <KpiCfBox
                     label="Saldo do mês"
                     value={brlCompact(saldoMes)}
                     tone={saldoMes < 0 ? 'danger' : 'success'}
                   />
-                  <KpiInicio label="Lançamentos" value={String(cf.lancMes)} />
+                  <KpiCfBox label="Lançamentos" value={String(cf.lancMes)} />
                 </div>
               )}
             </CardContent>
@@ -224,7 +179,7 @@ export default async function InicioPage({ params }: { params: Params }) {
         </Link>
       )}
 
-      {!bp && !cf && (
+      {!temBp && !cf && (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-sm text-slate-500">
@@ -237,25 +192,20 @@ export default async function InicioPage({ params }: { params: Params }) {
   );
 }
 
-function KpiInicio({
+function KpiCfBox({
   label,
   value,
-  icon: Icon,
   tone = 'default',
 }: {
   label: string;
   value: string;
-  icon?: typeof Wallet;
   tone?: 'default' | 'success' | 'danger';
 }) {
   const cor =
     tone === 'success' ? 'text-emerald-700' : tone === 'danger' ? 'text-red-600' : 'text-slate-900';
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1">
-        {Icon && <Icon size={10} />}
-        {label}
-      </p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-400">{label}</p>
       <p className={`text-lg font-bold tabular-nums tracking-tight mt-1 ${cor}`}>{value}</p>
     </div>
   );
