@@ -114,30 +114,13 @@ export function BalancoView({
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Top nav */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <Link href="/clients">
           <Button variant="ghost" size="sm">
             <ArrowLeft size={14} />
             Voltar para clientes
           </Button>
         </Link>
-        <div className="flex items-center gap-2">
-          <Link href={`/clients/${clientId}/transcript`}>
-            <Button variant="outline" size="sm">
-              Refinar via transcrição
-            </Button>
-          </Link>
-          <Link href={`/clients/${clientId}/compare`}>
-            <Button variant="outline" size="sm">
-              Comparar cenários
-            </Button>
-          </Link>
-          <Link href={`/clients/${clientId}/edit`}>
-            <Button variant="primary" size="sm">
-              Editar dados
-            </Button>
-          </Link>
-        </div>
       </div>
 
       {/* Hero card */}
