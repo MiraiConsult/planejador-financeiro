@@ -7,7 +7,7 @@ import {
 import { brl, fmtData } from '@/lib/controle-mensal/format';
 import type { Lancamento } from '@/lib/controle-mensal/analytics';
 import { LancamentoForm, type Sugestoes } from './LancamentoForm';
-import { excluirLancamento } from './actions';
+import { excluirLancamento, excluirLancamentosEmMassa } from './actions';
 import { toast } from '@/components/ui/Toast';
 
 type SortKey = 'data' | 'descricao' | 'tipo' | 'categoria' | 'subcategoria' | 'mes' | 'origem' | 'cliente_obs' | 'valor';
@@ -50,11 +50,12 @@ export function LancamentosTable({
   const [sortKey, setSortKey] = useState<SortKey>('data');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [editing, setEditing] = useState<Lancamento | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   // Paginação client-side: começa em 100 linhas, +100 a cada clique.
   // Reseta sempre que algum filtro/ordenação muda.
   const PAGE_SIZE = 100;
   const [visivel, setVisivel] = useState(PAGE_SIZE);
-  const [, start] = useTransition();
+  const [pending, start] = useTransition();
 
   const anos = useMemo(
     () => [...new Set(rows.map((r) => r.ano).filter((a): a is number => a != null))].sort((a, b) => b - a),
@@ -152,8 +153,36 @@ export function LancamentosTable({
     if (!confirm(`Excluir "${l.descricao}" (${brl(l.valor)})?`)) return;
     start(async () => {
       const res = await excluirLancamento(clientId, l.id!);
-      if (res.ok) toast.success('Lançamento excluído');
-      else toast.error(res.erro ?? 'Falha ao excluir');
+      if (res.ok) {
+        toast.success('Lançamento excluído');
+        setSelecionados((s) => {
+          const n = new Set(s);
+          n.delete(l.id!);
+          return n;
+        });
+      } else toast.error(res.erro ?? 'Falha ao excluir');
+    });
+  }
+
+  function toggleSel(id: string) {
+    setSelecionados((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function excluirSelecionados() {
+    const ids = [...selecionados];
+    if (!ids.length) return;
+    if (!confirm(`Excluir ${ids.length} lançamento(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    start(async () => {
+      const res = await excluirLancamentosEmMassa(clientId, ids);
+      if (res.ok) {
+        toast.success(`${res.excluidos ?? ids.length} lançamento(s) excluído(s)`);
+        setSelecionados(new Set());
+      } else toast.error(res.erro ?? 'Falha ao excluir');
     });
   }
 
@@ -242,11 +271,60 @@ export function LancamentosTable({
         )}
       </div>
 
+      {/* barra de ação em massa */}
+      {selecionados.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-brand-50 border-y border-brand-200 dark:bg-brand-900/20 dark:border-brand-800">
+          <span className="text-sm font-medium text-brand-900 dark:text-brand-100">
+            {selecionados.size} selecionado(s)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelecionados(new Set())}
+              className="text-xs font-medium text-slate-600 hover:text-slate-900 px-2 py-1"
+            >
+              Limpar seleção
+            </button>
+            <button
+              type="button"
+              onClick={excluirSelecionados}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 px-3 py-1.5 rounded-md"
+            >
+              <Trash2 size={13} />
+              Excluir selecionados
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* tabela */}
       <div className="max-h-[520px] overflow-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50/80 dark:bg-slate-800/60 sticky top-0 z-10">
             <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+              <th className="px-3 py-2.5 w-8">
+                <input
+                  type="checkbox"
+                  className="accent-brand-600 cursor-pointer"
+                  title="Selecionar todos os visíveis"
+                  checked={
+                    visiveis.length > 0 &&
+                    visiveis.every((l) => !l.id || selecionados.has(l.id))
+                  }
+                  onChange={(e) => {
+                    setSelecionados((s) => {
+                      const n = new Set(s);
+                      for (const l of visiveis) {
+                        if (!l.id) continue;
+                        if (e.target.checked) n.add(l.id);
+                        else n.delete(l.id);
+                      }
+                      return n;
+                    });
+                  }}
+                />
+              </th>
               <Th k="data" label="Data" {...{ sortKey, sortDir, toggleSort }} />
               <Th k="descricao" label="Descrição" {...{ sortKey, sortDir, toggleSort }} />
               {mostrarCentro && <Th k="tipo" label="Centro" {...{ sortKey, sortDir, toggleSort }} />}
@@ -262,7 +340,24 @@ export function LancamentosTable({
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {visiveis.map((l, i) => (
-              <tr key={l.id ?? i} className="group hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+              <tr
+                key={l.id ?? i}
+                className={`group transition-colors ${
+                  l.id && selecionados.has(l.id)
+                    ? 'bg-brand-50/60 dark:bg-brand-900/20'
+                    : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
+                }`}
+              >
+                <td className="px-3 py-2">
+                  {l.id && (
+                    <input
+                      type="checkbox"
+                      className="accent-brand-600 cursor-pointer"
+                      checked={selecionados.has(l.id)}
+                      onChange={() => toggleSel(l.id!)}
+                    />
+                  )}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap text-slate-500">{fmtData(l.data)}</td>
                 <td className="px-3 py-2 text-slate-800 dark:text-slate-100">{l.descricao}</td>
                 {mostrarCentro && <td className="px-3 py-2 text-slate-500">{tipoLabel[l.tipo] ?? l.tipo}</td>}
@@ -275,7 +370,7 @@ export function LancamentosTable({
                 <td className={`px-3 py-2 text-right tabular-nums font-medium ${val(l.valor)}`}>{brl(l.valor)}</td>
                 <td className="px-2 py-2">
                   {l.id && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
                       <button type="button" onClick={() => setEditing(l)} title="Editar" className="p-1 text-slate-400 hover:text-brand-600">
                         <Pencil size={13} />
                       </button>
@@ -289,7 +384,7 @@ export function LancamentosTable({
             ))}
             {filtrados.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-4 py-10 text-center text-sm text-slate-400">
+                <td colSpan={13} className="px-4 py-10 text-center text-sm text-slate-400">
                   Nenhum lançamento com esses filtros.
                 </td>
               </tr>

@@ -89,6 +89,27 @@ export async function excluirLancamento(clientId: string, id: string): Promise<L
   return { ok: true, id };
 }
 
+export async function excluirLancamentosEmMassa(
+  clientId: string,
+  ids: string[],
+): Promise<{ ok: boolean; erro?: string; excluidos?: number }> {
+  const supabase = await createClient();
+  const err = await assertOwner(supabase, clientId);
+  if (err) return { ok: false, erro: err };
+  if (!ids.length) return { ok: true, excluidos: 0 };
+
+  const { error, count } = await supabase
+    .from('controle_mensal_lancamentos')
+    .delete({ count: 'exact' })
+    .eq('client_id', clientId)
+    .in('id', ids);
+  if (error) return { ok: false, erro: error.message };
+
+  revalidatePath(`/clients/${clientId}/controle-mensal`);
+  revalidatePath(`/clients/${clientId}/controle-mensal/lancamentos`);
+  return { ok: true, excluidos: count ?? ids.length };
+}
+
 /**
  * Importa um CSV de lançamentos para o cliente, de forma incremental e idempotente.
  * Reimportar o mesmo arquivo não duplica (unique (client_id, hash) + checagem prévia).
