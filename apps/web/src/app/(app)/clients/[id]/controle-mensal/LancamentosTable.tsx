@@ -273,11 +273,22 @@ export function LancamentosTable({
 
       {/* barra de ação em massa */}
       {selecionados.size > 0 && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-brand-50 border-y border-brand-200 dark:bg-brand-900/20 dark:border-brand-800">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-brand-50 border-y border-brand-200 dark:bg-brand-900/20 dark:border-brand-800 flex-wrap">
           <span className="text-sm font-medium text-brand-900 dark:text-brand-100">
             {selecionados.size} selecionado(s)
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Seleciona o conjunto COMPLETO de filtrados, não só a página visível */}
+            {selecionados.size < filtrados.filter((l) => l.id).length && (
+              <button
+                type="button"
+                onClick={() => setSelecionados(new Set(filtrados.map((l) => l.id).filter(Boolean) as string[]))}
+                className="text-xs font-semibold text-brand-700 hover:text-brand-900 px-2 py-1"
+              >
+                Selecionar todos os {filtrados.filter((l) => l.id).length}
+                {filtrosAtivos ? ' filtrados' : ''}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setSelecionados(new Set())}
@@ -292,7 +303,7 @@ export function LancamentosTable({
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 px-3 py-1.5 rounded-md"
             >
               <Trash2 size={13} />
-              Excluir selecionados
+              {pending ? 'Excluindo…' : `Excluir ${selecionados.size}`}
             </button>
           </div>
         </div>

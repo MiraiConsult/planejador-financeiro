@@ -98,16 +98,24 @@ export async function excluirLancamentosEmMassa(
   if (err) return { ok: false, erro: err };
   if (!ids.length) return { ok: true, excluidos: 0 };
 
-  const { error, count } = await supabase
-    .from('controle_mensal_lancamentos')
-    .delete({ count: 'exact' })
-    .eq('client_id', clientId)
-    .in('id', ids);
-  if (error) return { ok: false, erro: error.message };
+  // Divide em lotes pra não estourar o limite de URL do PostgREST com
+  // um IN gigante (1000+ UUIDs = ~37KB de URL).
+  let excluidos = 0;
+  const LOTE = 200;
+  for (let i = 0; i < ids.length; i += LOTE) {
+    const slice = ids.slice(i, i + LOTE);
+    const { error, count } = await supabase
+      .from('controle_mensal_lancamentos')
+      .delete({ count: 'exact' })
+      .eq('client_id', clientId)
+      .in('id', slice);
+    if (error) return { ok: false, erro: error.message, excluidos };
+    excluidos += count ?? slice.length;
+  }
 
   revalidatePath(`/clients/${clientId}/controle-mensal`);
   revalidatePath(`/clients/${clientId}/controle-mensal/lancamentos`);
-  return { ok: true, excluidos: count ?? ids.length };
+  return { ok: true, excluidos };
 }
 
 /**
