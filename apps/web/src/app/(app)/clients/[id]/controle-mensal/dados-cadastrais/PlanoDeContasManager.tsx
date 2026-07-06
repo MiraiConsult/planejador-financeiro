@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import {
   ChevronDown,
   ChevronRight,
+  FolderInput,
   Loader2,
   Pencil,
   Plus,
@@ -15,7 +16,8 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/components/ui/Toast';
-import { atualizarItem, criarCategoria, criarRubrica, excluirItem } from './actions';
+import { Dialog } from '@/components/ui/Dialog';
+import { atualizarItem, criarCategoria, criarRubrica, excluirItem, moverRubrica } from './actions';
 
 export interface CategoriaRow {
   id: string;
@@ -49,6 +51,7 @@ export function PlanoDeContasManager({
   const [novaCatTipo, setNovaCatTipo] = useState<'receita' | 'despesa'>('despesa');
   const [novaRubNome, setNovaRubNome] = useState<Record<string, string>>({});
   const [excluindo, setExcluindo] = useState<CategoriaRow | null>(null);
+  const [movendo, setMovendo] = useState<CategoriaRow | null>(null);
 
   const tree: Tree[] = useMemo(() => {
     const macros = rows
@@ -323,6 +326,14 @@ export function PlanoDeContasManager({
                               </button>
                               <button
                                 type="button"
+                                onClick={() => setMovendo(rub)}
+                                className="h-6 w-6 rounded hover:bg-slate-100 text-slate-400 hover:text-brand-600 flex items-center justify-center"
+                                title="Mover para outra categoria"
+                              >
+                                <FolderInput size={11} />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => remover(rub)}
                                 className="h-6 w-6 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center"
                                 title="Excluir"
@@ -405,7 +416,117 @@ export function PlanoDeContasManager({
           }}
         />
       )}
+
+      {movendo && (
+        <MoverRubricaDialog
+          clientId={clientId}
+          rubrica={movendo}
+          rows={rows}
+          onClose={() => setMovendo(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function MoverRubricaDialog({
+  clientId,
+  rubrica,
+  rows,
+  onClose,
+}: {
+  clientId: string;
+  rubrica: CategoriaRow;
+  rows: CategoriaRow[];
+  onClose: () => void;
+}) {
+  const [destino, setDestino] = useState('');
+  const [pending, start] = useTransition();
+
+  // Todas as macro-categorias (exceto a atual da rubrica), agrupadas por tipo.
+  const macros = rows
+    .filter((r) => !r.parent_id && r.id !== rubrica.parent_id)
+    .sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === 'receita' ? -1 : 1;
+      return a.ordem - b.ordem;
+    });
+  const atual = rows.find((r) => r.id === rubrica.parent_id);
+
+  function confirmar() {
+    if (!destino) return;
+    start(async () => {
+      const res = await moverRubrica({
+        client_id: clientId,
+        rubrica_id: rubrica.id,
+        novo_parent_id: destino,
+      });
+      if (res.ok) {
+        toast.success(
+          `"${rubrica.nome}" movida${res.movidos ? ` · ${res.movidos} lançamento(s) religado(s)` : ''}`,
+        );
+        onClose();
+      } else {
+        toast.error(res.error ?? 'Falha ao mover');
+      }
+    });
+  }
+
+  return (
+    <Dialog open onClose={onClose} size="sm" title={
+      <span className="flex items-center gap-2">
+        <FolderInput size={16} className="text-brand-600" />
+        Mover rubrica
+      </span>
+    }>
+      <div className="space-y-4 p-1">
+        <p className="text-sm text-slate-600">
+          Mover <strong>{rubrica.nome}</strong>
+          {atual ? <> de <span className="text-slate-500">{atual.nome}</span></> : null} para outra
+          categoria. Os {rubrica.lancamentos} lançamento(s) dessa rubrica passam a contar na nova
+          categoria.
+        </p>
+
+        <label className="block space-y-1.5">
+          <span className="text-xs font-medium text-slate-700">Categoria de destino</span>
+          <select
+            value={destino}
+            onChange={(e) => setDestino(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            autoFocus
+          >
+            <option value="">— escolha a categoria —</option>
+            <optgroup label="Receitas">
+              {macros.filter((m) => m.tipo === 'receita').map((m) => (
+                <option key={m.id} value={m.id}>{m.nome}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Despesas">
+              {macros.filter((m) => m.tipo === 'despesa').map((m) => (
+                <option key={m.id} value={m.id}>{m.nome}</option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
+
+        {destino && rows.find((r) => r.id === destino)?.tipo !== rubrica.tipo && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2.5 py-1.5">
+            A rubrica vai mudar de {rubrica.tipo === 'receita' ? 'receita' : 'despesa'} para{' '}
+            {rows.find((r) => r.id === destino)?.tipo === 'receita' ? 'receita' : 'despesa'},
+            herdando o tipo da categoria destino.
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="ghost" size="sm" onClick={onClose} type="button" disabled={pending}>
+            Cancelar
+          </Button>
+          <Button variant="primary" size="sm" onClick={confirmar} type="button" disabled={pending || !destino}>
+            {pending ? <Loader2 size={14} className="animate-spin" /> : <FolderInput size={14} />}
+            Mover
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 

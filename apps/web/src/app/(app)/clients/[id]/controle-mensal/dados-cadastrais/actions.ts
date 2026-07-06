@@ -112,6 +112,58 @@ export async function criarRubrica(args: {
   return { ok: true, id: data?.id };
 }
 
+/**
+ * Move uma rubrica para outra categoria macro do plano de contas.
+ * Atualiza parent_id + tipo (herda do destino) e religa os lançamentos
+ * dessa rubrica (categoria_id e texto categoria) à nova macro.
+ */
+export async function moverRubrica(args: {
+  client_id: string;
+  rubrica_id: string;
+  novo_parent_id: string;
+}): Promise<{ ok: boolean; error?: string; movidos?: number }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  const { supabase } = g;
+
+  // Valida: rubrica existe e é rubrica (tem parent); destino existe e é macro.
+  const { data: rub } = await supabase
+    .from('controle_mensal_categorias')
+    .select('id, parent_id, nome')
+    .eq('id', args.rubrica_id)
+    .eq('client_id', args.client_id)
+    .maybeSingle();
+  if (!rub || !rub.parent_id) return { ok: false, error: 'Rubrica inválida' };
+
+  const { data: dest } = await supabase
+    .from('controle_mensal_categorias')
+    .select('id, parent_id, nome, tipo, cor')
+    .eq('id', args.novo_parent_id)
+    .eq('client_id', args.client_id)
+    .maybeSingle();
+  if (!dest || dest.parent_id) return { ok: false, error: 'Categoria destino inválida' };
+  if (dest.id === rub.parent_id) return { ok: true, movidos: 0 };
+
+  // Atualiza a rubrica: novo parent + herda tipo/cor da macro destino.
+  const { error: e1 } = await supabase
+    .from('controle_mensal_categorias')
+    .update({ parent_id: dest.id, tipo: dest.tipo, cor: dest.cor })
+    .eq('id', args.rubrica_id)
+    .eq('client_id', args.client_id);
+  if (e1) return { ok: false, error: e1.message };
+
+  // Religa lançamentos dessa rubrica à nova macro (id + texto).
+  const { error: e2, count } = await supabase
+    .from('controle_mensal_lancamentos')
+    .update({ categoria_id: dest.id, categoria: dest.nome }, { count: 'exact' })
+    .eq('client_id', args.client_id)
+    .eq('rubrica_id', args.rubrica_id);
+  if (e2) return { ok: false, error: e2.message };
+
+  revalidar(args.client_id);
+  return { ok: true, movidos: count ?? 0 };
+}
+
 export async function atualizarItem(args: {
   client_id: string;
   id: string;
