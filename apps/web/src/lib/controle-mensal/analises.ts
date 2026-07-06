@@ -102,6 +102,49 @@ export function comparar(rows: Lancamento[], eixo: Eixo, dimensao: Dimensao, esc
 
 // ─────────────────────────── Indicadores ───────────────────────────
 
+// ─── Fluxo de caixa (Entradas / Saídas / Saldo) por período ──────────
+export interface FluxoCaixa {
+  periodos: { key: string; label: string }[];
+  entradas: number[];      // receitas por período
+  saidas: number[];        // despesas (valor absoluto) por período
+  saldo: number[];         // entradas - saidas por período
+  totalEntradas: number;
+  totalSaidas: number;
+  totalSaldo: number;
+}
+
+export function fluxoDeCaixa(rows: Lancamento[], eixo: Eixo): FluxoCaixa {
+  const pmap = new Map<string, { key: string; ord: number; label: string }>();
+  for (const l of rows) {
+    const p = periodoDe(l, eixo);
+    if (!pmap.has(p.key)) pmap.set(p.key, p);
+  }
+  const periodos = [...pmap.values()].sort((a, b) => a.ord - b.ord);
+  const pIndex = new Map(periodos.map((p, i) => [p.key, i]));
+
+  const entradas = periodos.map(() => 0);
+  const saidas = periodos.map(() => 0);
+  for (const l of rows) {
+    const pi = pIndex.get(periodoDe(l, eixo).key);
+    if (pi == null) continue;
+    if (l.tipo === 'receita') entradas[pi]! += Math.abs(l.valor);
+    else saidas[pi]! += Math.abs(l.valor);
+  }
+  const entR = entradas.map(round2);
+  const saiR = saidas.map(round2);
+  const saldo = entR.map((e, i) => round2(e - (saiR[i] ?? 0)));
+
+  return {
+    periodos: periodos.map((p) => ({ key: p.key, label: p.label })),
+    entradas: entR,
+    saidas: saiR,
+    saldo,
+    totalEntradas: round2(entR.reduce((a, v) => a + v, 0)),
+    totalSaidas: round2(saiR.reduce((a, v) => a + v, 0)),
+    totalSaldo: round2(saldo.reduce((a, v) => a + v, 0)),
+  };
+}
+
 export interface MesResultado {
   competencia: number;
   label: string;

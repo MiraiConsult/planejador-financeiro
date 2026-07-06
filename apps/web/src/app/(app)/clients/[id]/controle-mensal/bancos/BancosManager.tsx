@@ -78,7 +78,7 @@ function timeAgo(iso: string | null): string {
   return `${d}d atrás`;
 }
 
-const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
+const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
 export function BancosManager({
   clientId,

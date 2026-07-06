@@ -198,13 +198,13 @@ export function StepPrimeiroMes({ lancamentos, categorias, onChange, onPrev, onN
               </div>
               <div className="flex gap-4 tabular-nums">
                 <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-                  +R$ {totalReceita.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                  +R$ {totalReceita.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-red-600 dark:text-red-400 font-medium">
-                  −R$ {totalGasto.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                  −R$ {totalGasto.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-slate-900 dark:text-slate-100 font-semibold">
-                  = R$ {(totalReceita - totalGasto).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                  = R$ {(totalReceita - totalGasto).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { brl } from '@/lib/controle-mensal/format';
 import type { Lancamento } from '@/lib/controle-mensal/analytics';
-import { comparar, type Eixo, type Dimensao, type Escopo } from '@/lib/controle-mensal/analises';
+import { comparar, fluxoDeCaixa, type Eixo, type Dimensao, type Escopo } from '@/lib/controle-mensal/analises';
 import { Barras, cor } from './charts';
 
 const EIXOS: { id: Eixo; label: string }[] = [
@@ -47,15 +47,112 @@ function Seg<T extends string>({ opts, value, onChange }: { opts: { id: T; label
   );
 }
 
+type Modo = 'fluxo' | 'dimensao';
+
 export function ComparacoesView({ rows }: { rows: Lancamento[] }) {
+  const [modo, setModo] = useState<Modo>('fluxo');
   const [eixo, setEixo] = useState<Eixo>('mes');
   const [dim, setDim] = useState<Dimensao>('centro');
   const [escopo, setEscopo] = useState<Escopo>('despesas');
 
   const m = useMemo(() => comparar(rows, eixo, dim, escopo), [rows, eixo, dim, escopo]);
+  const fc = useMemo(() => fluxoDeCaixa(rows, eixo), [rows, eixo]);
 
   const topLinhas = m.linhas.slice(0, 6);
   const chartSeries = topLinhas.map((l, i) => ({ label: l.nome, cor: cor(i), valores: l.valores }));
+
+  if (modo === 'fluxo') {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <CardTitle>Fluxo de caixa</CardTitle>
+                <CardDescription>Entradas, saídas e saldo do exercício por período</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Seg
+                  opts={[{ id: 'fluxo', label: 'Fluxo de caixa' }, { id: 'dimensao', label: 'Por dimensão' }]}
+                  value={modo}
+                  onChange={(v) => setModo(v as Modo)}
+                />
+                <Seg opts={EIXOS} value={eixo} onChange={setEixo} />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/80 dark:bg-slate-800/60">
+                <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+                  <th className="text-left px-4 py-2.5 font-semibold sticky left-0 bg-slate-50/80 dark:bg-slate-800/60">
+                    Demonstrativo
+                  </th>
+                  {fc.periodos.map((p) => (
+                    <th key={p.key} className="text-right px-3 py-2.5 font-semibold whitespace-nowrap">{p.label}</th>
+                  ))}
+                  <th className="text-right px-4 py-2.5 font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Entradas */}
+                <tr className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="px-4 py-2.5 font-medium text-emerald-700 dark:text-emerald-400 sticky left-0 bg-white dark:bg-slate-900">
+                    Entradas
+                  </td>
+                  {fc.entradas.map((v, i) => (
+                    <td key={i} className="px-3 py-2.5 text-right tabular-nums text-emerald-700 dark:text-emerald-400">
+                      {v ? brl(v) : '·'}
+                    </td>
+                  ))}
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                    {brl(fc.totalEntradas)}
+                  </td>
+                </tr>
+                {/* Saídas */}
+                <tr className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="px-4 py-2.5 font-medium text-red-600 dark:text-red-400 sticky left-0 bg-white dark:bg-slate-900">
+                    Saídas
+                  </td>
+                  {fc.saidas.map((v, i) => (
+                    <td key={i} className="px-3 py-2.5 text-right tabular-nums text-red-600 dark:text-red-400">
+                      {v ? `−${brl(v)}` : '·'}
+                    </td>
+                  ))}
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-red-600 dark:text-red-400">
+                    −{brl(fc.totalSaidas)}
+                  </td>
+                </tr>
+                {/* Saldo do Exercício */}
+                <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40">
+                  <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-50 sticky left-0 bg-slate-50/60 dark:bg-slate-800/40">
+                    Saldo do exercício
+                  </td>
+                  {fc.saldo.map((v, i) => (
+                    <td
+                      key={i}
+                      className={`px-3 py-3 text-right tabular-nums font-semibold ${
+                        v < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-50'
+                      }`}
+                    >
+                      {brl(v)}
+                    </td>
+                  ))}
+                  <td
+                    className={`px-4 py-3 text-right tabular-nums font-bold ${
+                      fc.totalSaldo < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-50'
+                    }`}
+                  >
+                    {brl(fc.totalSaldo)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -67,6 +164,11 @@ export function ComparacoesView({ rows }: { rows: Lancamento[] }) {
               <CardDescription>Compare períodos por centro de custo ou rubrica</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Seg
+                opts={[{ id: 'fluxo', label: 'Fluxo de caixa' }, { id: 'dimensao', label: 'Por dimensão' }]}
+                value={modo}
+                onChange={(v) => setModo(v as Modo)}
+              />
               <Seg opts={EIXOS} value={eixo} onChange={setEixo} />
               <Seg opts={DIMS} value={dim} onChange={setDim} />
               <select

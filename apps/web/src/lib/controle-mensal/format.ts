@@ -1,11 +1,11 @@
 // Formatação pt-BR compartilhada pelo módulo Controle Financeiro.
 
 export const brl = (n: number): string =>
-  (Number(n) || 0).toLocaleString('pt-BR', {
+  (Math.round(Number(n) || 0)).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   });
 
 export const brlShort = (n: number): string => {

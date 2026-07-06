@@ -44,7 +44,7 @@ export interface CategoriaNode {
 }
 
 const brl = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
 function fmtData(iso: string): string {
   const [a, m, d] = iso.split('-');

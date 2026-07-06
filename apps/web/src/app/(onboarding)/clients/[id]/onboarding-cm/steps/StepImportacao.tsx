@@ -244,13 +244,13 @@ export function StepImportacao({ clientId, onPrev, onFinalizar, finalizando }: P
             <>
               <div className="flex gap-4 text-xs tabular-nums">
                 <span className="text-emerald-700 dark:text-emerald-400">
-                  +R$ {totReceita.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                  +R$ {totReceita.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-red-600 dark:text-red-400">
-                  −R$ {totGasto.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                  −R$ {totGasto.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-slate-900 dark:text-slate-100 font-semibold">
-                  Saldo R$ {(totReceita - totGasto).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                  Saldo R$ {(totReceita - totGasto).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
               </div>
 
@@ -278,7 +278,7 @@ export function StepImportacao({ clientId, onPrev, onFinalizar, finalizando }: P
                           }`}
                         >
                           {p.valor > 0 ? '+' : ''}
-                          {p.valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                          {p.valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                         </td>
                       </tr>
                     ))}
