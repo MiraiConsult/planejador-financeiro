@@ -129,6 +129,59 @@ export async function adicionarContas(args: {
   return { ok: true, inseridos: count ?? rows.length };
 }
 
+/**
+ * Cadastra um banco/conta manualmente (sem MCP). Serve só como rótulo
+ * para vincular na hora do lançamento — não sincroniza nada.
+ */
+export async function criarBancoManual(args: {
+  client_id: string;
+  nome: string;
+  tipo?: string | null;
+}): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  const nome = args.nome.trim();
+  if (!nome) return { ok: false, error: 'Nome do banco obrigatório' };
+
+  const { data, error } = await g.supabase
+    .from('bank_connections')
+    .insert({
+      client_id: args.client_id,
+      provider: 'manual',
+      // external_account_id é NOT NULL; gera um valor estável por nome.
+      external_account_id: `manual:${crypto.randomUUID()}`,
+      institution_name: nome,
+      account_type: args.tipo?.trim() || null,
+      status: 'active',
+    })
+    .select('id')
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/clients/${args.client_id}/controle-mensal/bancos`);
+  revalidatePath(`/clients/${args.client_id}/controle-mensal`);
+  return { ok: true, id: data.id };
+}
+
+export async function renomearBanco(args: {
+  client_id: string;
+  id: string;
+  nome: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  const nome = args.nome.trim();
+  if (!nome) return { ok: false, error: 'Nome obrigatório' };
+  const { error } = await g.supabase
+    .from('bank_connections')
+    .update({ institution_name: nome })
+    .eq('id', args.id)
+    .eq('client_id', args.client_id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/clients/${args.client_id}/controle-mensal/bancos`);
+  return { ok: true };
+}
+
 export async function removerConexao(args: { client_id: string; id: string }): Promise<{ ok: boolean; error?: string }> {
   const g = await checkOwner(args.client_id);
   if (!g.ok) return g;

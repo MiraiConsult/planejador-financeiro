@@ -266,12 +266,12 @@ export function LancamentoForm({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Campo label="Origem">
+            <Campo label="Banco / Origem">
               <input
                 value={origem}
                 onChange={(e) => setOrigem(e.target.value)}
                 list="cm-origens"
-                placeholder="Ex: Cartão, PIX, Débito"
+                placeholder="Escolha um banco cadastrado ou digite"
                 className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </Campo>

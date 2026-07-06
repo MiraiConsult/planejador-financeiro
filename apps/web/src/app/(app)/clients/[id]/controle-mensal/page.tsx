@@ -123,10 +123,17 @@ export default async function ControleMensalPage({ params }: { params: Params })
   }));
   const pendentesRevisao = pendRes.count;
 
+  const { data: bancosRows } = await supabase
+    .from('bank_connections')
+    .select('institution_name')
+    .eq('client_id', id)
+    .eq('status', 'active');
+  const nomesBancos = (bancosRows ?? []).map((b) => b.institution_name as string | null);
+
   const sugestoes = {
     categorias: uniqOrdenado(rows.map((r) => r.categoria)),
     subcategorias: uniqOrdenado(rows.map((r) => r.subcategoria)),
-    origens: uniqOrdenado(rows.map((r) => r.origem)),
+    origens: uniqOrdenado([...rows.map((r) => r.origem), ...nomesBancos]),
   };
 
   return (

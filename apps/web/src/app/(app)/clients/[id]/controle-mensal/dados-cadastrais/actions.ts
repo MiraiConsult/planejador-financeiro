@@ -164,6 +164,52 @@ export async function moverRubrica(args: {
   return { ok: true, movidos: count ?? 0 };
 }
 
+/**
+ * Migra o CENTRO dos lançamentos de uma categoria ou rubrica.
+ * O plano de contas é global; quem tem centro são os lançamentos.
+ * - Se o item é rubrica: move lançamentos com rubrica_id = item.
+ * - Se é categoria macro: move lançamentos com categoria_id = item
+ *   (inclui os das rubricas filhas, que também têm categoria_id).
+ */
+export async function migrarItemDeCentro(args: {
+  client_id: string;
+  item_id: string;
+  novo_centro_id: string;
+}): Promise<{ ok: boolean; error?: string; movidos?: number }> {
+  const g = await checkOwner(args.client_id);
+  if (!g.ok) return g;
+  const { supabase } = g;
+
+  const { data: item } = await supabase
+    .from('controle_mensal_categorias')
+    .select('id, parent_id')
+    .eq('id', args.item_id)
+    .eq('client_id', args.client_id)
+    .maybeSingle();
+  if (!item) return { ok: false, error: 'Item inválido' };
+
+  const { data: centro } = await supabase
+    .from('controle_mensal_centros')
+    .select('id, tipo_visual')
+    .eq('id', args.novo_centro_id)
+    .eq('client_id', args.client_id)
+    .maybeSingle();
+  if (!centro) return { ok: false, error: 'Centro destino inválido' };
+
+  const query = supabase
+    .from('controle_mensal_lancamentos')
+    .update({ centro_id: args.novo_centro_id }, { count: 'exact' })
+    .eq('client_id', args.client_id);
+
+  const { error, count } = item.parent_id
+    ? await query.eq('rubrica_id', args.item_id)
+    : await query.eq('categoria_id', args.item_id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidar(args.client_id);
+  return { ok: true, movidos: count ?? 0 };
+}
+
 export async function atualizarItem(args: {
   client_id: string;
   id: string;

@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/components/ui/Toast';
 import {
   adicionarContas,
+  criarBancoManual,
   descobrirContasDisponiveis,
   pausarConexao,
   removerConexao,
@@ -95,6 +96,19 @@ export function BancosManager({
     (DiscoveredAccount & { ja_conectada: boolean })[] | null
   >(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [novoBanco, setNovoBanco] = useState('');
+
+  function cadastrarManual() {
+    const nome = novoBanco.trim();
+    if (!nome) return;
+    start(async () => {
+      const res = await criarBancoManual({ client_id: clientId, nome });
+      if (res.ok) {
+        toast.success(`Banco "${nome}" cadastrado`);
+        setNovoBanco('');
+      } else toast.error(res.error ?? 'Falha ao cadastrar');
+    });
+  }
 
   function descobrir() {
     setDescobrindo(true);
@@ -219,6 +233,35 @@ export function BancosManager({
           </Button>
         </div>
       </div>
+
+      {/* Cadastro manual (sem MCP) */}
+      <Card>
+        <CardContent className="space-y-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+              Cadastrar banco manualmente
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Não quer usar o Banco MCP? Cadastre o banco só como rótulo — depois é só escolher esse
+              banco na hora de criar/editar um lançamento.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={novoBanco}
+              onChange={(e) => setNovoBanco(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && cadastrarManual()}
+              placeholder="Ex.: Banco do Brasil, Itaú, C6, Carteira…"
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            />
+            <Button variant="primary" size="sm" onClick={cadastrarManual} disabled={pending || !novoBanco.trim()}>
+              {pending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              Cadastrar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {accountsDisponiveis !== null && (
         <Card className="border-2 border-brand-200 bg-brand-50/30">

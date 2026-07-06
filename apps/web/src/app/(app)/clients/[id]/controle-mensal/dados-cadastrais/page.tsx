@@ -98,7 +98,13 @@ export default async function DadosCadastraisPage({
 
       <DadosCadastraisTabs
         defaultTab={defaultTab}
-        planoDeContas={<PlanoDeContasManager clientId={id} rows={planoRows} />}
+        planoDeContas={
+          <PlanoDeContasManager
+            clientId={id}
+            rows={planoRows}
+            centros={centros.map((c) => ({ id: c.id, nome: c.nome }))}
+          />
+        }
         centros={<CentrosManager clientId={id} centros={centros} />}
       />
     </div>

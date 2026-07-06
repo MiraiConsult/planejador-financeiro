@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FolderInput,
   Loader2,
+  MapPin,
   Pencil,
   Plus,
   Trash2,
@@ -17,7 +18,19 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/components/ui/Toast';
 import { Dialog } from '@/components/ui/Dialog';
-import { atualizarItem, criarCategoria, criarRubrica, excluirItem, moverRubrica } from './actions';
+import {
+  atualizarItem,
+  criarCategoria,
+  criarRubrica,
+  excluirItem,
+  migrarItemDeCentro,
+  moverRubrica,
+} from './actions';
+
+interface CentroOpt {
+  id: string;
+  nome: string;
+}
 
 export interface CategoriaRow {
   id: string;
@@ -38,9 +51,11 @@ interface Tree {
 export function PlanoDeContasManager({
   clientId,
   rows,
+  centros = [],
 }: {
   clientId: string;
   rows: CategoriaRow[];
+  centros?: CentroOpt[];
 }) {
   const [pending, start] = useTransition();
   const [filter, setFilter] = useState<'todas' | 'receita' | 'despesa'>('todas');
@@ -52,6 +67,7 @@ export function PlanoDeContasManager({
   const [novaRubNome, setNovaRubNome] = useState<Record<string, string>>({});
   const [excluindo, setExcluindo] = useState<CategoriaRow | null>(null);
   const [movendo, setMovendo] = useState<CategoriaRow | null>(null);
+  const [migrandoCentro, setMigrandoCentro] = useState<CategoriaRow | null>(null);
 
   const tree: Tree[] = useMemo(() => {
     const macros = rows
@@ -275,6 +291,16 @@ export function PlanoDeContasManager({
                         >
                           <Pencil size={12} />
                         </button>
+                        {centros.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setMigrandoCentro(cat)}
+                            className="h-7 w-7 rounded-md hover:bg-slate-100 text-slate-400 hover:text-brand-600 flex items-center justify-center"
+                            title="Migrar lançamentos desta categoria para outro centro"
+                          >
+                            <MapPin size={12} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => remover(cat)}
@@ -332,6 +358,16 @@ export function PlanoDeContasManager({
                               >
                                 <FolderInput size={11} />
                               </button>
+                              {centros.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setMigrandoCentro(rub)}
+                                  className="h-6 w-6 rounded hover:bg-slate-100 text-slate-400 hover:text-brand-600 flex items-center justify-center"
+                                  title="Migrar lançamentos desta rubrica para outro centro"
+                                >
+                                  <MapPin size={11} />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => remover(rub)}
@@ -425,7 +461,96 @@ export function PlanoDeContasManager({
           onClose={() => setMovendo(null)}
         />
       )}
+
+      {migrandoCentro && (
+        <MigrarCentroDialog
+          clientId={clientId}
+          item={migrandoCentro}
+          centros={centros}
+          onClose={() => setMigrandoCentro(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function MigrarCentroDialog({
+  clientId,
+  item,
+  centros,
+  onClose,
+}: {
+  clientId: string;
+  item: CategoriaRow;
+  centros: CentroOpt[];
+  onClose: () => void;
+}) {
+  const [destino, setDestino] = useState('');
+  const [pending, start] = useTransition();
+  const ehRubrica = item.parent_id != null;
+
+  function confirmar() {
+    if (!destino) return;
+    start(async () => {
+      const res = await migrarItemDeCentro({
+        client_id: clientId,
+        item_id: item.id,
+        novo_centro_id: destino,
+      });
+      if (res.ok) {
+        toast.success(
+          res.movidos
+            ? `${res.movidos} lançamento(s) migrado(s) de centro`
+            : 'Nenhum lançamento para migrar',
+        );
+        onClose();
+      } else {
+        toast.error(res.error ?? 'Falha ao migrar');
+      }
+    });
+  }
+
+  return (
+    <Dialog open onClose={onClose} size="sm" title={
+      <span className="flex items-center gap-2">
+        <MapPin size={16} className="text-brand-600" />
+        Migrar de centro
+      </span>
+    }>
+      <div className="space-y-4 p-1">
+        <p className="text-sm text-slate-600">
+          Migra os <strong>{item.lancamentos}</strong> lançamento(s)
+          {ehRubrica ? <> da rubrica</> : <> da categoria (e das rubricas dela)</>}{' '}
+          <strong>{item.nome}</strong> para outro centro. O plano de contas em si continua o mesmo —
+          só os lançamentos mudam de centro.
+        </p>
+
+        <label className="block space-y-1.5">
+          <span className="text-xs font-medium text-slate-700">Centro de destino</span>
+          <select
+            value={destino}
+            onChange={(e) => setDestino(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            autoFocus
+          >
+            <option value="">— escolha o centro —</option>
+            {centros.map((c) => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="ghost" size="sm" onClick={onClose} type="button" disabled={pending}>
+            Cancelar
+          </Button>
+          <Button variant="primary" size="sm" onClick={confirmar} type="button" disabled={pending || !destino}>
+            {pending ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
+            Migrar
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 

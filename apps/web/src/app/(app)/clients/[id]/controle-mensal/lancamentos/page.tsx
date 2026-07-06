@@ -33,10 +33,11 @@ export default async function LancamentosPage({ params }: { params: Params }) {
 
   // Carrega TODOS os lançamentos (não filtra por revisado) — esta tela é
   // pra ver/editar a lista bruta. Resolve nomes do plano de contas.
-  const [{ data: rowsRaw }, { data: catRows }, centros] = await Promise.all([
+  const [{ data: rowsRaw }, { data: catRows }, centros, { data: bancos }] = await Promise.all([
     supabase.from('controle_mensal_lancamentos').select(COLS).eq('client_id', id).order('data', { ascending: false }),
     supabase.from('controle_mensal_categorias').select('id, nome').eq('client_id', id),
     listarCentros(id),
+    supabase.from('bank_connections').select('institution_name').eq('client_id', id).eq('status', 'active'),
   ]);
 
   const catMap = new Map<string, string>((catRows ?? []).map((c) => [c.id as string, c.nome as string]));
@@ -47,10 +48,11 @@ export default async function LancamentosPage({ params }: { params: Params }) {
     subcategoria: (r.rubrica_id && catMap.get(r.rubrica_id)) || r.subcategoria,
   }));
 
+  const nomesBancos = (bancos ?? []).map((b) => b.institution_name as string | null);
   const sugestoes = {
     categorias: uniqOrdenado(rows.map((r) => r.categoria)),
     subcategorias: uniqOrdenado(rows.map((r) => r.subcategoria)),
-    origens: uniqOrdenado(rows.map((r) => r.origem)),
+    origens: uniqOrdenado([...rows.map((r) => r.origem), ...nomesBancos]),
   };
 
   return (
