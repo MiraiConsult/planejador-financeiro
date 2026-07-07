@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
+import { fmtData } from '@/lib/controle-mensal/format';
 import { ComboboxCreate, type ComboItem } from './ComboboxCreate';
 import {
   ajustarLancamento,
@@ -45,11 +46,6 @@ export interface CategoriaNode {
 
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-
-function fmtData(iso: string): string {
-  const [a, m, d] = iso.split('-');
-  return `${d}/${m}/${a}`;
-}
 
 export function RevisaoManager({
   clientId,

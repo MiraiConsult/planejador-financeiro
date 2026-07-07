@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/PageHeader';
 import type { Lancamento } from '@/lib/controle-mensal/analytics';
 import { LancamentosTable } from '../LancamentosTable';
+import { NovoLancamentoButton } from '../NovoLancamentoButton';
 import { listarCentros, garantirCentros } from '../centros/actions';
 
 type Params = Promise<{ id: string }>;
@@ -61,6 +62,7 @@ export default async function LancamentosPage({ params }: { params: Params }) {
         eyebrow="Controle Financeiro"
         title={`Lançamentos — ${client.nome_completo}`}
         description={`${rows.length.toLocaleString('pt-BR')} lançamentos no total. Filtre, edite ou exporte direto da tabela.`}
+        actions={<NovoLancamentoButton clientId={id} sugestoes={sugestoes} centros={centros} />}
       />
       <LancamentosTable
         rows={rows}

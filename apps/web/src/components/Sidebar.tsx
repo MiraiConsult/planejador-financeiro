@@ -340,6 +340,7 @@ function buildClientGroups(c: CurrentClient): ClientNavGroup[] {
         { href: `${dados}?tab=plano`, hrefPath: dados, tab: 'plano', label: 'Plano de contas' },
         { href: `${dados}?tab=centros`, hrefPath: dados, tab: 'centros', label: 'Centros' },
         { href: `${base}/controle-mensal/bancos`, hrefPath: `${base}/controle-mensal/bancos`, label: 'Bancos' },
+        { href: `${base}/controle-mensal/conciliacao`, hrefPath: `${base}/controle-mensal/conciliacao`, label: 'Conciliação' },
         { href: `${base}/controle-mensal/import-xlsx`, hrefPath: `${base}/controle-mensal/import-xlsx`, label: 'Importar XLSX' },
       ],
     });
