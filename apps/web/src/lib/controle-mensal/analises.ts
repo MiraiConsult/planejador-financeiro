@@ -303,6 +303,11 @@ export function indicadores(rows: Lancamento[]): Indicadores {
 // Uma linha de despesa por centro raiz (as "principais contas" do plano de
 // contas do cliente); serve pra identificar o melhor e o pior mês.
 
+export interface DreGrupo {
+  nome: string;
+  valores: number[];
+  total: number;
+}
 export interface DreConta {
   centroId: string;
   nome: string;
@@ -310,6 +315,8 @@ export interface DreConta {
   icone: string;
   valores: number[];
   total: number;
+  /** Breakdown por categoria (grupo) dentro do centro — pra expandir a linha. */
+  grupos: DreGrupo[];
 }
 export interface DreMensal {
   periodos: { key: string; label: string }[];
@@ -343,12 +350,23 @@ export function dreMensal(rows: Lancamento[], raizes: CentroNode[]): DreMensal {
     .map((raiz) => {
       const ids = new Set(descendentes(raiz));
       const valores = meses.map(() => 0);
+      const grupoMap = new Map<string, number[]>();
       for (const l of rows) {
         if (l.eh_receita || !l.centro_id || !ids.has(l.centro_id)) continue;
         const i = idxByComp.get(comp(l));
-        if (i != null) valores[i]! += Math.abs(l.valor);
+        if (i == null) continue;
+        valores[i]! += Math.abs(l.valor);
+        const g = l.categoria || '—';
+        if (!grupoMap.has(g)) grupoMap.set(g, meses.map(() => 0));
+        grupoMap.get(g)![i]! += Math.abs(l.valor);
       }
       const valoresR = valores.map(round2);
+      const grupos: DreGrupo[] = [...grupoMap.entries()]
+        .map(([nome, vals]) => {
+          const gValoresR = vals.map(round2);
+          return { nome, valores: gValoresR, total: round2(gValoresR.reduce((a, v) => a + v, 0)) };
+        })
+        .sort((a, b) => b.total - a.total);
       return {
         centroId: raiz.id,
         nome: raiz.nome,
@@ -356,6 +374,7 @@ export function dreMensal(rows: Lancamento[], raizes: CentroNode[]): DreMensal {
         icone: raiz.icone,
         valores: valoresR,
         total: round2(valoresR.reduce((a, v) => a + v, 0)),
+        grupos,
       };
     })
     .filter((c) => c.total > 0);

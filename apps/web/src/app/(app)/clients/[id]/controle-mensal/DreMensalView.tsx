@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import * as Lucide from 'lucide-react';
-import { Tag, Crown, TrendingDown, Wallet, Scale, PiggyBank } from 'lucide-react';
+import { Tag, Crown, TrendingDown, Wallet, Scale, PiggyBank, ChevronRight, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { KpiCard } from '@/components/KpiCard';
 import { brl } from '@/lib/controle-mensal/format';
@@ -21,6 +21,14 @@ const valColor = (n: number) => (n < 0 ? 'text-red-600' : n > 0 ? 'text-emerald-
 export function DreMensalView({ rows, centros }: { rows: Lancamento[]; centros: Centro[] }) {
   const raizes = useMemo(() => buildTree(centros.filter((c) => c.ativo)), [centros]);
   const dre = useMemo(() => dreMensal(rows, raizes), [rows, raizes]);
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpandidas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   if (dre.periodos.length === 0) {
     return (
@@ -80,9 +88,9 @@ export function DreMensalView({ rows, centros }: { rows: Lancamento[]; centros: 
       {/* Tabela DRE */}
       <Card>
         <CardHeader>
-          <CardTitle>DRE mensal (sintético)</CardTitle>
+          <CardTitle>DRE mensal</CardTitle>
           <CardDescription>
-            Receita, principais contas de despesa e resultado, mês a mês. Coluna verde = melhor mês; vermelha = pior mês.
+            Receita, contas de despesa e resultado, mês a mês. Clique numa conta pra ver os grupos por dentro. Coluna verde = melhor mês; vermelha = pior mês.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -120,30 +128,58 @@ export function DreMensalView({ rows, centros }: { rows: Lancamento[]; centros: 
                 </td>
               </tr>
 
-              {/* Principais contas de despesa (centros raiz) */}
-              {dre.contas.map((c) => (
-                <tr key={c.centroId}>
-                  <td className="px-4 py-2 text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className="h-4 w-4 rounded flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${c.cor}22`, color: c.cor }}
-                      >
-                        <Icone nome={c.icone} size={10} />
-                      </span>
-                      (−) {c.nome}
-                    </span>
-                  </td>
-                  {c.valores.map((v, i) => (
-                    <td key={i} className={`px-3 py-2 text-right text-red-600 dark:text-red-400 ${colClass(i)}`}>
-                      {v ? `−${brl(v)}` : '·'}
-                    </td>
-                  ))}
-                  <td className="px-4 py-2 text-right font-semibold text-red-600 dark:text-red-400">
-                    −{brl(c.total)}
-                  </td>
-                </tr>
-              ))}
+              {/* Principais contas de despesa (centros raiz), expansíveis por grupo (categoria) */}
+              {dre.contas.map((c) => {
+                const aberta = expandidas.has(c.centroId);
+                return (
+                  <Fragment key={c.centroId}>
+                    <tr
+                      onClick={() => c.grupos.length > 0 && toggle(c.centroId)}
+                      className={c.grupos.length > 0 ? 'cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-800/30' : undefined}
+                    >
+                      <td className="px-4 py-2 text-slate-700 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900">
+                        <span className="inline-flex items-center gap-1.5">
+                          {c.grupos.length > 0 ? (
+                            aberta ? <ChevronDown size={12} className="text-slate-400 shrink-0" /> : <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                          ) : (
+                            <span className="w-3 shrink-0" />
+                          )}
+                          <span
+                            className="h-4 w-4 rounded flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${c.cor}22`, color: c.cor }}
+                          >
+                            <Icone nome={c.icone} size={10} />
+                          </span>
+                          (−) {c.nome}
+                        </span>
+                      </td>
+                      {c.valores.map((v, i) => (
+                        <td key={i} className={`px-3 py-2 text-right text-red-600 dark:text-red-400 ${colClass(i)}`}>
+                          {v ? `−${brl(v)}` : '·'}
+                        </td>
+                      ))}
+                      <td className="px-4 py-2 text-right font-semibold text-red-600 dark:text-red-400">
+                        −{brl(c.total)}
+                      </td>
+                    </tr>
+                    {aberta && c.grupos.map((g) => (
+                      <tr key={`${c.centroId}-${g.nome}`} className="bg-slate-50/30 dark:bg-slate-800/20">
+                        <td className="pl-11 pr-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 sticky left-0 bg-slate-50/30 dark:bg-slate-800/20 truncate max-w-[220px]">
+                          {g.nome}
+                        </td>
+                        {g.valores.map((v, i) => (
+                          <td key={i} className={`px-3 py-1.5 text-right text-xs text-red-500/80 dark:text-red-400/70 ${colClass(i)}`}>
+                            {v ? `−${brl(v)}` : '·'}
+                          </td>
+                        ))}
+                        <td className="px-4 py-1.5 text-right text-xs font-medium text-red-500/80 dark:text-red-400/70">
+                          −{brl(g.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                );
+              })}
 
               {/* Resultado */}
               <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 font-bold">
