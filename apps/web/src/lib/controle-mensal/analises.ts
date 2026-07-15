@@ -4,6 +4,8 @@
 
 import type { Lancamento } from './analytics';
 import { mesesOrdenados } from './analytics';
+import type { CentroNode } from './centros';
+import { descendentes } from './centros';
 
 const round2 = (v: number): number => {
   const r = Math.round(v * 100) / 100;
@@ -294,6 +296,101 @@ export function indicadores(rows: Lancamento[]): Indicadores {
     maiores,
     movers,
     run_rate_anual: runRate,
+  };
+}
+
+// ─── DRE mensal (sintético) — Receita × principais contas × Resultado ──
+// Uma linha de despesa por centro raiz (as "principais contas" do plano de
+// contas do cliente); serve pra identificar o melhor e o pior mês.
+
+export interface DreConta {
+  centroId: string;
+  nome: string;
+  cor: string;
+  icone: string;
+  valores: number[];
+  total: number;
+}
+export interface DreMensal {
+  periodos: { key: string; label: string }[];
+  receita: number[];
+  receitaTotal: number;
+  contas: DreConta[];
+  despesaTotal: number[];
+  despesaTotalGeral: number;
+  resultado: number[];
+  resultadoTotal: number;
+  margem: number[]; // resultado / receita, em %
+  margemMedia: number;
+  /** Índice do mês com maior/menor resultado (null se houver <2 meses). */
+  idxMelhor: number | null;
+  idxPior: number | null;
+}
+
+export function dreMensal(rows: Lancamento[], raizes: CentroNode[]): DreMensal {
+  const meses = mesesOrdenados(rows);
+  const idxByComp = new Map(meses.map((m, i) => [m.competencia, i]));
+
+  const receita = meses.map(() => 0);
+  for (const l of rows) {
+    if (!l.eh_receita) continue;
+    const i = idxByComp.get(comp(l));
+    if (i != null) receita[i]! += Math.abs(l.valor);
+  }
+  const receitaR = receita.map(round2);
+
+  const contas: DreConta[] = raizes
+    .map((raiz) => {
+      const ids = new Set(descendentes(raiz));
+      const valores = meses.map(() => 0);
+      for (const l of rows) {
+        if (l.eh_receita || !l.centro_id || !ids.has(l.centro_id)) continue;
+        const i = idxByComp.get(comp(l));
+        if (i != null) valores[i]! += Math.abs(l.valor);
+      }
+      const valoresR = valores.map(round2);
+      return {
+        centroId: raiz.id,
+        nome: raiz.nome,
+        cor: raiz.cor,
+        icone: raiz.icone,
+        valores: valoresR,
+        total: round2(valoresR.reduce((a, v) => a + v, 0)),
+      };
+    })
+    .filter((c) => c.total > 0);
+
+  const despesaTotal = meses.map((_, i) => round2(contas.reduce((a, c) => a + (c.valores[i] ?? 0), 0)));
+  const resultado = receitaR.map((r, i) => round2(r - (despesaTotal[i] ?? 0)));
+  const margem = receitaR.map((r, i) => (r > 0 ? round2((resultado[i]! / r) * 100) : 0));
+
+  let idxMelhor: number | null = null;
+  let idxPior: number | null = null;
+  if (meses.length >= 2) {
+    resultado.forEach((v, i) => {
+      if (idxMelhor === null || v > resultado[idxMelhor]!) idxMelhor = i;
+      if (idxPior === null || v < resultado[idxPior]!) idxPior = i;
+    });
+  }
+
+  const receitaTotal = round2(receitaR.reduce((a, v) => a + v, 0));
+  const despesaTotalGeral = round2(despesaTotal.reduce((a, v) => a + v, 0));
+  const resultadoTotal = round2(receitaTotal - despesaTotalGeral);
+  const margemMedia = receitaTotal > 0 ? round2((resultadoTotal / receitaTotal) * 100) : 0;
+
+  return {
+    periodos: meses.map((m) => ({ key: String(m.competencia), label: m.label })),
+    receita: receitaR,
+    receitaTotal,
+    contas,
+    despesaTotal,
+    despesaTotalGeral,
+    resultado,
+    resultadoTotal,
+    margem,
+    margemMedia,
+    idxMelhor,
+    idxPior,
   };
 }
 

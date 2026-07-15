@@ -16,6 +16,7 @@ import { LancamentosTable } from './LancamentosTable';
 import type { Sugestoes } from './LancamentoForm';
 import { GeralDashboard } from './GeralDashboard';
 import { ComparacoesView } from './ComparacoesView';
+import { DreMensalView } from './DreMensalView';
 import { AnaliseIAView } from './AnaliseIAView';
 import { CategoryBreakdown } from './CategoryBreakdown';
 import { PeriodPicker, resolvePeriod, filterByPeriod, type PeriodFilter } from './PeriodPicker';
@@ -268,6 +269,7 @@ function CentroView({
 
 const RESUMO_SUB = [
   { id: 'geral',       label: 'Visão geral' },
+  { id: 'dre',         label: 'DRE mensal'  },
   { id: 'comparacoes', label: 'Comparações' },
   { id: 'analise',     label: 'Análise IA'  },
 ] as const;
@@ -307,6 +309,7 @@ function ResumoView({
           <ComparativoPorCentro rows={rows} centros={centros} />
         </>
       )}
+      {sub === 'dre' && <DreMensalView rows={rows} centros={centros} />}
       {sub === 'comparacoes' && <ComparacoesView rows={rows} />}
       {sub === 'analise' && <AnaliseIAView clientId={clientId} temDados={rows.length > 0} />}
     </div>
